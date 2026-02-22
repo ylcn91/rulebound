@@ -10,12 +10,8 @@
     "dev": "tsup --watch"
   },
   "dependencies": {
-    "@rulebound/shared": "workspace:*",
     "chalk": "^5",
-    "commander": "^13",
-    "conf": "^13",
-    "open": "^10",
-    "ora": "^8"
+    "commander": "^13"
   },
   "devDependencies": {
     "@types/node": "^22",

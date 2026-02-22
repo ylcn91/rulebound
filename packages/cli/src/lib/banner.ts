@@ -1,28 +1,13 @@
 import chalk from "chalk"
 
-const ASCII_ART = `
- ╔══════════════════════════════════════════════╗
- ║                                              ║
- ║   ██████  ██    ██ ██      ███████           ║
- ║   ██   ██ ██    ██ ██      ██                ║
- ║   ██████  ██    ██ ██      █████             ║
- ║   ██   ██ ██    ██ ██      ██                ║
- ║   ██   ██  ██████  ███████ ███████           ║
- ║                                              ║
- ║   ██████   ██████  ██    ██ ███    ██ ██████ ║
- ║   ██   ██ ██    ██ ██    ██ ████   ██ ██   ██║
- ║   ██████  ██    ██ ██    ██ ██ ██  ██ ██   ██║
- ║   ██   ██ ██    ██ ██    ██ ██  ██ ██ ██   ██║
- ║   ██████   ██████   ██████  ██   ████ ██████ ║
- ║                                              ║
- ╚══════════════════════════════════════════════╝
-`
+const BANNER = `
+  ┌─────────────────────────────────────────┐
+  │  RULEBOUND                              │
+  │  AI Coding Agent Rule Enforcement       │
+  └─────────────────────────────────────────┘`
 
 export function printBanner(version: string): void {
-  console.log(chalk.blue(ASCII_ART))
-  console.log(
-    chalk.dim("  Your AI coding agent rule enforcement platform")
-  )
-  console.log(chalk.dim(`  v${version}`))
+  console.log(chalk.white(BANNER))
+  console.log(chalk.dim(`  v${version} | MIT License | github.com/ylcn91/rulebound`))
   console.log()
 }

@@ -1,6 +1,9 @@
 import chalk from "chalk"
-import ora from "ora"
-import { listRules, getRule } from "../lib/api.js"
+import { findRulesDir, loadLocalRules } from "../lib/local-rules.js"
+
+interface ListOptions {
+  dir?: string
+}
 
 const SEVERITY_COLORS: Record<string, (text: string) => string> = {
   error: chalk.red,
@@ -8,88 +11,84 @@ const SEVERITY_COLORS: Record<string, (text: string) => string> = {
   info: chalk.blue,
 }
 
-export async function listRulesCommand(): Promise<void> {
-  const spinner = ora("Fetching rules...").start()
+export async function listRulesCommand(options: ListOptions): Promise<void> {
+  const rulesDir = options.dir ?? findRulesDir(process.cwd())
 
-  const result = await listRules()
-
-  spinner.stop()
-
-  if (!result.success || !result.data) {
-    console.error(chalk.red(`Error: ${result.error ?? "Failed to fetch rules"}`))
+  if (!rulesDir) {
+    console.error(chalk.red("No rules directory found."))
+    console.error(chalk.dim("Run 'rulebound init' to create one, or use --dir <path>."))
     process.exit(1)
   }
 
-  const rules = result.data
+  const rules = loadLocalRules(rulesDir)
 
   if (rules.length === 0) {
     console.log(chalk.dim("No rules found."))
     return
   }
 
-  const idWidth = 8
-  const titleWidth = 35
+  const idWidth = 30
   const catWidth = 14
   const sevWidth = 10
+  const modWidth = 8
 
-  const header =
-    chalk.dim(
-      "ID".padEnd(idWidth) +
-        "TITLE".padEnd(titleWidth) +
-        "CATEGORY".padEnd(catWidth) +
-        "SEVERITY".padEnd(sevWidth) +
-        "ACTIVE"
-    )
+  const header = chalk.dim(
+    "ID".padEnd(idWidth) +
+      "CATEGORY".padEnd(catWidth) +
+      "SEVERITY".padEnd(sevWidth) +
+      "MODE".padEnd(modWidth) +
+      "TITLE"
+  )
 
   console.log(header)
-  console.log(chalk.dim("─".repeat(idWidth + titleWidth + catWidth + sevWidth + 6)))
+  console.log(chalk.dim("─".repeat(80)))
 
   for (const rule of rules) {
     const colorFn = SEVERITY_COLORS[rule.severity] ?? chalk.white
-    const shortId = rule.id.slice(0, 8)
-    const title =
-      rule.title.length > titleWidth - 2
-        ? rule.title.slice(0, titleWidth - 4) + "..."
-        : rule.title
-    const active = rule.isActive ? chalk.green("yes") : chalk.dim("no")
+    const shortId = rule.id.length > idWidth - 2 ? rule.id.slice(0, idWidth - 4) + "..." : rule.id
 
     console.log(
       chalk.dim(shortId.padEnd(idWidth)) +
-        chalk.white(title.padEnd(titleWidth)) +
         chalk.dim(rule.category.padEnd(catWidth)) +
         colorFn(rule.severity.padEnd(sevWidth)) +
-        active
+        chalk.dim(rule.modality.toUpperCase().padEnd(modWidth)) +
+        chalk.white(rule.title)
     )
   }
 
   console.log()
-  console.log(chalk.dim(`${rules.length} rule${rules.length === 1 ? "" : "s"} total`))
+  console.log(chalk.dim(`${rules.length} rule${rules.length === 1 ? "" : "s"} total from ${rulesDir}`))
 }
 
-export async function showRuleCommand(id: string): Promise<void> {
-  const spinner = ora("Fetching rule...").start()
+export async function showRuleCommand(id: string, options: ListOptions): Promise<void> {
+  const rulesDir = options.dir ?? findRulesDir(process.cwd())
 
-  const result = await getRule(id)
-
-  spinner.stop()
-
-  if (!result.success || !result.data) {
-    console.error(chalk.red(`Error: ${result.error ?? "Rule not found"}`))
+  if (!rulesDir) {
+    console.error(chalk.red("No rules directory found."))
     process.exit(1)
   }
 
-  const rule = result.data
+  const rules = loadLocalRules(rulesDir)
+  const rule = rules.find((r) => r.id === id || r.filePath.includes(id))
+
+  if (!rule) {
+    console.error(chalk.red(`Rule not found: ${id}`))
+    console.error(chalk.dim("Use 'rulebound rules list' to see available rules."))
+    process.exit(1)
+  }
+
   const colorFn = SEVERITY_COLORS[rule.severity] ?? chalk.white
 
-  console.log(chalk.blue("RULE DETAIL"))
-  console.log(chalk.dim("─".repeat(50)))
+  console.log()
+  console.log(chalk.white("RULE DETAIL"))
+  console.log(chalk.dim("─".repeat(60)))
   console.log()
   console.log(`  ${chalk.dim("ID:")}       ${rule.id}`)
   console.log(`  ${chalk.dim("Title:")}    ${chalk.white.bold(rule.title)}`)
+  console.log(`  ${chalk.dim("File:")}     ${rule.filePath}`)
   console.log(`  ${chalk.dim("Category:")} ${rule.category}`)
   console.log(`  ${chalk.dim("Severity:")} ${colorFn(rule.severity)}`)
-  console.log(`  ${chalk.dim("Active:")}   ${rule.isActive ? chalk.green("yes") : chalk.dim("no")}`)
-  console.log(`  ${chalk.dim("Version:")}  ${rule.version}`)
+  console.log(`  ${chalk.dim("Modality:")} ${rule.modality.toUpperCase()}`)
 
   if (rule.tags.length > 0) {
     console.log(`  ${chalk.dim("Tags:")}     ${rule.tags.join(", ")}`)
@@ -97,7 +96,7 @@ export async function showRuleCommand(id: string): Promise<void> {
 
   console.log()
   console.log(chalk.dim("CONTENT"))
-  console.log(chalk.dim("─".repeat(50)))
+  console.log(chalk.dim("─".repeat(60)))
   console.log()
   console.log(rule.content)
   console.log()

@@ -1,23 +1,22 @@
 import { readFileSync } from "node:fs"
 import chalk from "chalk"
-import ora from "ora"
-import type { ValidationResult } from "@rulebound/shared"
-import { validatePlan } from "../lib/api.js"
+import { findRulesDir, loadLocalRules, validatePlanAgainstRules } from "../lib/local-rules.js"
+import { loadRulesWithInheritance } from "../lib/inheritance.js"
 
 interface ValidateOptions {
   plan?: string
   file?: string
+  dir?: string
 }
 
-const STATUS_DISPLAY: Record<string, { icon: string; color: (s: string) => string }> = {
-  PASS: { icon: "+", color: chalk.green },
-  WARN: { icon: "~", color: chalk.yellow },
-  FAIL: { icon: "x", color: chalk.red },
+const STATUS_DISPLAY: Record<string, { color: (s: string) => string }> = {
+  PASS: { color: chalk.green },
+  WARN: { color: chalk.yellow },
+  FAIL: { color: chalk.red },
 }
 
-export async function validateCommand(
-  options: ValidateOptions
-): Promise<void> {
+export async function validateCommand(options: ValidateOptions): Promise<void> {
+  // Get plan text
   let planText: string
 
   if (options.file) {
@@ -30,34 +29,52 @@ export async function validateCommand(
   } else if (options.plan) {
     planText = options.plan
   } else {
-    console.error(
-      chalk.red("Provide --plan 'text' or --file path/to/plan.md")
-    )
+    console.error(chalk.red("Provide --plan 'text' or --file path/to/plan.md"))
     process.exit(1)
   }
 
-  const spinner = ora("Validating plan against rules...").start()
+  // Load rules (with inheritance support)
+  let rules
 
-  const result = await validatePlan(planText)
+  if (options.dir) {
+    rules = loadLocalRules(options.dir)
+  } else {
+    rules = loadRulesWithInheritance(process.cwd())
+  }
 
-  spinner.stop()
-
-  if (!result.success || !result.data) {
-    console.error(chalk.red(`Error: ${result.error ?? "Validation failed"}`))
+  if (rules.length === 0) {
+    console.error(chalk.red("No rules found."))
+    console.error(chalk.dim("Run 'rulebound init' to create rules, or use --dir <path>."))
     process.exit(1)
   }
 
-  const { results, summary } = result.data
+  // Validate
+  const { results, summary } = validatePlanAgainstRules(planText, rules)
 
-  console.log(chalk.blue("VALIDATION RESULTS"))
-  console.log(chalk.dim("─".repeat(50)))
+  // Display results
+  console.log()
+  console.log(chalk.white("VALIDATION REPORT"))
+  console.log(chalk.dim("─".repeat(60)))
   console.log()
 
-  for (const item of results) {
-    printResult(item)
+  // Show only relevant results (non-PASS or applicable)
+  const relevant = results.filter((r) => r.status !== "PASS" || r.message !== "Rule not applicable to this plan.")
+
+  if (relevant.length === 0) {
+    console.log(chalk.dim("  No rules matched this plan."))
+  } else {
+    for (const item of relevant) {
+      const display = STATUS_DISPLAY[item.status] ?? STATUS_DISPLAY.WARN
+      const statusTag = display.color(`[${item.status}]`)
+      const modTag = chalk.dim(`[${item.modality.toUpperCase()}]`)
+
+      console.log(`  ${statusTag} ${modTag} ${chalk.white(item.ruleTitle)}`)
+      console.log(chalk.dim(`    ${item.message}`))
+      console.log()
+    }
   }
 
-  console.log(chalk.dim("─".repeat(50)))
+  console.log(chalk.dim("─".repeat(60)))
   console.log(
     `  Total: ${summary.total}  ` +
       chalk.green(`Pass: ${summary.pass}`) +
@@ -69,22 +86,13 @@ export async function validateCommand(
   console.log()
 
   if (summary.fail > 0) {
-    console.log(chalk.red("Validation FAILED. Fix failing rules before proceeding."))
+    console.log(chalk.red("FAILED — Fix failing rules before proceeding."))
     process.exit(1)
   }
 
   if (summary.warn > 0) {
-    console.log(chalk.yellow("Validation passed with warnings."))
+    console.log(chalk.yellow("PASSED with warnings."))
   } else {
-    console.log(chalk.green("Validation passed."))
+    console.log(chalk.green("PASSED — All rules satisfied."))
   }
-}
-
-function printResult(result: ValidationResult): void {
-  const display = STATUS_DISPLAY[result.status] ?? STATUS_DISPLAY.WARN
-  const statusTag = display.color(`[${result.status}]`)
-
-  console.log(`  ${statusTag} ${chalk.white(result.ruleTitle)}`)
-  console.log(chalk.dim(`    ${result.message}`))
-  console.log()
 }
