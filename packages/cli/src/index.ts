@@ -7,6 +7,10 @@ import { listRulesCommand, showRuleCommand } from "./commands/rules.js"
 import { initCommand } from "./commands/init.js"
 import { lintCommand } from "./commands/lint.js"
 import { historyCommand } from "./commands/history.js"
+import { generateCommand } from "./commands/generate.js"
+import { diffCommand } from "./commands/diff.js"
+import { scoreCommand } from "./commands/score.js"
+import { hookCommand } from "./commands/hook.js"
 
 const require = createRequire(import.meta.url)
 const pkg = require("../package.json") as { version: string }
@@ -46,6 +50,35 @@ program
   .option("--file <path>", "Path to plan file")
   .option("-d, --dir <path>", "Path to rules directory")
   .action(validateCommand)
+
+program
+  .command("generate")
+  .description("Generate agent config files (CLAUDE.md, .cursor/rules.md, copilot-instructions.md)")
+  .option("-a, --agent <agent>", "Agent type: claude-code, cursor, copilot, all (default: all)")
+  .option("-d, --dir <path>", "Path to rules directory")
+  .option("-o, --output <path>", "Output directory (default: current dir)")
+  .action(generateCommand)
+
+program
+  .command("diff")
+  .description("Validate git diff against rules")
+  .option("--ref <ref>", "Git ref to diff against (default: HEAD)")
+  .option("-d, --dir <path>", "Path to rules directory")
+  .action(diffCommand)
+
+program
+  .command("score")
+  .description("Calculate compliance score and generate badge")
+  .option("-d, --dir <path>", "Path to rules directory")
+  .option("--no-badge", "Skip badge generation")
+  .option("-o, --output <path>", "Save badge markdown to file")
+  .action(scoreCommand)
+
+program
+  .command("hook")
+  .description("Install/remove pre-commit git hook")
+  .option("--remove", "Remove the pre-commit hook")
+  .action(hookCommand)
 
 const rulesCmd = program.command("rules").description("Manage rules")
 

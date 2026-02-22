@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, cpSync } from "node:fs"
+import { existsSync, mkdirSync, cpSync, writeFileSync } from "node:fs"
 import { resolve, join } from "node:path"
 import chalk from "chalk"
 
@@ -57,8 +57,6 @@ function findExamplesDir(): string | null {
 }
 
 function createStarterRule(rulesDir: string): void {
-  const { writeFileSync } = require("node:fs") as typeof import("node:fs")
-
   const starterContent = `---
 title: Example Rule
 category: style

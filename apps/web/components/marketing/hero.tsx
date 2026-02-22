@@ -38,11 +38,19 @@ function TerminalDemo() {
         </p>
         <p className="mt-3">
           <span className="text-[#39bae6]">$</span>{" "}
-          <span className="text-[#e6e1cf]">rulebound validate</span>{" "}
-          <span className="text-[#5c6773]">--plan task-plan.json</span>
+          <span className="text-[#e6e1cf]">rulebound generate</span>
+        </p>
+        <p className="mt-1 text-[#e6e1cf]">
+          &nbsp;&nbsp;CLAUDE.md
+        </p>
+        <p className="text-[#e6e1cf]">
+          &nbsp;&nbsp;.cursor/rules.md
+        </p>
+        <p className="text-[#e6e1cf]">
+          &nbsp;&nbsp;.github/copilot-instructions.md
         </p>
         <p className="mt-1 text-[#aad94c]">
-          All rules passed. Ready to ship.
+          Generated 3 config files. Ready to ship.
         </p>
         <span className="cursor-blink inline-block h-4 w-2 translate-y-0.5 bg-[#e6e1cf]" />
       </div>

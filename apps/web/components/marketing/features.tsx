@@ -1,4 +1,4 @@
-import { Database, Crosshair, ShieldCheck, Blocks, GitBranch, BarChart3, Layers, Terminal } from "lucide-react";
+import { Database, Crosshair, ShieldCheck, Blocks, GitBranch, BarChart3, Layers, Terminal, FileOutput, GitCompare, Award, GitCommitHorizontal } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 const features = [
@@ -9,16 +9,40 @@ const features = [
     icon: Database,
   },
   {
-    title: "Dynamic Context Selection",
+    title: "Generate Agent Configs",
     description:
-      "Rulebound analyzes each task and selects only the relevant rules. No context window bloat — just the rules that matter.",
-    icon: Crosshair,
+      "One command generates CLAUDE.md, .cursor/rules.md, and copilot-instructions.md. Same rules, every agent, zero drift.",
+    icon: FileOutput,
   },
   {
     title: "Task Plan Validation",
     description:
       "Before code ships, validate the AI agent's plan against your rules. PASS, WARN, or FAIL — with suggested fixes.",
     icon: ShieldCheck,
+  },
+  {
+    title: "Diff Validation",
+    description:
+      "Run rulebound diff to validate git changes against your rules. Catch violations before they hit your codebase.",
+    icon: GitCompare,
+  },
+  {
+    title: "Compliance Score",
+    description:
+      "Get a 0-100 compliance score for your rule set. Generate a badge for your README. Track quality over time.",
+    icon: Award,
+  },
+  {
+    title: "Pre-Commit Hook",
+    description:
+      "Install a git hook that validates every commit against your rules. Block violations before they enter the repo.",
+    icon: GitCommitHorizontal,
+  },
+  {
+    title: "Quality Attributes",
+    description:
+      "Score rules on Atomicity, Completeness, and Clarity. Ensure every rule is actionable, unambiguous, and enforceable.",
+    icon: BarChart3,
   },
   {
     title: "Multi-Agent Support",
@@ -29,20 +53,20 @@ const features = [
   {
     title: "Rule Versioning",
     description:
-      "Track every change to your rules. Roll back, compare versions, and audit who changed what and when.",
+      "Track every change to your rules with git. Roll back, compare versions, and audit who changed what and when.",
     icon: GitBranch,
-  },
-  {
-    title: "Quality Attributes",
-    description:
-      "Score rules on Atomicity, Completeness, and Clarity. Ensure every rule is actionable, unambiguous, and enforceable.",
-    icon: BarChart3,
   },
   {
     title: "Rule Inheritance",
     description:
       "Create base rule sets and extend them per project. Override specific rules without duplicating entire sets.",
     icon: Layers,
+  },
+  {
+    title: "Dynamic Context Selection",
+    description:
+      "Rulebound analyzes each task and selects only the relevant rules. No context window bloat — just the rules that matter.",
+    icon: Crosshair,
   },
   {
     title: "CLI-First Workflow",
@@ -61,7 +85,7 @@ export function Features() {
           Everything You Need to Ship With Confidence
         </h2>
 
-        <div className="mt-12 grid gap-6 sm:grid-cols-2">
+        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {features.map((feature) => (
             <Card key={feature.title} className="border-2 hover:border-(--color-text-primary)/30 transition-colors duration-200">
               <CardContent className="pt-6">

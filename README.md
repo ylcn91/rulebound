@@ -1,5 +1,8 @@
 # Rulebound
 
+[![Rulebound Score](https://img.shields.io/badge/rulebound-93%25-4c1?style=flat-square)](https://github.com/ylcn91/rulebound)
+[![MIT License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
+
 Centralized rules for AI coding agents. Define your team's standards once — enforce them on every AI-generated line of code.
 
 Works with **Claude Code**, **Cursor**, **GitHub Copilot**, and any AI coding agent.
@@ -149,12 +152,16 @@ rulebound init --examples
 | Command | Description |
 |---------|-------------|
 | `rulebound init` | Create `.rulebound/rules/` directory |
+| `rulebound generate` | Generate CLAUDE.md, .cursor/rules.md, copilot-instructions.md |
+| `rulebound find-rules` | Search rules by task, category, or tags |
+| `rulebound validate` | Validate a plan against all rules |
+| `rulebound diff` | Validate git diff against rules |
+| `rulebound score` | Calculate compliance score (0-100) + generate badge |
+| `rulebound hook` | Install/remove pre-commit git hook |
 | `rulebound rules list` | List all rules |
 | `rulebound rules show <id>` | Show rule detail |
 | `rulebound rules lint` | Score rules on Quality Attributes (Atomicity, Completeness, Clarity) |
 | `rulebound rules history <id>` | Show version history of a rule (git-based) |
-| `rulebound find-rules` | Search rules by task, category, or tags |
-| `rulebound validate` | Validate a plan against all rules |
 
 ### Find Rules Options
 
@@ -174,6 +181,64 @@ rulebound init --examples
 --file <path>       Path to plan file (.md or .txt)
 --dir <path>        Custom rules directory
 ```
+
+## Generate Agent Configs
+
+The killer feature. One command generates config files for every AI coding agent:
+
+```bash
+rulebound generate
+```
+
+This creates:
+- `CLAUDE.md` — for Claude Code
+- `.cursor/rules.md` — for Cursor
+- `.github/copilot-instructions.md` — for GitHub Copilot
+
+All from the same rule source. One set of rules, every agent.
+
+```bash
+# Generate for a specific agent only
+rulebound generate --agent claude-code
+
+# Custom output directory
+rulebound generate --output ./my-project
+```
+
+## Diff Validation
+
+Validate your git changes against rules before committing:
+
+```bash
+rulebound diff
+rulebound diff --ref main
+```
+
+## Pre-Commit Hook
+
+Auto-validate on every commit:
+
+```bash
+rulebound hook           # install
+rulebound hook --remove  # uninstall
+```
+
+## Compliance Score
+
+Get a score (0-100) and a badge for your README:
+
+```bash
+rulebound score
+```
+
+Output:
+```
+Score: 93/100
+Rules: 14
+Grade: A
+```
+
+Generates a shields.io badge you can paste into your README.
 
 ## Rule Inheritance
 
