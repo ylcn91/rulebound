@@ -21,7 +21,7 @@ const withRulebound = [
 
 export function Comparison() {
   return (
-    <section className="bg-(--color-background) py-(--spacing-section)">
+    <section id="comparison" className="bg-(--color-background) py-(--spacing-section)">
       <div className="mx-auto max-w-6xl px-6">
         <p className="section-label">Comparison</p>
         <h2 className="mt-3 font-mono text-3xl font-bold tracking-tight sm:text-4xl">

@@ -30,7 +30,7 @@ const features = [
 
 export function Features() {
   return (
-    <section className="bg-dot-grid py-(--spacing-section)">
+    <section id="features" className="bg-dot-grid py-(--spacing-section)">
       <div className="mx-auto max-w-6xl px-6">
         <p className="section-label">Features</p>
         <h2 className="mt-3 font-mono text-3xl font-bold tracking-tight sm:text-4xl">

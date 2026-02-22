@@ -1,38 +1,19 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 
-const navColumns = [
-  {
-    title: "Product",
-    links: [
-      { label: "Features", href: "/#features" },
-      { label: "Pricing", href: "/#pricing" },
-      { label: "Docs", href: "/docs" },
-    ],
-  },
-  {
-    title: "Company",
-    links: [
-      { label: "About", href: "/about" },
-      { label: "FAQ", href: "/faq" },
-      { label: "GitHub", href: "https://github.com/rulebound/rulebound" },
-    ],
-  },
-  {
-    title: "Legal",
-    links: [
-      { label: "Privacy", href: "/privacy" },
-      { label: "Terms", href: "/terms" },
-    ],
-  },
+const navLinks = [
+  { label: "Features", href: "/#features" },
+  { label: "Comparison", href: "/#comparison" },
+  { label: "Open Source", href: "/#open-source" },
+  { label: "GitHub", href: "https://github.com/rulebound/rulebound" },
 ];
 
 export function Footer() {
   return (
     <footer className="border-t border-(--color-border) bg-(--color-surface)">
       <div className="mx-auto max-w-6xl px-6 py-16">
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
-          <div className="col-span-2 md:col-span-1">
+        <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
+          <div>
             <Link
               href="/"
               className="font-mono text-lg font-bold text-(--color-text-primary)"
@@ -48,23 +29,20 @@ export function Footer() {
             </div>
           </div>
 
-          {navColumns.map((column) => (
-            <div key={column.title}>
-              <p className="section-label mb-4">{column.title}</p>
-              <ul className="space-y-2.5">
-                {column.links.map((link) => (
-                  <li key={link.label}>
-                    <Link
-                      href={link.href}
-                      className="text-sm text-(--color-text-secondary) hover:text-(--color-text-primary) transition-colors duration-200"
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          <nav aria-label="Footer navigation">
+            <ul className="flex flex-wrap gap-x-6 gap-y-2">
+              {navLinks.map((link) => (
+                <li key={link.label}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-(--color-text-secondary) hover:text-(--color-text-primary) transition-colors duration-200"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
         </div>
 
         <div className="divider-dots mt-12 mb-8" role="separator" />

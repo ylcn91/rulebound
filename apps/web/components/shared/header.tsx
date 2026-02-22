@@ -1,12 +1,11 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { MobileMenu } from "@/components/shared/mobile-menu";
 
 const navLinks = [
-  { label: "Pricing", href: "/#pricing" },
-  { label: "About", href: "/about" },
-  { label: "FAQ", href: "/faq" },
-  { label: "Docs", href: "/docs" },
+  { label: "Features", href: "/#features" },
+  { label: "Docs", href: "https://github.com/rulebound/rulebound#readme" },
   { label: "GitHub", href: "https://github.com/rulebound/rulebound" },
 ];
 
@@ -35,9 +34,10 @@ export function Header() {
 
         <div className="flex items-center gap-3">
           <ThemeToggle />
-          <Button size="sm" asChild>
+          <Button size="sm" asChild className="hidden sm:inline-flex">
             <Link href="/login">Log in</Link>
           </Button>
+          <MobileMenu links={navLinks} />
         </div>
       </div>
     </header>
