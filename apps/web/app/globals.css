@@ -1,0 +1,176 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  /* Colors - Light */
+  --color-background: #FAFAF5;
+  --color-surface: #FFFFFF;
+  --color-text-primary: #1C1917;
+  --color-text-secondary: #57534E;
+  --color-primary: #2563EB;
+  --color-primary-hover: #1D4ED8;
+  --color-accent: #DC2626;
+  --color-success: #16A34A;
+  --color-border: #D6D3D1;
+  --color-grid: #E7E5E4;
+  --color-muted: #78716C;
+
+  /* Typography */
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* Spacing scale */
+  --spacing-section: 6rem;
+  --spacing-card: 1.5rem;
+}
+
+/* Dark mode overrides */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-background: #1C1917;
+    --color-surface: #292524;
+    --color-text-primary: #FAFAF5;
+    --color-text-secondary: #A8A29E;
+    --color-primary: #3B82F6;
+    --color-primary-hover: #2563EB;
+    --color-border: #44403C;
+    --color-grid: #3A3633;
+    --color-muted: #A8A29E;
+  }
+}
+
+[data-theme="dark"] {
+  --color-background: #1C1917;
+  --color-surface: #292524;
+  --color-text-primary: #FAFAF5;
+  --color-text-secondary: #A8A29E;
+  --color-primary: #3B82F6;
+  --color-primary-hover: #2563EB;
+  --color-border: #44403C;
+  --color-grid: #3A3633;
+  --color-muted: #A8A29E;
+}
+
+/* Base styles */
+html {
+  font-family: var(--font-sans);
+  color: var(--color-text-primary);
+  background-color: var(--color-background);
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Blueprint grid paper background */
+.bg-grid {
+  background-image:
+    linear-gradient(var(--color-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Dot grid variant */
+.bg-dot-grid {
+  background-image: radial-gradient(circle, var(--color-grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Paper grain texture overlay */
+.paper-grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Dot-matrix divider */
+.divider-dots {
+  background-image: radial-gradient(circle, var(--color-border) 1.5px, transparent 1.5px);
+  background-size: 8px 8px;
+  height: 4px;
+}
+
+/* Terminal code block */
+.terminal {
+  background-color: #0f1419;
+  color: #e6e1cf;
+  font-family: var(--font-mono);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.terminal-header {
+  background-color: #1a1f26;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.terminal-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+/* Cursor blink */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.cursor-blink {
+  animation: blink 1s step-end infinite;
+}
+
+/* Retro stamp badge */
+.stamp {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border: 2px solid currentColor;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  transform: rotate(-2deg);
+  display: inline-block;
+}
+
+/* Section label (retro uppercase mono) */
+.section-label {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--color-muted);
+}
+
+/* Scroll reveal animation */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s ease-out forwards;
+  opacity: 0;
+}
