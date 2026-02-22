@@ -38,7 +38,7 @@ export function Problem() {
           babysitting agents that don&apos;t know your architecture, your naming
           conventions, or your security policies.
         </p>
-        <p className="mt-3 font-mono font-semibold text-(--color-primary)">
+        <p className="mt-3 font-mono font-semibold text-(--color-text-primary) underline decoration-2 underline-offset-4">
           Rulebound fixes this.
         </p>
 
@@ -50,7 +50,7 @@ export function Problem() {
                   {step.number}
                 </span>
                 <div className="mt-4 flex items-center gap-3">
-                  <step.icon className="h-5 w-5 text-(--color-primary) shrink-0" />
+                  <step.icon className="h-5 w-5 text-(--color-text-primary) shrink-0" />
                   <h3 className="font-mono text-lg font-semibold">
                     {step.title}
                   </h3>

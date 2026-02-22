@@ -1,5 +1,4 @@
 import { ExternalLink } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 export function OpenSource() {
@@ -11,26 +10,24 @@ export function OpenSource() {
           Built in the open.
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-(--color-text-secondary)">
-          Rulebound is free forever for individuals. The core platform is
-          open-source under the MIT license. Inspect the code, contribute, and
-          make it your own.
+          Rulebound is free forever. The entire platform is open-source under
+          the MIT license. Inspect the code, contribute, and make it your own.
         </p>
 
         <div className="mt-6">
-          <Badge variant="stamp">Open Source</Badge>
+          <Badge variant="stamp">MIT License</Badge>
         </div>
 
         <div className="mt-8">
-          <Button variant="outline" size="lg" className="gap-2" asChild>
-            <a
-              href="https://github.com/rulebound/rulebound"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              View on GitHub
-              <ExternalLink className="h-4 w-4" />
-            </a>
-          </Button>
+          <a
+            href="https://github.com/ylcn91/rulebound"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-2 h-12 px-6 font-mono text-sm font-semibold uppercase tracking-wider bg-transparent text-(--color-text-primary) border-2 border-(--color-text-primary) hover:bg-(--color-text-primary)/5 transition-colors duration-200 rounded-none"
+          >
+            View on GitHub
+            <ExternalLink className="h-4 w-4" />
+          </a>
         </div>
       </div>
     </section>

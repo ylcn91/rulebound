@@ -31,7 +31,7 @@ export default function ImportPage() {
 
       {/* Info banner */}
       <div className="flex items-start gap-3 border border-(--color-border) rounded-md p-4 bg-(--color-surface)">
-        <Info className="h-4 w-4 text-(--color-primary) shrink-0 mt-0.5" />
+        <Info className="h-4 w-4 text-(--color-text-primary) shrink-0 mt-0.5" />
         <div className="text-sm text-(--color-text-secondary) space-y-1">
           <p className="font-medium text-(--color-text-primary)">Supported formats</p>
           <p>
@@ -51,7 +51,7 @@ export default function ImportPage() {
             className={cn(
               "flex items-center gap-2 px-4 py-2.5 text-sm font-medium cursor-pointer transition-colors duration-150 border-b-2 -mb-px",
               activeTab === id
-                ? "border-(--color-primary) text-(--color-primary)"
+                ? "border-(--color-text-primary) text-(--color-text-primary) font-bold"
                 : "border-transparent text-(--color-text-secondary) hover:text-(--color-text-primary)"
             )}
           >
@@ -77,7 +77,7 @@ export default function ImportPage() {
                   id="paste-content"
                   rows={10}
                   placeholder="Paste your CLAUDE.md, .cursorrules, or rule definitions here..."
-                  className="flex w-full rounded-md border border-(--color-border) bg-(--color-surface) px-3 py-2 font-mono text-sm text-(--color-text-primary) placeholder:text-(--color-muted) focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-(--color-primary) transition-colors duration-200"
+                  className="flex w-full border-2 border-(--color-border) bg-(--color-surface) px-3 py-2 font-mono text-sm text-(--color-text-primary) placeholder:text-(--color-muted) focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-(--color-text-primary) transition-colors duration-200"
                 />
               </div>
               <Button className="gap-2">
@@ -89,7 +89,7 @@ export default function ImportPage() {
 
           {activeTab === "upload" && (
             <div className="space-y-4">
-              <div className="border-2 border-dashed border-(--color-border) rounded-md p-8 text-center hover:border-(--color-primary)/50 transition-colors duration-150 cursor-pointer">
+              <div className="border-2 border-dashed border-(--color-border) rounded-md p-8 text-center hover:border-(--color-text-primary)/50 transition-colors duration-150 cursor-pointer">
                 <Upload className="h-8 w-8 text-(--color-muted) mx-auto mb-3" />
                 <p className="text-sm text-(--color-text-secondary)">
                   Drag and drop your file here, or click to browse

@@ -5,7 +5,7 @@ const navLinks = [
   { label: "Features", href: "/#features" },
   { label: "Comparison", href: "/#comparison" },
   { label: "Open Source", href: "/#open-source" },
-  { label: "GitHub", href: "https://github.com/rulebound/rulebound" },
+  { label: "GitHub", href: "https://github.com/ylcn91/rulebound" },
 ];
 
 export function Footer() {

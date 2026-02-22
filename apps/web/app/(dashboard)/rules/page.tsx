@@ -10,6 +10,7 @@ const MOCK_RULES = [
     title: "No hardcoded secrets in source code",
     category: "security",
     severity: "error",
+    modality: "must",
     tags: ["secrets", "env"],
     updatedAt: "2026-02-20",
   },
@@ -18,6 +19,7 @@ const MOCK_RULES = [
     title: "Server Components by default",
     category: "architecture",
     severity: "warning",
+    modality: "should",
     tags: ["react", "nextjs"],
     updatedAt: "2026-02-19",
   },
@@ -26,6 +28,7 @@ const MOCK_RULES = [
     title: "Use cn() for class merging",
     category: "style",
     severity: "info",
+    modality: "should",
     tags: ["tailwind", "css"],
     updatedAt: "2026-02-18",
   },
@@ -34,6 +37,7 @@ const MOCK_RULES = [
     title: "80% minimum test coverage",
     category: "testing",
     severity: "error",
+    modality: "must",
     tags: ["coverage", "ci"],
     updatedAt: "2026-02-17",
   },
@@ -42,6 +46,7 @@ const MOCK_RULES = [
     title: "Immutable data patterns only",
     category: "architecture",
     severity: "warning",
+    modality: "should",
     tags: ["immutability", "functional"],
     updatedAt: "2026-02-16",
   },
@@ -50,24 +55,11 @@ const MOCK_RULES = [
     title: "Bundle size under 200kb per route",
     category: "performance",
     severity: "warning",
+    modality: "may",
     tags: ["bundle", "optimization"],
     updatedAt: "2026-02-15",
   },
 ]
-
-const SEVERITY_VARIANT: Record<string, "default" | "primary" | "success" | "accent"> = {
-  error: "accent",
-  warning: "default",
-  info: "primary",
-}
-
-const CATEGORY_VARIANT: Record<string, "default" | "primary" | "success" | "accent"> = {
-  security: "accent",
-  architecture: "primary",
-  style: "default",
-  testing: "success",
-  performance: "default",
-}
 
 export default function RulesPage() {
   return (
@@ -75,7 +67,7 @@ export default function RulesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="font-sans text-xl font-semibold text-(--color-text-primary)">
+          <h1 className="font-mono text-xl font-bold text-(--color-text-primary)">
             Rules
           </h1>
           <p className="text-sm text-(--color-text-secondary) mt-1">
@@ -97,10 +89,10 @@ export default function RulesPage() {
       </div>
 
       {/* Table */}
-      <div className="border border-(--color-border) rounded-md overflow-hidden">
+      <div className="border-2 border-(--color-border) overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-(--color-border) bg-(--color-surface)">
+            <tr className="border-b-2 border-(--color-border) bg-(--color-surface)">
               <th className="text-left px-4 py-3 font-mono text-xs font-semibold text-(--color-muted) uppercase tracking-widest">
                 Title
               </th>
@@ -108,7 +100,7 @@ export default function RulesPage() {
                 Category
               </th>
               <th className="text-left px-4 py-3 font-mono text-xs font-semibold text-(--color-muted) uppercase tracking-widest hidden sm:table-cell">
-                Severity
+                Modality
               </th>
               <th className="text-left px-4 py-3 font-mono text-xs font-semibold text-(--color-muted) uppercase tracking-widest hidden lg:table-cell">
                 Tags
@@ -127,20 +119,25 @@ export default function RulesPage() {
                 <td className="px-4 py-3">
                   <Link
                     href={`/rules/${rule.id}`}
-                    className="font-medium text-(--color-text-primary) hover:text-(--color-primary) cursor-pointer"
+                    className="font-medium text-(--color-text-primary) hover:underline cursor-pointer"
                   >
                     {rule.title}
                   </Link>
+                  {rule.severity === "error" && (
+                    <span className="ml-2 font-mono text-xs font-bold text-(--color-accent)">
+                      ERR
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell">
-                  <Badge variant={CATEGORY_VARIANT[rule.category]}>
+                  <span className="font-mono text-xs uppercase tracking-wider text-(--color-muted)">
                     {rule.category}
-                  </Badge>
+                  </span>
                 </td>
                 <td className="px-4 py-3 hidden sm:table-cell">
-                  <Badge variant={SEVERITY_VARIANT[rule.severity]}>
-                    {rule.severity}
-                  </Badge>
+                  <span className={`stamp text-xs ${rule.modality === "must" ? "text-(--color-text-primary)" : "text-(--color-muted)"}`}>
+                    {rule.modality}
+                  </span>
                 </td>
                 <td className="px-4 py-3 hidden lg:table-cell">
                   <div className="flex gap-1.5 flex-wrap">
@@ -154,7 +151,7 @@ export default function RulesPage() {
                     ))}
                   </div>
                 </td>
-                <td className="px-4 py-3 text-right text-(--color-text-secondary) hidden sm:table-cell">
+                <td className="px-4 py-3 text-right text-(--color-text-secondary) hidden sm:table-cell font-mono text-xs">
                   {rule.updatedAt}
                 </td>
               </tr>
@@ -163,9 +160,9 @@ export default function RulesPage() {
         </table>
       </div>
 
-      {/* Empty state (hidden when mock data present) */}
+      {/* Empty state */}
       {MOCK_RULES.length === 0 && (
-        <div className="border border-dashed border-(--color-border) rounded-md p-12 text-center">
+        <div className="border-2 border-dashed border-(--color-border) p-12 text-center">
           <BookOpen className="h-8 w-8 text-(--color-muted) mx-auto mb-3" />
           <p className="text-(--color-text-secondary) text-sm">
             No rules yet. Import your first rule set.

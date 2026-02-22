@@ -83,7 +83,7 @@ export function Sidebar() {
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium cursor-pointer transition-colors duration-150",
                   active
-                    ? "bg-(--color-primary)/10 text-(--color-primary)"
+                    ? "bg-(--color-text-primary)/10 text-(--color-text-primary) font-bold"
                     : "text-(--color-text-secondary) hover:text-(--color-text-primary) hover:bg-(--color-grid)"
                 )}
               >

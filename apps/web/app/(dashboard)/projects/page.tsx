@@ -52,12 +52,12 @@ export default function ProjectsPage() {
         {MOCK_PROJECTS.map((project) => (
           <Card
             key={project.id}
-            className="hover:border-(--color-primary)/30 transition-colors duration-150"
+            className="border-2 hover:border-(--color-text-primary)/30 transition-colors duration-150"
           >
             <CardContent className="pt-5 pb-5 space-y-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
-                  <FolderKanban className="h-4 w-4 text-(--color-primary) shrink-0" />
+                  <FolderKanban className="h-4 w-4 text-(--color-text-primary) shrink-0" />
                   <h2 className="font-sans font-semibold text-(--color-text-primary)">
                     {project.name}
                   </h2>
@@ -68,14 +68,14 @@ export default function ProjectsPage() {
                 href={project.repoUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-(--color-muted) hover:text-(--color-primary) cursor-pointer transition-colors duration-150"
+                className="inline-flex items-center gap-1 text-xs text-(--color-muted) hover:text-(--color-text-primary) cursor-pointer transition-colors duration-150"
               >
                 {project.repoUrl.replace("https://github.com/", "")}
                 <ExternalLink className="h-3 w-3" />
               </a>
 
               <div className="flex items-center justify-between pt-1">
-                <Badge variant="primary">
+                <Badge variant="default">
                   {project.ruleSets} rule set{project.ruleSets !== 1 ? "s" : ""}
                 </Badge>
                 <span className="text-xs text-(--color-muted)">

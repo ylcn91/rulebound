@@ -1,4 +1,4 @@
-import { Key, Trash2, Plus, User } from "lucide-react"
+import { Key, Trash2, Plus, Terminal } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -22,50 +22,32 @@ export default function SettingsPage() {
   return (
     <div className="max-w-2xl space-y-8">
       <div>
-        <h1 className="font-sans text-xl font-semibold text-(--color-text-primary)">
+        <h1 className="font-mono text-xl font-bold text-(--color-text-primary)">
           Settings
         </h1>
         <p className="text-sm text-(--color-text-secondary) mt-1">
-          Manage your account and API access
+          Configure your workspace and CLI access
         </p>
       </div>
 
-      {/* Profile section */}
+      {/* CLI Setup section */}
       <section className="space-y-4">
         <h2 className="font-mono text-xs font-semibold text-(--color-muted) uppercase tracking-widest">
-          Profile
+          CLI Setup
         </h2>
-        <Card>
-          <CardContent className="pt-6 space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-full bg-(--color-grid) border border-(--color-border) flex items-center justify-center">
-                <User className="h-6 w-6 text-(--color-muted)" />
+        <Card className="border-2">
+          <CardContent className="pt-6">
+            <div className="terminal overflow-hidden">
+              <div className="terminal-header">
+                <span className="terminal-dot bg-[#ff5f57]" />
+                <span className="terminal-dot bg-[#febc2e]" />
+                <span className="terminal-dot bg-[#28c840]" />
+                <span className="ml-2 text-xs text-[#5c6773]">setup</span>
               </div>
-              <div>
-                <p className="font-medium text-(--color-text-primary)">Jane Developer</p>
-                <p className="text-sm text-(--color-text-secondary)">jane@example.com</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="name"
-                  className="font-mono text-xs font-semibold text-(--color-muted) uppercase tracking-widest"
-                >
-                  Name
-                </label>
-                <Input id="name" defaultValue="Jane Developer" readOnly />
-              </div>
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="email"
-                  className="font-mono text-xs font-semibold text-(--color-muted) uppercase tracking-widest"
-                >
-                  Email
-                </label>
-                <Input id="email" defaultValue="jane@example.com" readOnly />
-              </div>
+              <pre className="p-4 text-xs leading-relaxed text-[#e6e1cf]">
+{`$ npm install -g @rulebound/cli
+$ rulebound init
+$ rulebound find-rules --task "your task"`}</pre>
             </div>
           </CardContent>
         </Card>
@@ -82,7 +64,7 @@ export default function SettingsPage() {
             Generate Token
           </Button>
         </div>
-        <Card>
+        <Card className="border-2">
           <div className="divide-y divide-(--color-border)">
             {MOCK_TOKENS.map((token) => (
               <div
@@ -92,20 +74,16 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-3">
                   <Key className="h-4 w-4 text-(--color-muted) shrink-0" />
                   <div>
-                    <p className="text-sm font-medium text-(--color-text-primary)">
+                    <p className="font-mono text-sm font-medium text-(--color-text-primary)">
                       {token.name}
                     </p>
-                    <p className="text-xs text-(--color-muted)">
-                      Created {token.createdAt} &middot; Last used{" "}
+                    <p className="font-mono text-xs text-(--color-muted)">
+                      Created {token.createdAt} / Last used{" "}
                       {token.lastUsedAt}
                     </p>
                   </div>
                 </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="text-(--color-accent) hover:text-(--color-accent) hover:bg-(--color-accent)/10"
-                >
+                <Button size="sm" variant="danger">
                   Revoke
                 </Button>
               </div>
@@ -114,26 +92,59 @@ export default function SettingsPage() {
         </Card>
       </section>
 
+      {/* Workspace section */}
+      <section className="space-y-4">
+        <h2 className="font-mono text-xs font-semibold text-(--color-muted) uppercase tracking-widest">
+          Workspace
+        </h2>
+        <Card className="border-2">
+          <CardContent className="pt-6 space-y-4">
+            <div className="space-y-1.5">
+              <label
+                htmlFor="workspace-name"
+                className="font-mono text-xs font-semibold text-(--color-muted) uppercase tracking-widest"
+              >
+                Name
+              </label>
+              <Input id="workspace-name" defaultValue="My Workspace" />
+            </div>
+            <div className="space-y-1.5">
+              <label
+                htmlFor="default-severity"
+                className="font-mono text-xs font-semibold text-(--color-muted) uppercase tracking-widest"
+              >
+                Default Severity
+              </label>
+              <select
+                id="default-severity"
+                className="flex h-10 w-full border-2 border-(--color-border) bg-(--color-surface) px-3 py-2 font-mono text-sm text-(--color-text-primary) cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-(--color-text-primary) transition-colors duration-200"
+              >
+                <option value="error">Error</option>
+                <option value="warning">Warning</option>
+                <option value="info">Info</option>
+              </select>
+            </div>
+            <Button size="sm">Save Changes</Button>
+          </CardContent>
+        </Card>
+      </section>
+
       {/* Danger zone */}
       <section className="space-y-4">
         <h2 className="font-mono text-xs font-semibold text-(--color-accent) uppercase tracking-widest">
           Danger Zone
         </h2>
-        <Card className="border-(--color-accent)/30">
+        <Card className="border-2 border-(--color-accent)/30">
           <CardContent className="pt-6 flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-(--color-text-primary)">
-                Delete Account
+              <p className="font-mono text-sm font-bold text-(--color-text-primary)">
+                Delete Workspace
               </p>
               <p className="text-xs text-(--color-text-secondary) mt-0.5">
-                Permanently delete your account and all associated data
+                Permanently delete this workspace and all rules
               </p>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-2 border-(--color-accent)/30 text-(--color-accent) hover:bg-(--color-accent)/10"
-            >
+            <Button size="sm" variant="danger" className="gap-2">
               <Trash2 className="h-4 w-4" />
               Delete
             </Button>

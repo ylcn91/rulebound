@@ -68,7 +68,7 @@ export function HowItWorks() {
               className="grid gap-8 items-start md:grid-cols-2"
             >
               <div>
-                <span className="font-mono text-sm font-semibold text-(--color-primary)">
+                <span className="font-mono text-sm font-bold uppercase tracking-widest text-(--color-muted)">
                   Step {step.number}
                 </span>
                 <h3 className="mt-2 font-mono text-xl font-bold">

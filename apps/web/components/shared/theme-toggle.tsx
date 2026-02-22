@@ -56,7 +56,7 @@ export function ThemeToggle({ className }: { className?: string }) {
         "border border-(--color-border) text-(--color-text-secondary)",
         "hover:text-(--color-text-primary) hover:bg-(--color-grid)",
         "transition-colors duration-200",
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--color-primary)",
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--color-text-primary)",
         className
       )}
       aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}

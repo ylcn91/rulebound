@@ -1,23 +1,22 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { MobileMenu } from "@/components/shared/mobile-menu";
 
 const navLinks = [
   { label: "Features", href: "/#features" },
-  { label: "Docs", href: "https://github.com/rulebound/rulebound#readme" },
-  { label: "GitHub", href: "https://github.com/rulebound/rulebound" },
+  { label: "Docs", href: "https://github.com/ylcn91/rulebound#readme" },
+  { label: "GitHub", href: "https://github.com/ylcn91/rulebound" },
 ];
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-50 border-b border-(--color-border) bg-(--color-background)/95 backdrop-blur-sm supports-[backdrop-filter]:bg-(--color-background)/80">
+    <header className="sticky top-0 z-50 border-b-2 border-(--color-text-primary)/10 bg-(--color-background)/95 backdrop-blur-sm supports-[backdrop-filter]:bg-(--color-background)/80">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
         <Link
           href="/"
-          className="font-mono text-lg font-bold text-(--color-text-primary)"
+          className="font-mono text-lg font-bold tracking-tight text-(--color-text-primary) uppercase"
         >
-          Rulebound
+          <span className="inline-block border-2 border-current px-2 py-0.5 -rotate-1">Rulebound</span>
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex" aria-label="Main navigation">
@@ -25,7 +24,7 @@ export function Header() {
             <Link
               key={link.label}
               href={link.href}
-              className="text-sm text-(--color-text-secondary) hover:text-(--color-text-primary) transition-colors duration-200"
+              className="font-mono text-xs uppercase tracking-widest text-(--color-text-secondary) hover:text-(--color-text-primary) transition-colors duration-200"
             >
               {link.label}
             </Link>
@@ -34,9 +33,6 @@ export function Header() {
 
         <div className="flex items-center gap-3">
           <ThemeToggle />
-          <Button size="sm" asChild className="hidden sm:inline-flex">
-            <Link href="/login">Log in</Link>
-          </Button>
           <MobileMenu links={navLinks} />
         </div>
       </div>

@@ -29,15 +29,15 @@ export function Comparison() {
         </h2>
 
         <div className="mt-12 grid gap-6 md:grid-cols-2">
-          <Card className="border-[--color-accent]/30">
+          <Card className="border-2 border-dashed">
             <CardContent className="pt-6">
-              <h3 className="font-mono text-lg font-semibold text-(--color-accent)">
+              <h3 className="font-mono text-sm font-bold uppercase tracking-widest text-(--color-muted) line-through decoration-2">
                 Without Rulebound
               </h3>
               <ul className="mt-6 space-y-4">
                 {without.map((item) => (
                   <li key={item} className="flex gap-3 text-sm">
-                    <X className="h-4 w-4 shrink-0 text-(--color-accent) mt-0.5" />
+                    <X className="h-4 w-4 shrink-0 text-(--color-muted) mt-0.5" />
                     <span className="text-(--color-text-secondary)">{item}</span>
                   </li>
                 ))}
@@ -45,16 +45,14 @@ export function Comparison() {
             </CardContent>
           </Card>
 
-          <Card className="border-[--color-success]/30">
+          <Card className="border-2 border-(--color-text-primary)">
             <CardContent className="pt-6">
-              <h3 className="font-mono text-lg font-semibold text-(--color-success)">
-                With Rulebound
-              </h3>
-              <ul className="mt-6 space-y-4">
+              <div className="stamp text-(--color-text-primary) text-xs mb-4 inline-block">Rulebound</div>
+              <ul className="mt-2 space-y-4">
                 {withRulebound.map((item) => (
                   <li key={item} className="flex gap-3 text-sm">
-                    <Check className="h-4 w-4 shrink-0 text-(--color-success) mt-0.5" />
-                    <span className="text-(--color-text-secondary)">{item}</span>
+                    <Check className="h-4 w-4 shrink-0 text-(--color-text-primary) mt-0.5" />
+                    <span className="text-(--color-text-primary) font-medium">{item}</span>
                   </li>
                 ))}
               </ul>

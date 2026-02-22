@@ -2,15 +2,12 @@
 @import "tailwindcss";
 
 @theme {
-  /* Colors - Light */
+  /* Colors - Light (Paper/Ink) */
   --color-background: #FAFAF5;
   --color-surface: #FFFFFF;
   --color-text-primary: #1C1917;
   --color-text-secondary: #57534E;
-  --color-primary: #2563EB;
-  --color-primary-hover: #1D4ED8;
-  --color-accent: #DC2626;
-  --color-success: #16A34A;
+  --color-accent: #B91C1C;
   --color-border: #D6D3D1;
   --color-grid: #E7E5E4;
   --color-muted: #78716C;
@@ -31,8 +28,7 @@
     --color-surface: #292524;
     --color-text-primary: #FAFAF5;
     --color-text-secondary: #A8A29E;
-    --color-primary: #3B82F6;
-    --color-primary-hover: #2563EB;
+    --color-accent: #EF4444;
     --color-border: #44403C;
     --color-grid: #3A3633;
     --color-muted: #A8A29E;
@@ -44,8 +40,7 @@
   --color-surface: #292524;
   --color-text-primary: #FAFAF5;
   --color-text-secondary: #A8A29E;
-  --color-primary: #3B82F6;
-  --color-primary-hover: #2563EB;
+  --color-accent: #EF4444;
   --color-border: #44403C;
   --color-grid: #3A3633;
   --color-muted: #A8A29E;
@@ -89,8 +84,8 @@ html {
   content: "";
   position: absolute;
   inset: 0;
-  opacity: 0.03;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='5' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
   pointer-events: none;
   z-index: 1;
 }
@@ -107,8 +102,8 @@ html {
   background-color: #0f1419;
   color: #e6e1cf;
   font-family: var(--font-mono);
-  border-radius: 8px;
   overflow: hidden;
+  border: 2px solid #1a1f26;
 }
 
 .terminal-header {
@@ -140,10 +135,10 @@ html {
   font-family: var(--font-mono);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.15em;
   border: 2px solid currentColor;
   padding: 2px 8px;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   transform: rotate(-2deg);
   display: inline-block;
 }
@@ -151,11 +146,14 @@ html {
 /* Section label (retro uppercase mono) */
 .section-label {
   font-family: var(--font-mono);
-  font-weight: 600;
-  font-size: 0.75rem;
+  font-weight: 700;
+  font-size: 0.7rem;
   text-transform: uppercase;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.25em;
   color: var(--color-muted);
+  border-bottom: 2px solid currentColor;
+  display: inline-block;
+  padding-bottom: 2px;
 }
 
 /* Scroll reveal animation */
@@ -173,4 +171,15 @@ html {
 .animate-fade-in-up {
   animation: fadeInUp 0.5s ease-out forwards;
   opacity: 0;
+}
+
+/* Typewriter cursor for headings */
+@keyframes typewriter-blink {
+  0%, 100% { border-color: var(--color-text-primary); }
+  50% { border-color: transparent; }
+}
+
+/* Remove rounded corners globally for retro feel */
+input, select, textarea {
+  border-radius: 0 !important;
 }
