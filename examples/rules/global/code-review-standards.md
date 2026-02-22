@@ -4,6 +4,8 @@ category: style
 severity: warning
 modality: must
 tags: [review, pr, quality]
+stack: []
+scope: [all]
 ---
 
 # Code Review Standards

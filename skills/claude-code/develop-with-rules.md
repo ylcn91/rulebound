@@ -1,63 +1,55 @@
----
-name: develop-with-rules
-description: Develop features with Rulebound rule enforcement. Fetches matching rules before development, injects them as constraints, and validates before completing.
----
+# Develop with Rulebound Rules
 
-# Develop with Rules
+Use this workflow when starting any new feature, bugfix, or refactor.
 
-When invoked, follow this workflow:
+## Before Coding
 
-## 1. Gather Context
+1. **Find relevant rules for your task:**
+   ```bash
+   rulebound find-rules --task "YOUR TASK DESCRIPTION" --format inject
+   ```
+   This outputs rules formatted for your context. Read them carefully.
 
-Identify the task context from the current conversation:
-- What feature or change is being implemented?
-- What categories apply? (architecture, security, style, testing, performance)
+2. **Write your implementation plan**, then validate it:
+   ```bash
+   rulebound validate --plan "YOUR PLAN" 
+   ```
+   Or from a file:
+   ```bash
+   rulebound validate --file plan.md
+   ```
 
-## 2. Fetch Matching Rules
+3. **Review the validation report:**
+   - **PASS** — your plan addresses the rule
+   - **VIOLATED** — your plan contradicts a rule, fix before coding
+   - **NOT_COVERED** — rule exists but plan doesn't mention it, verify if applicable
 
-Run the Rulebound CLI to find applicable rules:
+4. **Adjust your plan** until validation passes, then start coding.
 
+## During Coding
+
+Follow the rules from step 1. When in doubt, run:
 ```bash
-rulebound find-rules --title "<task keywords>" --format json
+rulebound rules show <rule-id>
 ```
 
-If the task relates to a specific category:
+## After Coding
 
-```bash
-rulebound find-rules --category <category> --format json
-```
+1. **Validate your changes against rules:**
+   ```bash
+   rulebound diff
+   ```
 
-## 3. Inject Rules as Constraints
+2. **Fix any violations** before committing.
 
-For each returned rule, treat it as a hard constraint:
-- **error** severity: MUST be followed. Violation blocks completion.
-- **warning** severity: SHOULD be followed. Document any intentional deviation.
-- **info** severity: CONSIDER following. Note awareness.
+3. **Commit with confidence** — rules are satisfied.
 
-Display the active rules to the user before proceeding:
-```
-ACTIVE RULES FOR THIS TASK:
-- [ERROR] Rule Title — brief summary
-- [WARN]  Rule Title — brief summary
-```
+## Quick Reference
 
-## 4. Develop Following Rules
-
-Implement the feature while adhering to all active rules. Reference specific rules when making implementation decisions.
-
-## 5. Validate Before Completing
-
-Before marking the task as done, validate the implementation:
-
-```bash
-rulebound validate --file <plan-or-summary-file>
-```
-
-Or inline:
-
-```bash
-rulebound validate --plan "Summary of what was implemented: ..."
-```
-
-If validation returns any FAIL results, fix the issues before completing.
-Report the validation summary to the user.
+| Command | When to use |
+|---------|-------------|
+| `rulebound find-rules --task "..." --format inject` | Start of task — load relevant rules |
+| `rulebound validate --plan "..."` | Before coding — check your plan |
+| `rulebound diff` | After coding — check your changes |
+| `rulebound rules list` | See all available rules |
+| `rulebound rules show <id>` | Deep-dive into a specific rule |

@@ -4,6 +4,8 @@ category: architecture
 severity: warning
 modality: should
 tags: [react, nextjs, rsc, performance]
+stack: [react, typescript, nextjs]
+scope: [frontend]
 ---
 
 # Server Components by Default

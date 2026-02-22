@@ -4,6 +4,8 @@ category: security
 severity: error
 modality: must
 tags: [security, xss, injection, sanitization]
+stack: []
+scope: [all]
 ---
 
 # Input Sanitization

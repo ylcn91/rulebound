@@ -1,15 +1,16 @@
 import { execSync } from "node:child_process"
 import chalk from "chalk"
-import { findRulesDir, loadLocalRules, filterRules, validatePlanAgainstRules } from "../lib/local-rules.js"
-import { loadRulesWithInheritance } from "../lib/inheritance.js"
+import { findRulesDir, loadLocalRules, matchRulesByContext, validatePlanAgainstRules } from "../lib/local-rules.js"
+import { loadRulesWithInheritance, getProjectConfig } from "../lib/inheritance.js"
+import type { ValidationReport } from "../lib/local-rules.js"
 
 interface DiffOptions {
   dir?: string
   ref?: string
+  format?: string
 }
 
 export async function diffCommand(options: DiffOptions): Promise<void> {
-  // Get git diff
   const ref = options.ref ?? "HEAD"
   let diffText: string
 
@@ -17,7 +18,6 @@ export async function diffCommand(options: DiffOptions): Promise<void> {
     diffText = execSync(`git diff ${ref}`, { encoding: "utf-8" })
   } catch {
     try {
-      // Maybe it's the first commit
       diffText = execSync("git diff --cached", { encoding: "utf-8" })
     } catch {
       console.error(chalk.red("Failed to get git diff. Are you in a git repository?"))
@@ -31,14 +31,14 @@ export async function diffCommand(options: DiffOptions): Promise<void> {
   }
 
   // Load rules
-  let rules
+  let allRules
   if (options.dir) {
-    rules = loadLocalRules(options.dir)
+    allRules = loadLocalRules(options.dir)
   } else {
-    rules = loadRulesWithInheritance(process.cwd())
+    allRules = loadRulesWithInheritance(process.cwd())
   }
 
-  if (rules.length === 0) {
+  if (allRules.length === 0) {
     console.error(chalk.red("No rules found."))
     process.exit(1)
   }
@@ -52,53 +52,75 @@ export async function diffCommand(options: DiffOptions): Promise<void> {
 
   const filesChanged = diffText
     .split("\n")
-    .filter((l) => l.startsWith("+++ b/") || l.startsWith("--- a/"))
-    .map((l) => l.replace(/^[+-]{3} [ab]\//, ""))
-    .filter((v, i, a) => a.indexOf(v) === i)
+    .filter((l) => l.startsWith("+++ b/"))
+    .map((l) => l.replace(/^\+\+\+ b\//, ""))
+
+  // Smart context matching
+  const projectConfig = getProjectConfig(process.cwd())
+  const rules = matchRulesByContext(allRules, projectConfig, addedLines.slice(0, 2000))
 
   console.log()
-  console.log(chalk.white("DIFF VALIDATION"))
+  console.log(chalk.white.bold("DIFF VALIDATION"))
   console.log(chalk.dim(`Ref: ${ref}`))
-  console.log(chalk.dim(`Files: ${filesChanged.length} changed`))
-  console.log(chalk.dim("─".repeat(50)))
+  console.log(chalk.dim(`Files changed: ${filesChanged.length}`))
+
+  if (filesChanged.length > 0) {
+    for (const f of filesChanged.slice(0, 10)) {
+      console.log(chalk.dim(`  ${f}`))
+    }
+    if (filesChanged.length > 10) {
+      console.log(chalk.dim(`  ... and ${filesChanged.length - 10} more`))
+    }
+  }
+
+  // Validate diff content against rules
+  const report = validatePlanAgainstRules(addedLines, rules, `Diff against ${ref}`)
+
+  // JSON output
+  if (options.format === "json") {
+    console.log(JSON.stringify({ ...report, filesChanged }, null, 2))
+    if (report.status === "FAILED") process.exit(1)
+    return
+  }
+
+  console.log(chalk.dim("\u2500".repeat(50)))
   console.log()
 
-  // Find relevant rules based on diff content
-  const relevantRules = filterRules(rules, { task: addedLines.slice(0, 2000) })
+  // Only show non-PASS results for diff (more useful)
+  const actionable = report.results.filter((r) => r.status !== "PASS")
 
-  if (relevantRules.length === 0) {
-    console.log(chalk.green("No relevant rules for these changes."))
+  if (actionable.length === 0) {
+    console.log(chalk.green("  All changes comply with matched rules."))
+    console.log()
+    console.log(chalk.dim(`  ${report.results.length} rules checked, all passed.`))
     return
   }
 
-  // Validate
-  const { results, summary } = validatePlanAgainstRules(addedLines, relevantRules)
-  const relevant = results.filter((r) => r.status !== "PASS" || r.message !== "Rule not applicable to this plan.")
+  for (const item of actionable) {
+    const icon = item.status === "VIOLATED" ? chalk.red("\u2717") : chalk.yellow("\u25CB")
+    const statusTag = item.status === "VIOLATED" ? chalk.red(`[VIOLATED]`) : chalk.yellow(`[NOT COVERED]`)
+    const modTag = chalk.dim(`${item.modality.toUpperCase()}:`)
 
-  if (relevant.length === 0) {
-    console.log(chalk.green("All changes comply with rules."))
-    return
-  }
-
-  for (const item of relevant) {
-    const color = item.status === "PASS" ? chalk.green : item.status === "WARN" ? chalk.yellow : chalk.red
-    console.log(`  ${color(`[${item.status}]`)} ${chalk.dim(`[${item.modality.toUpperCase()}]`)} ${chalk.white(item.ruleTitle)}`)
-    console.log(chalk.dim(`    ${item.message}`))
+    console.log(`  ${icon} ${statusTag} ${modTag} ${chalk.white.bold(item.ruleTitle)}`)
+    console.log(chalk.dim(`    ${item.reason}`))
+    if (item.suggestedFix) {
+      console.log(chalk.yellow(`    \u2192 ${item.suggestedFix}`))
+    }
     console.log()
   }
 
-  console.log(chalk.dim("─".repeat(50)))
+  console.log(chalk.dim("\u2500".repeat(50)))
   console.log(
-    `  ${chalk.green(`Pass: ${summary.pass}`)}  ${chalk.yellow(`Warn: ${summary.warn}`)}  ${chalk.red(`Fail: ${summary.fail}`)}`
+    `  ${chalk.green(`${report.summary.pass} PASS`)} | ` +
+    `${chalk.red(`${report.summary.violated} VIOLATED`)} | ` +
+    `${chalk.yellow(`${report.summary.notCovered} NOT COVERED`)}`
   )
   console.log()
 
-  if (summary.fail > 0) {
-    console.log(chalk.red("FAILED — Review changes before committing."))
+  if (report.status === "FAILED") {
+    console.log(chalk.red.bold("FAILED \u2014 review changes before committing"))
     process.exit(1)
-  } else if (summary.warn > 0) {
-    console.log(chalk.yellow("PASSED with warnings."))
   } else {
-    console.log(chalk.green("PASSED."))
+    console.log(chalk.yellow("PASSED with warnings"))
   }
 }

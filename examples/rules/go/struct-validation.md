@@ -4,6 +4,8 @@ category: security
 severity: error
 modality: must
 tags: [go, validation, api]
+stack: [go]
+scope: [backend]
 ---
 
 # Struct Validation at Boundaries

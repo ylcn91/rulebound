@@ -4,6 +4,8 @@ category: architecture
 severity: error
 modality: must
 tags: [go, errors, handling]
+stack: [go]
+scope: [backend]
 ---
 
 # Go Error Handling

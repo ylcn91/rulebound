@@ -4,6 +4,8 @@ category: architecture
 severity: error
 modality: must
 tags: [errors, exceptions, logging]
+stack: []
+scope: [all]
 ---
 
 # Structured Error Handling

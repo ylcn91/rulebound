@@ -4,6 +4,8 @@ category: security
 severity: error
 modality: must
 tags: [secrets, env, credentials]
+stack: []
+scope: [all]
 ---
 
 # No Hardcoded Secrets

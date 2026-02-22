@@ -4,6 +4,8 @@ category: architecture
 severity: error
 modality: must
 tags: [spring, di, constructor, java]
+stack: [java, spring-boot]
+scope: [backend, api]
 ---
 
 # Constructor-Based Dependency Injection

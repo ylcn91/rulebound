@@ -4,6 +4,8 @@ category: security
 severity: error
 modality: must
 tags: [auth, rbac, security, api]
+stack: []
+scope: [all]
 ---
 
 # Authentication and Authorization

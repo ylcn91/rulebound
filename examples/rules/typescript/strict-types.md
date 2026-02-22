@@ -4,6 +4,8 @@ category: style
 severity: error
 modality: must
 tags: [typescript, types, strict]
+stack: [typescript, node]
+scope: [backend, frontend]
 ---
 
 # Strict TypeScript Types

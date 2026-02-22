@@ -49,12 +49,9 @@ function scoreRule(rule: { title: string; content: string; tags: string[]; modal
   }
 }
 
-function generateBadgeSvg(score: number): string {
+function generateBadgeUrl(score: number): string {
   const color = score >= 80 ? "%234c1" : score >= 60 ? "%23dfb317" : "%23e05d44"
-  const label = "rulebound"
-  const value = `${score}%`
-  // shields.io style static badge
-  return `https://img.shields.io/badge/${label}-${value}-${color}?style=flat-square&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48cmVjdCB3aWR0aD0iMTIiIGhlaWdodD0iMTQiIHg9IjIiIHk9IjEiIHJ4PSIxIiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjEuNSIvPjxsaW5lIHgxPSI1IiB5MT0iNSIgeDI9IjExIiB5Mj0iNSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxLjUiLz48bGluZSB4MT0iNSIgeTE9IjgiIHgyPSIxMSIgeTI9IjgiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMS41Ii8+PGxpbmUgeDE9IjUiIHkxPSIxMSIgeDI9IjkiIHkyPSIxMSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxLjUiLz48L3N2Zz4=`
+  return `https://img.shields.io/badge/rulebound-${score}%25-${color}?style=flat-square&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48cmVjdCB3aWR0aD0iMTIiIGhlaWdodD0iMTQiIHg9IjIiIHk9IjEiIHJ4PSIxIiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjEuNSIvPjxsaW5lIHgxPSI1IiB5MT0iNSIgeDI9IjExIiB5Mj0iNSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxLjUiLz48bGluZSB4MT0iNSIgeTE9IjgiIHgyPSIxMSIgeTI9IjgiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMS41Ii8+PGxpbmUgeDE9IjUiIHkxPSIxMSIgeDI9IjkiIHkyPSIxMSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxLjUiLz48L3N2Zz4=`
 }
 
 export async function scoreCommand(options: ScoreOptions): Promise<void> {
@@ -84,12 +81,15 @@ export async function scoreCommand(options: ScoreOptions): Promise<void> {
   const scoreColor = avgScore >= 80 ? chalk.green : avgScore >= 60 ? chalk.yellow : chalk.red
 
   console.log()
-  console.log(chalk.white("COMPLIANCE SCORE"))
-  console.log(chalk.dim("─".repeat(40)))
+  console.log(chalk.white("RULE QUALITY SCORE"))
+  console.log(chalk.dim("\u2500".repeat(40)))
   console.log()
   console.log(`  Score: ${scoreColor.bold(`${avgScore}/100`)}`)
   console.log(`  Rules: ${rules.length}`)
   console.log(`  Grade: ${avgScore >= 90 ? "A" : avgScore >= 80 ? "B" : avgScore >= 70 ? "C" : avgScore >= 60 ? "D" : "F"}`)
+  console.log()
+  console.log(chalk.dim("  This measures how well your rules are written,"))
+  console.log(chalk.dim("  not code compliance. Use 'validate' for that."))
   console.log()
 
   // Category breakdown
@@ -113,7 +113,7 @@ export async function scoreCommand(options: ScoreOptions): Promise<void> {
 
   // Badge
   if (options.badge !== false) {
-    const badgeUrl = generateBadgeSvg(avgScore)
+    const badgeUrl = generateBadgeUrl(avgScore)
     const badgeMarkdown = `[![Rulebound Score](${badgeUrl})](https://github.com/ylcn91/rulebound)`
 
     console.log(chalk.dim("  Badge (paste in README.md):"))

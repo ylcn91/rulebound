@@ -1,13 +1,15 @@
 import { readFileSync, existsSync } from "node:fs"
-import { resolve, dirname, join } from "node:path"
-import type { LocalRule } from "./local-rules.js"
+import { resolve } from "node:path"
+import type { LocalRule, ProjectConfig } from "./local-rules.js"
 import { loadLocalRules, findRulesDir } from "./local-rules.js"
 
-interface RuleboundConfig {
-  projectName?: string
+export interface RuleboundConfig {
+  project?: ProjectConfig & { name?: string }
   agents?: string[]
   rulesDir?: string
   extends?: string[]
+  // Legacy flat fields
+  projectName?: string
 }
 
 export function loadConfig(cwd: string): RuleboundConfig | null {
@@ -21,11 +23,23 @@ export function loadConfig(cwd: string): RuleboundConfig | null {
   }
 }
 
+export function getProjectConfig(cwd: string): ProjectConfig | null {
+  const config = loadConfig(cwd)
+  if (!config?.project) return null
+  return {
+    name: config.project.name,
+    stack: config.project.stack,
+    scope: config.project.scope,
+    team: config.project.team,
+  }
+}
+
 /**
  * Load rules with inheritance support.
  * 
  * Config example:
  * {
+ *   "project": { "name": "auth-service", "stack": ["java", "spring-boot"], "scope": ["backend"], "team": "backend" },
  *   "extends": ["../shared-rules/.rulebound/rules", "@company/rules"],
  *   "rulesDir": ".rulebound/rules"
  * }
@@ -70,11 +84,9 @@ function resolveExtendPath(cwd: string, extendPath: string): string | null {
   }
 
   // Package-style path (e.g., @company/rules)
-  // Look in node_modules
   const nmPath = resolve(cwd, "node_modules", extendPath, "rules")
   if (existsSync(nmPath)) return nmPath
 
-  // Also check .rulebound/rules inside the package
   const nmRuleboundPath = resolve(cwd, "node_modules", extendPath, ".rulebound", "rules")
   if (existsSync(nmRuleboundPath)) return nmRuleboundPath
 

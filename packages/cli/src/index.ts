@@ -28,26 +28,28 @@ program
 
 program
   .command("init")
-  .description("Initialize a .rulebound/rules/ directory with example rules")
+  .description("Initialize .rulebound/ with rules directory and config")
   .option("--examples", "Copy example rules to get started")
   .action(initCommand)
 
 program
   .command("find-rules")
-  .description("Find rules matching a task or criteria")
+  .description("Find and inject relevant rules for a task")
   .option("-t, --task <text>", "Describe the task to find relevant rules")
   .option("--title <title>", "Search by title")
   .option("-c, --category <category>", "Filter by category")
   .option("--tags <tags>", "Filter by tags (comma-separated)")
-  .option("-f, --format <format>", "Output format (table, json, inject)")
+  .option("--stack <stack>", "Filter by tech stack (comma-separated)")
+  .option("-f, --format <format>", "Output format: table, json, inject")
   .option("-d, --dir <path>", "Path to rules directory")
   .action(findRulesCommand)
 
 program
   .command("validate")
-  .description("Validate a task plan against rules")
+  .description("Validate an implementation plan against matched rules")
   .option("-p, --plan <text>", "Plan text to validate")
   .option("--file <path>", "Path to plan file")
+  .option("-f, --format <format>", "Output format: pretty, json")
   .option("-d, --dir <path>", "Path to rules directory")
   .action(validateCommand)
 
@@ -55,20 +57,22 @@ program
   .command("generate")
   .description("Generate agent config files (CLAUDE.md, .cursor/rules.md, copilot-instructions.md)")
   .option("-a, --agent <agent>", "Agent type: claude-code, cursor, copilot, all (default: all)")
+  .option("-t, --task <text>", "Only include rules relevant to this task")
   .option("-d, --dir <path>", "Path to rules directory")
   .option("-o, --output <path>", "Output directory (default: current dir)")
   .action(generateCommand)
 
 program
   .command("diff")
-  .description("Validate git diff against rules")
+  .description("Validate git diff against rules before merge")
   .option("--ref <ref>", "Git ref to diff against (default: HEAD)")
+  .option("-f, --format <format>", "Output format: pretty, json")
   .option("-d, --dir <path>", "Path to rules directory")
   .action(diffCommand)
 
 program
   .command("score")
-  .description("Calculate compliance score and generate badge")
+  .description("Calculate rule quality score and generate badge")
   .option("-d, --dir <path>", "Path to rules directory")
   .option("--no-badge", "Skip badge generation")
   .option("-o, --output <path>", "Save badge markdown to file")
@@ -84,7 +88,7 @@ const rulesCmd = program.command("rules").description("Manage rules")
 
 rulesCmd
   .command("list")
-  .description("List all rules")
+  .description("List all rules with metadata")
   .option("-d, --dir <path>", "Path to rules directory")
   .action(listRulesCommand)
 

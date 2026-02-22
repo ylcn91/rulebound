@@ -4,6 +4,8 @@ category: testing
 severity: error
 modality: must
 tags: [testing, coverage, ci]
+stack: []
+scope: [all]
 ---
 
 # Testing Requirements

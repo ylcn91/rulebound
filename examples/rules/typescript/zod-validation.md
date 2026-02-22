@@ -4,6 +4,8 @@ category: security
 severity: error
 modality: must
 tags: [zod, validation, input, api]
+stack: [typescript, node]
+scope: [backend, frontend]
 ---
 
 # Zod Schema Validation

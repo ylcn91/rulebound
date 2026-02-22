@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, cpSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { resolve, join } from "node:path"
 import chalk from "chalk"
 
@@ -6,9 +6,22 @@ interface InitOptions {
   examples?: boolean
 }
 
+const CONFIG_TEMPLATE = `{
+  "project": {
+    "name": "",
+    "stack": [],
+    "scope": [],
+    "team": ""
+  },
+  "extends": [],
+  "rulesDir": ".rulebound/rules"
+}
+`
+
 export async function initCommand(options: InitOptions): Promise<void> {
   const cwd = process.cwd()
   const rulesDir = resolve(cwd, ".rulebound", "rules")
+  const configPath = resolve(cwd, ".rulebound", "config.json")
 
   if (existsSync(rulesDir)) {
     console.log(chalk.yellow(`Rules directory already exists: ${rulesDir}`))
@@ -19,14 +32,19 @@ export async function initCommand(options: InitOptions): Promise<void> {
   mkdirSync(rulesDir, { recursive: true })
   console.log(chalk.white(`Created ${rulesDir}`))
 
+  // Create config.json
+  if (!existsSync(configPath)) {
+    writeFileSync(configPath, CONFIG_TEMPLATE)
+    console.log(chalk.white(`Created ${configPath}`))
+  }
+
   if (options.examples) {
-    // Try to find the examples directory relative to the package
     const examplesDir = findExamplesDir()
     if (examplesDir) {
+      const { cpSync } = await import("node:fs")
       cpSync(examplesDir, rulesDir, { recursive: true })
       console.log(chalk.white("Copied example rules."))
     } else {
-      // Create a starter rule
       createStarterRule(rulesDir)
     }
   } else {
@@ -37,14 +55,14 @@ export async function initCommand(options: InitOptions): Promise<void> {
   console.log(chalk.white("Rulebound initialized."))
   console.log()
   console.log(chalk.dim("  Next steps:"))
-  console.log(chalk.dim("  1. Add rules as markdown files in .rulebound/rules/"))
-  console.log(chalk.dim("  2. Run: rulebound rules list"))
-  console.log(chalk.dim("  3. Run: rulebound find-rules --task \"your task\""))
-  console.log(chalk.dim("  4. Run: rulebound validate --plan \"your plan\""))
+  console.log(chalk.dim("  1. Edit .rulebound/config.json with your project info (stack, scope, team)"))
+  console.log(chalk.dim("  2. Add rules as markdown files in .rulebound/rules/"))
+  console.log(chalk.dim("  3. Run: rulebound rules list"))
+  console.log(chalk.dim("  4. Run: rulebound generate --agent claude-code"))
+  console.log(chalk.dim("  5. Run: rulebound validate --plan \"your plan\""))
 }
 
 function findExamplesDir(): string | null {
-  // Walk up to find the monorepo root with examples/
   let dir = process.cwd()
   for (let i = 0; i < 10; i++) {
     const candidate = join(dir, "examples", "rules")
@@ -63,6 +81,8 @@ category: style
 severity: warning
 modality: should
 tags: [example, starter]
+stack: []
+scope: []
 ---
 
 # Example Rule
@@ -77,11 +97,11 @@ This is a starter rule. Replace it with your team's standards.
 
 ## Good Example
 
-\\\`\\\`\\\`typescript
+\`\`\`typescript
 function calculateOrderTotal(items: OrderItem[]): number {
   return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 }
-\\\`\\\`\\\`
+\`\`\`
 `
 
   const globalDir = join(rulesDir, "global")

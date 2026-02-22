@@ -4,6 +4,8 @@ category: architecture
 severity: warning
 modality: must
 tags: [spring, dto, api, java]
+stack: [java, spring-boot]
+scope: [backend, api]
 ---
 
 # DTO Pattern for API Layer

@@ -1,18 +1,66 @@
 import { readFileSync } from "node:fs"
 import chalk from "chalk"
-import { findRulesDir, loadLocalRules, validatePlanAgainstRules } from "../lib/local-rules.js"
-import { loadRulesWithInheritance } from "../lib/inheritance.js"
+import { findRulesDir, loadLocalRules, validatePlanAgainstRules, matchRulesByContext } from "../lib/local-rules.js"
+import { loadRulesWithInheritance, getProjectConfig } from "../lib/inheritance.js"
+import type { ValidationReport } from "../lib/local-rules.js"
 
 interface ValidateOptions {
   plan?: string
   file?: string
   dir?: string
+  format?: string
 }
 
-const STATUS_DISPLAY: Record<string, { color: (s: string) => string }> = {
-  PASS: { color: chalk.green },
-  WARN: { color: chalk.yellow },
-  FAIL: { color: chalk.red },
+const STATUS_ICONS: Record<string, { icon: string; color: (s: string) => string }> = {
+  PASS: { icon: "\u2713", color: chalk.green },
+  VIOLATED: { icon: "\u2717", color: chalk.red },
+  NOT_COVERED: { icon: "\u25CB", color: chalk.yellow },
+}
+
+function printReport(report: ValidationReport): void {
+  console.log()
+  console.log(chalk.white.bold("VALIDATION REPORT"))
+  console.log(chalk.white("\u2550".repeat(62)))
+  console.log()
+  console.log(chalk.dim(`  Task: ${report.task}`))
+  console.log(chalk.dim(`  Rules matched: ${report.rulesMatched} of ${report.rulesTotal}`))
+  console.log(chalk.dim("\u2500".repeat(62)))
+  console.log()
+
+  for (const item of report.results) {
+    const display = STATUS_ICONS[item.status] ?? STATUS_ICONS.NOT_COVERED
+    const modalityTag = item.modality.toUpperCase()
+    const statusTag = display.color(`[${item.status}]`)
+
+    console.log(`  ${display.color(display.icon)} ${statusTag} ${chalk.dim(`${modalityTag}:`)} ${chalk.white.bold(item.ruleTitle)}`)
+    console.log(chalk.dim(`    ${item.reason}`))
+
+    if (item.suggestedFix) {
+      console.log(chalk.yellow(`    \u2192 ${item.suggestedFix}`))
+    }
+
+    console.log()
+  }
+
+  console.log(chalk.dim("\u2500".repeat(62)))
+  console.log(
+    `  ${chalk.green(`${report.summary.pass} PASS`)} | ` +
+    `${chalk.red(`${report.summary.violated} VIOLATED`)} | ` +
+    `${chalk.yellow(`${report.summary.notCovered} NOT COVERED`)}`
+  )
+  console.log()
+
+  switch (report.status) {
+    case "FAILED":
+      console.log(chalk.red.bold("FAILED \u2014 resolve violations before proceeding"))
+      break
+    case "PASSED_WITH_WARNINGS":
+      console.log(chalk.yellow("PASSED with warnings \u2014 review NOT COVERED rules"))
+      break
+    case "PASSED":
+      console.log(chalk.green.bold("PASSED \u2014 all rules satisfied"))
+      break
+  }
 }
 
 export async function validateCommand(options: ValidateOptions): Promise<void> {
@@ -34,65 +82,37 @@ export async function validateCommand(options: ValidateOptions): Promise<void> {
   }
 
   // Load rules (with inheritance support)
-  let rules
-
+  let allRules
   if (options.dir) {
-    rules = loadLocalRules(options.dir)
+    allRules = loadLocalRules(options.dir)
   } else {
-    rules = loadRulesWithInheritance(process.cwd())
+    allRules = loadRulesWithInheritance(process.cwd())
   }
 
-  if (rules.length === 0) {
+  if (allRules.length === 0) {
     console.error(chalk.red("No rules found."))
     console.error(chalk.dim("Run 'rulebound init' to create rules, or use --dir <path>."))
     process.exit(1)
   }
 
+  // Smart context matching
+  const projectConfig = getProjectConfig(process.cwd())
+  const rules = matchRulesByContext(allRules, projectConfig, planText)
+
   // Validate
-  const { results, summary } = validatePlanAgainstRules(planText, rules)
+  const report = validatePlanAgainstRules(planText, rules, planText.slice(0, 100))
 
-  // Display results
-  console.log()
-  console.log(chalk.white("VALIDATION REPORT"))
-  console.log(chalk.dim("─".repeat(60)))
-  console.log()
-
-  // Show only relevant results (non-PASS or applicable)
-  const relevant = results.filter((r) => r.status !== "PASS" || r.message !== "Rule not applicable to this plan.")
-
-  if (relevant.length === 0) {
-    console.log(chalk.dim("  No rules matched this plan."))
-  } else {
-    for (const item of relevant) {
-      const display = STATUS_DISPLAY[item.status] ?? STATUS_DISPLAY.WARN
-      const statusTag = display.color(`[${item.status}]`)
-      const modTag = chalk.dim(`[${item.modality.toUpperCase()}]`)
-
-      console.log(`  ${statusTag} ${modTag} ${chalk.white(item.ruleTitle)}`)
-      console.log(chalk.dim(`    ${item.message}`))
-      console.log()
-    }
+  // JSON output
+  if (options.format === "json") {
+    console.log(JSON.stringify(report, null, 2))
+    if (report.status === "FAILED") process.exit(1)
+    return
   }
 
-  console.log(chalk.dim("─".repeat(60)))
-  console.log(
-    `  Total: ${summary.total}  ` +
-      chalk.green(`Pass: ${summary.pass}`) +
-      "  " +
-      chalk.yellow(`Warn: ${summary.warn}`) +
-      "  " +
-      chalk.red(`Fail: ${summary.fail}`)
-  )
-  console.log()
+  // Pretty print
+  printReport(report)
 
-  if (summary.fail > 0) {
-    console.log(chalk.red("FAILED — Fix failing rules before proceeding."))
+  if (report.status === "FAILED") {
     process.exit(1)
-  }
-
-  if (summary.warn > 0) {
-    console.log(chalk.yellow("PASSED with warnings."))
-  } else {
-    console.log(chalk.green("PASSED — All rules satisfied."))
   }
 }

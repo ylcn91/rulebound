@@ -4,6 +4,8 @@ category: architecture
 severity: error
 modality: must
 tags: [spring, exceptions, rest, java]
+stack: [java, spring-boot]
+scope: [backend, api]
 ---
 
 # Global Exception Handling

@@ -1,67 +1,63 @@
----
-name: validate-rules
-description: Validate a spec, plan, or PR against Rulebound rules. Reports PASS/WARN/FAIL per rule.
----
+# Validate with Rulebound Rules
 
-# Validate Rules
+Use this workflow to check existing work (your code or someone else's) against engineering rules.
 
-When invoked, validate the current work against the project's Rulebound rules.
-
-## 1. Identify What to Validate
-
-Determine the validation target from context:
-- A spec or plan document (file path or inline text)
-- A PR description or diff
-- A summary of recent changes
-
-## 2. Fetch All Applicable Rules
+## Validate a Plan or Spec
 
 ```bash
-rulebound find-rules --format json
+# Inline text
+rulebound validate --plan "Add REST API endpoint for user registration with email/password"
+
+# From file
+rulebound validate --file spec.md
+
+# JSON output (for programmatic use)
+rulebound validate --plan "..." --format json
 ```
 
-If the scope is known, narrow by category:
+## Validate Code Changes
 
 ```bash
-rulebound find-rules --category security --format json
+# Check uncommitted changes against HEAD
+rulebound diff
+
+# Check against a specific ref
+rulebound diff --ref origin/main
+
+# JSON output
+rulebound diff --format json
 ```
 
-## 3. Run Validation
+## Understanding the Report
 
-If a file exists:
+Each rule gets one of three statuses:
+
+| Status | Icon | Meaning |
+|--------|------|---------|
+| **PASS** | ✓ | Work addresses the rule correctly |
+| **VIOLATED** | ✗ | Work contradicts a mandatory rule — must fix |
+| **NOT_COVERED** | ○ | Rule exists but not addressed — verify manually |
+
+**Exit codes:**
+- `0` — all rules passed (or passed with warnings)
+- `1` — at least one MUST rule violated
+
+## Check Rule Quality
 
 ```bash
-rulebound validate --file <path-to-spec-or-plan>
+# How well are your rules written?
+rulebound rules lint
+
+# Overall score
+rulebound score
 ```
 
-If working with inline content, create a temporary summary and validate:
+## CI Integration
 
-```bash
-rulebound validate --plan "Description of changes: ..."
+Add to your GitHub Actions workflow:
+```yaml
+- name: Validate against rules
+  run: |
+    npx rulebound diff --ref origin/main
+    npx rulebound score
 ```
-
-## 4. Report Results
-
-Display results in a structured format:
-
-```
-RULE VALIDATION REPORT
-──────────────────────────────────────
-[PASS] Rule Title
-  Plan addresses: keyword1, keyword2.
-
-[WARN] Rule Title
-  Plan partially addresses rule. Consider reviewing.
-
-[FAIL] Rule Title
-  Plan does not address required rule.
-──────────────────────────────────────
-Summary: 5 total | 3 pass | 1 warn | 1 fail
-```
-
-## 5. Recommend Actions
-
-For each FAIL or WARN:
-- Explain what the rule requires
-- Suggest specific changes to achieve compliance
-- Reference the rule ID for the user to inspect: `rulebound rules show <id>`

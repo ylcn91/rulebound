@@ -1,75 +1,79 @@
 import chalk from "chalk"
-import { findRulesDir, loadLocalRules } from "../lib/local-rules.js"
+import { findRulesDir, loadLocalRules, type LocalRule } from "../lib/local-rules.js"
+import { loadRulesWithInheritance } from "../lib/inheritance.js"
 
 interface ListOptions {
   dir?: string
 }
 
-const SEVERITY_COLORS: Record<string, (text: string) => string> = {
-  error: chalk.red,
-  warning: chalk.yellow,
-  info: chalk.blue,
+interface ShowOptions {
+  dir?: string
+}
+
+const MODALITY_LABELS: Record<string, string> = {
+  must: "MUST",
+  should: "SHOULD",
+  may: "MAY",
 }
 
 export async function listRulesCommand(options: ListOptions): Promise<void> {
-  const rulesDir = options.dir ?? findRulesDir(process.cwd())
+  let rules: LocalRule[]
 
-  if (!rulesDir) {
-    console.error(chalk.red("No rules directory found."))
-    console.error(chalk.dim("Run 'rulebound init' to create one, or use --dir <path>."))
+  if (options.dir) {
+    rules = loadLocalRules(options.dir)
+  } else {
+    rules = loadRulesWithInheritance(process.cwd())
+  }
+
+  if (rules.length === 0) {
+    console.error(chalk.red("No rules found."))
+    console.error(chalk.dim("Run 'rulebound init' to create rules, or use --dir <path>."))
     process.exit(1)
   }
 
-  const rules = loadLocalRules(rulesDir)
-
-  if (rules.length === 0) {
-    console.log(chalk.dim("No rules found."))
-    return
+  // Header
+  const cols = {
+    id: 30,
+    category: 14,
+    severity: 10,
+    mode: 8,
+    stack: 20,
+    title: 30,
   }
 
-  const idWidth = 30
-  const catWidth = 14
-  const sevWidth = 10
-  const modWidth = 8
-
-  const header = chalk.dim(
-    "ID".padEnd(idWidth) +
-      "CATEGORY".padEnd(catWidth) +
-      "SEVERITY".padEnd(sevWidth) +
-      "MODE".padEnd(modWidth) +
-      "TITLE"
+  console.log(
+    chalk.dim(
+      `${"ID".padEnd(cols.id)}${"CATEGORY".padEnd(cols.category)}${"SEVERITY".padEnd(cols.severity)}${"MODE".padEnd(cols.mode)}${"STACK".padEnd(cols.stack)}TITLE`
+    )
   )
-
-  console.log(header)
-  console.log(chalk.dim("─".repeat(80)))
+  console.log(chalk.dim("\u2500".repeat(112)))
 
   for (const rule of rules) {
-    const colorFn = SEVERITY_COLORS[rule.severity] ?? chalk.white
-    const shortId = rule.id.length > idWidth - 2 ? rule.id.slice(0, idWidth - 4) + "..." : rule.id
+    const id = rule.id.length > cols.id - 1 ? rule.id.slice(0, cols.id - 4) + "..." : rule.id
+    const mode = MODALITY_LABELS[rule.modality] ?? "SHOULD"
+    const stack = rule.stack.length > 0 ? rule.stack.join(", ") : chalk.dim("global")
+    const stackStr = stack.length > cols.stack - 1 ? stack.slice(0, cols.stack - 4) + "..." : stack
 
     console.log(
-      chalk.dim(shortId.padEnd(idWidth)) +
-        chalk.dim(rule.category.padEnd(catWidth)) +
-        colorFn(rule.severity.padEnd(sevWidth)) +
-        chalk.dim(rule.modality.toUpperCase().padEnd(modWidth)) +
-        chalk.white(rule.title)
+      `${id.padEnd(cols.id)}${rule.category.padEnd(cols.category)}${rule.severity.padEnd(cols.severity)}${mode.padEnd(cols.mode)}${stackStr.padEnd(cols.stack)}${rule.title}`
     )
   }
 
+  const rulesDir = options.dir ?? findRulesDir(process.cwd()) ?? ".rulebound/rules"
   console.log()
-  console.log(chalk.dim(`${rules.length} rule${rules.length === 1 ? "" : "s"} total from ${rulesDir}`))
+  console.log(chalk.dim(`${rules.length} rules total from ${rulesDir}`))
 }
 
-export async function showRuleCommand(id: string, options: ListOptions): Promise<void> {
-  const rulesDir = options.dir ?? findRulesDir(process.cwd())
+export async function showRuleCommand(id: string, options: ShowOptions): Promise<void> {
+  let rules: LocalRule[]
 
-  if (!rulesDir) {
-    console.error(chalk.red("No rules directory found."))
-    process.exit(1)
+  if (options.dir) {
+    rules = loadLocalRules(options.dir)
+  } else {
+    rules = loadRulesWithInheritance(process.cwd())
   }
 
-  const rules = loadLocalRules(rulesDir)
-  const rule = rules.find((r) => r.id === id || r.filePath.includes(id))
+  const rule = rules.find((r) => r.id === id)
 
   if (!rule) {
     console.error(chalk.red(`Rule not found: ${id}`))
@@ -77,27 +81,25 @@ export async function showRuleCommand(id: string, options: ListOptions): Promise
     process.exit(1)
   }
 
-  const colorFn = SEVERITY_COLORS[rule.severity] ?? chalk.white
-
   console.log()
   console.log(chalk.white("RULE DETAIL"))
-  console.log(chalk.dim("─".repeat(60)))
+  console.log(chalk.dim("\u2500".repeat(60)))
   console.log()
   console.log(`  ${chalk.dim("ID:")}       ${rule.id}`)
-  console.log(`  ${chalk.dim("Title:")}    ${chalk.white.bold(rule.title)}`)
+  console.log(`  ${chalk.dim("Title:")}    ${rule.title}`)
   console.log(`  ${chalk.dim("File:")}     ${rule.filePath}`)
   console.log(`  ${chalk.dim("Category:")} ${rule.category}`)
-  console.log(`  ${chalk.dim("Severity:")} ${colorFn(rule.severity)}`)
-  console.log(`  ${chalk.dim("Modality:")} ${rule.modality.toUpperCase()}`)
-
-  if (rule.tags.length > 0) {
-    console.log(`  ${chalk.dim("Tags:")}     ${rule.tags.join(", ")}`)
+  console.log(`  ${chalk.dim("Severity:")} ${rule.severity}`)
+  console.log(`  ${chalk.dim("Modality:")} ${MODALITY_LABELS[rule.modality] ?? rule.modality}`)
+  console.log(`  ${chalk.dim("Tags:")}     ${rule.tags.join(", ") || chalk.dim("none")}`)
+  console.log(`  ${chalk.dim("Stack:")}    ${rule.stack.join(", ") || chalk.dim("global")}`)
+  console.log(`  ${chalk.dim("Scope:")}    ${rule.scope.join(", ") || chalk.dim("all")}`)
+  if (rule.team.length > 0) {
+    console.log(`  ${chalk.dim("Team:")}     ${rule.team.join(", ")}`)
   }
-
   console.log()
-  console.log(chalk.dim("CONTENT"))
-  console.log(chalk.dim("─".repeat(60)))
+  console.log(chalk.white("CONTENT"))
+  console.log(chalk.dim("\u2500".repeat(60)))
   console.log()
   console.log(rule.content)
-  console.log()
 }

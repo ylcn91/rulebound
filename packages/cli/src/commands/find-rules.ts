@@ -7,6 +7,7 @@ interface FindRulesOptions {
   title?: string
   category?: string
   tags?: string
+  stack?: string
   format?: string
   dir?: string
 }
@@ -41,6 +42,7 @@ export async function findRulesCommand(options: FindRulesOptions): Promise<void>
     title: options.title,
     category: options.category,
     tags: options.tags,
+    stack: options.stack,
     task: options.task,
   })
 
