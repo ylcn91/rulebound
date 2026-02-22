@@ -252,21 +252,36 @@ Use the CLI in your CI/CD pipeline:
 
 ## Development
 
+### Prerequisites
+
+- **Node.js** 22+
+- **pnpm** 10+
+- **PostgreSQL** 17 (only for web dashboard — CLI works without it)
+
+### CLI Only (no database needed)
+
 ```bash
-# Clone
 git clone https://github.com/ylcn91/rulebound.git
 cd rulebound
-
-# Install dependencies
 pnpm install
-
-# Build CLI
 pnpm --filter @rulebound/cli build
-
-# Run CLI locally
 node packages/cli/dist/index.js --help
+```
 
-# Start web dashboard (development)
+### Web Dashboard (requires PostgreSQL)
+
+```bash
+# Create database
+createdb rulebound
+
+# Copy env and set your DATABASE_URL
+cp apps/web/.env.example apps/web/.env.local
+# Edit .env.local: DATABASE_URL=postgresql://user:pass@localhost:5432/rulebound
+
+# Push schema
+pnpm --filter web db:push
+
+# Start dev server
 pnpm --filter web dev
 ```
 
