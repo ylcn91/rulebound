@@ -1,0 +1,14 @@
+{
+  "name": "@rulebound/shared",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/types.ts"
+    }
+  },
+  "files": ["src"],
+  "devDependencies": {
+    "typescript": "^5.7"
+  }
+}
