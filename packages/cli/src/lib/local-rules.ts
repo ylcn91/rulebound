@@ -196,15 +196,12 @@ export function matchRulesByContext(
     const taskWords = taskLower.split(/\s+/).filter((w) => w.length > 3)
 
     matched = matched.filter(({ rule }) => {
-      const ruleText = `${rule.title} ${rule.tags.join(" ")} ${rule.category} ${rule.stack.join(" ")}`.toLowerCase()
-      // Global rules always pass, context-matched rules always pass
-      // Only apply task filter to further narrow
       const hasContextMatch = rule.stack.length > 0 || rule.scope.length > 0
-      if (!hasContextMatch) {
-        // For global rules, check if task is somewhat related
-        return taskWords.some((word) => ruleText.includes(word)) || rule.scope.length === 0
-      }
-      return true
+      if (hasContextMatch) return true
+
+      // Global rules: filter by task relevance
+      const ruleText = `${rule.title} ${rule.tags.join(" ")} ${rule.category} ${rule.stack.join(" ")}`.toLowerCase()
+      return taskWords.some((word) => ruleText.includes(word))
     })
   }
 

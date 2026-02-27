@@ -11,6 +11,7 @@ import { generateCommand } from "./commands/generate.js"
 import { diffCommand } from "./commands/diff.js"
 import { scoreCommand } from "./commands/score.js"
 import { hookCommand } from "./commands/hook.js"
+import { enforceCommand } from "./commands/enforce.js"
 
 const require = createRequire(import.meta.url)
 const pkg = require("../package.json") as { version: string }
@@ -83,6 +84,13 @@ program
   .description("Install/remove pre-commit git hook")
   .option("--remove", "Remove the pre-commit hook")
   .action(hookCommand)
+
+program
+  .command("enforce")
+  .description("View or update enforcement mode (advisory, moderate, strict)")
+  .option("-m, --mode <mode>", "Set enforcement mode: advisory, moderate, strict")
+  .option("-t, --threshold <number>", "Set score threshold (0-100)")
+  .action(enforceCommand)
 
 const rulesCmd = program.command("rules").description("Manage rules")
 
