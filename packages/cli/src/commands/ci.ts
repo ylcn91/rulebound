@@ -1,10 +1,10 @@
-import { execSync } from "node:child_process"
+import { execFileSync } from "node:child_process"
 import chalk from "chalk"
 import {
   loadLocalRules,
   matchRulesByContext,
-  validatePlanAgainstRules,
 } from "../lib/local-rules.js"
+import { validateWithPipeline } from "../lib/validation.js"
 import type { ValidationResult, ValidationReport } from "../lib/local-rules.js"
 import { loadRulesWithInheritance, getProjectConfig, loadConfig } from "../lib/inheritance.js"
 import { shouldBlock, DEFAULT_ENFORCEMENT, type EnforcementConfig } from "../lib/enforcement.js"
@@ -29,7 +29,7 @@ export function formatGitHubAnnotation(result: ValidationResult): string {
   }
 
   if (result.status === "VIOLATED") {
-    return `::error::MUST violation: ${result.ruleTitle} - ${result.reason}`
+    return `::error::${result.modality.toUpperCase()} violation: ${result.ruleTitle} - ${result.reason}`
   }
 
   // NOT_COVERED
@@ -37,12 +37,18 @@ export function formatGitHubAnnotation(result: ValidationResult): string {
   return `::warning::${modality}: ${result.ruleTitle} - ${result.reason}`
 }
 
+const SAFE_REF_PATTERN = /^[a-zA-Z0-9._\-/]+$/
+
 function getDiff(base: string): string {
+  if (!SAFE_REF_PATTERN.test(base)) {
+    throw new Error(`Invalid base ref: "${base}". Only alphanumeric, '.', '_', '-', '/' allowed.`)
+  }
+
   try {
-    return execSync(`git diff origin/${base}...HEAD`, { encoding: "utf-8" })
+    return execFileSync("git", ["diff", `origin/${base}...HEAD`], { encoding: "utf-8" })
   } catch {
     try {
-      return execSync(`git diff ${base}...HEAD`, { encoding: "utf-8" })
+      return execFileSync("git", ["diff", `${base}...HEAD`], { encoding: "utf-8" })
     } catch {
       throw new Error(`Failed to get git diff against base "${base}". Are you in a git repository?`)
     }
@@ -253,8 +259,13 @@ export async function ciCommand(options: CiOptions): Promise<void> {
     process.exit(0)
   }
 
-  // Validate
-  const report = validatePlanAgainstRules(addedLines, rules, `CI diff against ${base}`)
+  // Validate using the full pipeline (keyword + semantic + optional LLM)
+  const report = await validateWithPipeline({
+    plan: addedLines,
+    rules,
+    task: `CI diff against ${base}`,
+    useLlm: options.llm,
+  })
 
   // Calculate score and enforcement
   const score = calculateScore(report)
@@ -262,7 +273,10 @@ export async function ciCommand(options: CiOptions): Promise<void> {
   const hasMustViolation = report.results.some(
     (r) => r.status === "VIOLATED" && r.modality === "must"
   )
-  const blocked = shouldBlock(enforcement, { hasMustViolation, score })
+  const hasShouldViolation = report.results.some(
+    (r) => r.status === "VIOLATED" && r.modality === "should"
+  )
+  const blocked = shouldBlock(enforcement, { hasMustViolation, hasShouldViolation, score })
 
   // Output
   switch (format) {

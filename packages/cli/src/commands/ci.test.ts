@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest"
 import { formatGitHubAnnotation } from "./ci.js"
 
 describe("formatGitHubAnnotation", () => {
-  it("formats VIOLATED as error annotation", () => {
+  it("formats VIOLATED MUST as error annotation", () => {
     const annotation = formatGitHubAnnotation({
       ruleId: "global.no-secrets",
       ruleTitle: "No Hardcoded Secrets",
@@ -12,6 +12,18 @@ describe("formatGitHubAnnotation", () => {
       reason: "Plan mentions hardcoded key",
     })
     expect(annotation).toBe("::error::MUST violation: No Hardcoded Secrets - Plan mentions hardcoded key")
+  })
+
+  it("formats VIOLATED SHOULD with correct modality", () => {
+    const annotation = formatGitHubAnnotation({
+      ruleId: "global.testing",
+      ruleTitle: "Unit Test Coverage",
+      severity: "warning",
+      modality: "should",
+      status: "VIOLATED",
+      reason: "No tests for new module",
+    })
+    expect(annotation).toBe("::error::SHOULD violation: Unit Test Coverage - No tests for new module")
   })
 
   it("formats NOT_COVERED as warning annotation", () => {

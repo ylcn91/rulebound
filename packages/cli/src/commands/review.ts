@@ -64,34 +64,20 @@ async function runAgentValidation(
 
   let matchResults: readonly MatchResult[]
 
-  if (useLlm) {
-    try {
-      const { validateWithPipeline } = await import("../lib/validation.js")
-      const report = await validateWithPipeline({
-        plan: planText,
-        rules: contextRules,
-        task: planText.slice(0, 100),
-        useLlm: true,
-      })
-      matchResults = convertValidationToMatchResults(report)
-    } catch {
-      const report = validatePlanAgainstRules(planText, contextRules, planText.slice(0, 100))
-      matchResults = convertValidationToMatchResults(report)
-    }
-  } else {
-    try {
-      const { validateWithPipeline } = await import("../lib/validation.js")
-      const report = await validateWithPipeline({
-        plan: planText,
-        rules: contextRules,
-        task: planText.slice(0, 100),
-        useLlm: false,
-      })
-      matchResults = convertValidationToMatchResults(report)
-    } catch {
-      const report = validatePlanAgainstRules(planText, contextRules, planText.slice(0, 100))
-      matchResults = convertValidationToMatchResults(report)
-    }
+  try {
+    const { validateWithPipeline } = await import("../lib/validation.js")
+    const report = await validateWithPipeline({
+      plan: planText,
+      rules: contextRules,
+      task: planText.slice(0, 100),
+      useLlm,
+    })
+    matchResults = convertValidationToMatchResults(report)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.warn(chalk.yellow(`Pipeline fallback: ${message}`))
+    const report = validatePlanAgainstRules(planText, contextRules, planText.slice(0, 100))
+    matchResults = convertValidationToMatchResults(report)
   }
 
   return {

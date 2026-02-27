@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process"
+import { execFileSync } from "node:child_process"
 import chalk from "chalk"
 import { loadLocalRules, matchRulesByContext } from "../lib/local-rules.js"
 import { loadRulesWithInheritance, getProjectConfig } from "../lib/inheritance.js"
@@ -12,15 +12,22 @@ interface DiffOptions {
   llm?: boolean
 }
 
+const SAFE_REF_PATTERN = /^[a-zA-Z0-9._\-/~^]+$/
+
 export async function diffCommand(options: DiffOptions): Promise<void> {
   const ref = options.ref ?? "HEAD"
   let diffText: string
 
+  if (!SAFE_REF_PATTERN.test(ref)) {
+    console.error(chalk.red(`Invalid ref: "${ref}". Only alphanumeric, '.', '_', '-', '/', '~', '^' allowed.`))
+    process.exit(1)
+  }
+
   try {
-    diffText = execSync(`git diff ${ref}`, { encoding: "utf-8" })
+    diffText = execFileSync("git", ["diff", ref], { encoding: "utf-8" })
   } catch {
     try {
-      diffText = execSync("git diff --cached", { encoding: "utf-8" })
+      diffText = execFileSync("git", ["diff", "--cached"], { encoding: "utf-8" })
     } catch {
       console.error(chalk.red("Failed to get git diff. Are you in a git repository?"))
       process.exit(1)

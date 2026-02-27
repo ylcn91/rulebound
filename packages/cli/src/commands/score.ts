@@ -15,7 +15,7 @@ interface RuleScore {
   clarity: number
 }
 
-function scoreRule(rule: { title: string; content: string; tags: string[]; modality: string }): RuleScore {
+function scoreRule(rule: { title: string; content: string; tags: readonly string[]; modality: string }): RuleScore {
   const bulletPoints = rule.content.match(/^- /gm)?.length ?? 0
   const headingCount = rule.content.match(/^## /gm)?.length ?? 0
   const contentLower = rule.content.toLowerCase()

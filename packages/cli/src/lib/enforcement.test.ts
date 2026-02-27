@@ -31,4 +31,14 @@ describe("shouldBlock", () => {
     const config: EnforcementConfig = { mode: "strict", scoreThreshold: 70, autoPromote: false }
     expect(shouldBlock(config, { hasMustViolation: false, score: 60 })).toBe(true)
   })
+
+  it("strict mode blocks on SHOULD violation", () => {
+    const config: EnforcementConfig = { mode: "strict", scoreThreshold: 70, autoPromote: false }
+    expect(shouldBlock(config, { hasMustViolation: false, hasShouldViolation: true, score: 100 })).toBe(true)
+  })
+
+  it("moderate mode does not block on SHOULD violation alone", () => {
+    const config: EnforcementConfig = { mode: "moderate", scoreThreshold: 70, autoPromote: false }
+    expect(shouldBlock(config, { hasMustViolation: false, hasShouldViolation: true, score: 80 })).toBe(false)
+  })
 })

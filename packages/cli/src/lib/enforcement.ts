@@ -12,8 +12,9 @@ export const DEFAULT_ENFORCEMENT: EnforcementConfig = {
   autoPromote: true,
 }
 
-interface BlockCheckInput {
+export interface BlockCheckInput {
   readonly hasMustViolation: boolean
+  readonly hasShouldViolation?: boolean
   readonly score: number
 }
 
@@ -24,7 +25,7 @@ export function shouldBlock(config: EnforcementConfig, input: BlockCheckInput): 
     case "moderate":
       return input.hasMustViolation || input.score < config.scoreThreshold
     case "strict":
-      return input.hasMustViolation || input.score < config.scoreThreshold
+      return input.hasMustViolation || (input.hasShouldViolation ?? false) || input.score < config.scoreThreshold
   }
 }
 

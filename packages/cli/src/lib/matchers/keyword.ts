@@ -226,6 +226,13 @@ function findViolations(
 
     // Pick the most significant word to check for negation context
     const checkWord = significantWords.length > 0 ? significantWords[0] : words[0]
+
+    // Guard: if checkWord isn't actually in the plan, don't suppress — treat as violation
+    if (!planLower.includes(checkWord)) {
+      violations.push(prohibition)
+      continue
+    }
+
     const negated = isNegatedInContext(planLower, checkWord, 60)
 
     if (!negated) {
@@ -240,10 +247,7 @@ function findViolations(
  * Check if the plan contains literal hardcoded secret patterns.
  */
 function containsLiteralSecrets(planLower: string): boolean {
-  return LITERAL_SECRET_PATTERNS.some((pattern) => {
-    pattern.lastIndex = 0
-    return pattern.test(planLower)
-  })
+  return LITERAL_SECRET_PATTERNS.some((pattern) => pattern.test(planLower))
 }
 
 /**

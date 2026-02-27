@@ -2,18 +2,18 @@ import { readFileSync, readdirSync, existsSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
 
 export interface LocalRule {
-  id: string
-  title: string
-  content: string
-  category: string
-  severity: string
-  modality: string
-  tags: string[]
-  stack: string[]
-  scope: string[]
-  changeTypes: string[]
-  team: string[]
-  filePath: string
+  readonly id: string
+  readonly title: string
+  readonly content: string
+  readonly category: string
+  readonly severity: string
+  readonly modality: string
+  readonly tags: readonly string[]
+  readonly stack: readonly string[]
+  readonly scope: readonly string[]
+  readonly changeTypes: readonly string[]
+  readonly team: readonly string[]
+  readonly filePath: string
 }
 
 interface FrontMatter {
@@ -195,14 +195,17 @@ export function matchRulesByContext(
     const taskLower = task.toLowerCase()
     const taskWords = taskLower.split(/\s+/).filter((w) => w.length > 3)
 
-    matched = matched.filter(({ rule }) => {
-      const hasContextMatch = rule.stack.length > 0 || rule.scope.length > 0
-      if (hasContextMatch) return true
+    // If no significant task words, skip filtering — keep all matched rules
+    if (taskWords.length > 0) {
+      matched = matched.filter(({ rule }) => {
+        const hasContextMatch = rule.stack.length > 0 || rule.scope.length > 0
+        if (hasContextMatch) return true
 
-      // Global rules: filter by task relevance
-      const ruleText = `${rule.title} ${rule.tags.join(" ")} ${rule.category} ${rule.stack.join(" ")}`.toLowerCase()
-      return taskWords.some((word) => ruleText.includes(word))
-    })
+        // Global rules: filter by task relevance
+        const ruleText = `${rule.title} ${rule.tags.join(" ")} ${rule.category} ${rule.stack.join(" ")}`.toLowerCase()
+        return taskWords.some((word) => ruleText.includes(word))
+      })
+    }
   }
 
   // Sort by score descending
@@ -285,8 +288,8 @@ export interface ValidationReport {
 }
 
 /**
- * Extract key concepts from a rule for matching.
- * Returns action verbs, nouns, and important phrases.
+ * @deprecated Use KeywordMatcher from matchers/keyword.ts instead.
+ * Kept for backward compatibility with review.ts fallback path.
  */
 function extractRuleConcepts(rule: LocalRule): {
   keywords: string[]
@@ -346,6 +349,10 @@ function extractRuleConcepts(rule: LocalRule): {
   return { keywords, prohibitions, requirements }
 }
 
+/**
+ * @deprecated Use validateWithPipeline from validation.ts instead.
+ * Kept for backward compatibility with review.ts fallback path.
+ */
 export function validatePlanAgainstRules(
   plan: string,
   rules: LocalRule[],
