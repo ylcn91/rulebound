@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs"
 import chalk from "chalk"
-import { findRulesDir, loadLocalRules, validatePlanAgainstRules, matchRulesByContext } from "../lib/local-rules.js"
+import { loadLocalRules, matchRulesByContext } from "../lib/local-rules.js"
 import { loadRulesWithInheritance, getProjectConfig } from "../lib/inheritance.js"
+import { validateWithPipeline } from "../lib/validation.js"
 import type { ValidationReport } from "../lib/local-rules.js"
 
 interface ValidateOptions {
@@ -9,6 +10,7 @@ interface ValidateOptions {
   file?: string
   dir?: string
   format?: string
+  llm?: boolean
 }
 
 const STATUS_ICONS: Record<string, { icon: string; color: (s: string) => string }> = {
@@ -100,7 +102,12 @@ export async function validateCommand(options: ValidateOptions): Promise<void> {
   const rules = matchRulesByContext(allRules, projectConfig, planText)
 
   // Validate
-  const report = validatePlanAgainstRules(planText, rules, planText.slice(0, 100))
+  const report = await validateWithPipeline({
+    plan: planText,
+    rules,
+    task: planText.slice(0, 100),
+    useLlm: options.llm,
+  })
 
   // JSON output
   if (options.format === "json") {

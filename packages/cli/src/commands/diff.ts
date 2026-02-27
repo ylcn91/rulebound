@@ -1,13 +1,15 @@
 import { execSync } from "node:child_process"
 import chalk from "chalk"
-import { findRulesDir, loadLocalRules, matchRulesByContext, validatePlanAgainstRules } from "../lib/local-rules.js"
+import { loadLocalRules, matchRulesByContext } from "../lib/local-rules.js"
 import { loadRulesWithInheritance, getProjectConfig } from "../lib/inheritance.js"
+import { validateWithPipeline } from "../lib/validation.js"
 import type { ValidationReport } from "../lib/local-rules.js"
 
 interface DiffOptions {
   dir?: string
   ref?: string
   format?: string
+  llm?: boolean
 }
 
 export async function diffCommand(options: DiffOptions): Promise<void> {
@@ -74,7 +76,12 @@ export async function diffCommand(options: DiffOptions): Promise<void> {
   }
 
   // Validate diff content against rules
-  const report = validatePlanAgainstRules(addedLines, rules, `Diff against ${ref}`)
+  const report = await validateWithPipeline({
+    plan: addedLines,
+    rules,
+    task: `Diff against ${ref}`,
+    useLlm: options.llm,
+  })
 
   // JSON output
   if (options.format === "json") {

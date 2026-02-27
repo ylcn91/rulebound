@@ -12,6 +12,9 @@ import { diffCommand } from "./commands/diff.js"
 import { scoreCommand } from "./commands/score.js"
 import { hookCommand } from "./commands/hook.js"
 import { enforceCommand } from "./commands/enforce.js"
+import { ciCommand } from "./commands/ci.js"
+import { listAgentsCommand } from "./commands/agents.js"
+import { reviewCommand } from "./commands/review.js"
 
 const require = createRequire(import.meta.url)
 const pkg = require("../package.json") as { version: string }
@@ -52,6 +55,7 @@ program
   .option("--file <path>", "Path to plan file")
   .option("-f, --format <format>", "Output format: pretty, json")
   .option("-d, --dir <path>", "Path to rules directory")
+  .option("--llm", "Use LLM for deep validation (requires AI SDK)")
   .action(validateCommand)
 
 program
@@ -69,6 +73,7 @@ program
   .option("--ref <ref>", "Git ref to diff against (default: HEAD)")
   .option("-f, --format <format>", "Output format: pretty, json")
   .option("-d, --dir <path>", "Path to rules directory")
+  .option("--llm", "Use LLM for deep validation (requires AI SDK)")
   .action(diffCommand)
 
 program
@@ -91,6 +96,32 @@ program
   .option("-m, --mode <mode>", "Set enforcement mode: advisory, moderate, strict")
   .option("-t, --threshold <number>", "Set score threshold (0-100)")
   .action(enforceCommand)
+
+program
+  .command("ci")
+  .description("Validate PR changes in CI/CD pipeline")
+  .option("-b, --base <branch>", "Base branch to diff against (default: main)")
+  .option("-f, --format <format>", "Output: pretty, json, github")
+  .option("--llm", "Use LLM for deep validation")
+  .option("-d, --dir <path>", "Path to rules directory")
+  .action(ciCommand)
+
+const agentsCmd = program.command("agents").description("Manage agent profiles")
+
+agentsCmd
+  .command("list")
+  .description("List configured agent profiles")
+  .action(listAgentsCommand)
+
+program
+  .command("review")
+  .description("Multi-agent review with consensus")
+  .option("-a, --agents <agents>", "Comma-separated agent names")
+  .option("-p, --plan <text>", "Plan text to review")
+  .option("--diff", "Review current git diff")
+  .option("--llm", "Use LLM for deep validation")
+  .option("-d, --dir <path>", "Path to rules directory")
+  .action(reviewCommand)
 
 const rulesCmd = program.command("rules").description("Manage rules")
 
