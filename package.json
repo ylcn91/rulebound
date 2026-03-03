@@ -7,11 +7,13 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",
+    "test": "turbo test",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\""
   },
   "devDependencies": {
-    "turbo": "^2",
-    "prettier": "^3"
+    "@vitest/coverage-v8": "^4.0.18",
+    "prettier": "^3",
+    "turbo": "^2"
   },
   "packageManager": "pnpm@10.28.2"
 }
