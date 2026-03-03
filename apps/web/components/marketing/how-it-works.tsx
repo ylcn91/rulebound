@@ -20,9 +20,11 @@ const steps = [
 
 $ rulebound init
 Initializing Rulebound...
-Created .rulebound/config.yaml
-Connected to your rule hub.
-Ready.`,
+Created .rulebound/config.json
+Created .rulebound/rules/
+Installed pre-commit hook.
+
+Rulebound initialized. Ready.`,
   },
   {
     number: 3,

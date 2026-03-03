@@ -2,10 +2,37 @@
 
 [![Rulebound Score](https://img.shields.io/badge/rulebound-93%25-4c1?style=flat-square)](https://github.com/ylcn91/rulebound)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-112%20passing-brightgreen?style=flat-square)]()
 
 Centralized rules for AI coding agents. Define your team's standards once — enforce them on every AI-generated line of code.
 
 Works with **Claude Code**, **Cursor**, **GitHub Copilot**, and any AI coding agent.
+
+## Architecture Overview
+
+```
+  Developer ──► AI Agent ──► Rulebound Gateway ──► LLM API
+                                    │
+                             ┌──────┴──────┐
+                             │  Validation  │
+                             │   Engine     │
+                             │             │
+                             │ • Keyword   │
+                             │ • Semantic  │
+                             │ • LLM      │
+                             │ • AST      │
+                             └──────┬──────┘
+                                    │
+                    ┌───────────────┼───────────────┐
+                    │               │               │
+               Dashboard      Audit Log      Notifications
+              (Next.js)      (PostgreSQL)   (Slack/Teams/
+                                             Discord/PD)
+```
+
+**6 packages** · **112 tests** · **10 languages** · **28 AST queries** · **6 SDKs**
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full architecture documentation with ASCII flow diagrams.
 
 ## The Problem
 
@@ -97,10 +124,12 @@ const apiKey = "sk_live_abc123...";
 | Field | Required | Values | Description |
 |-------|----------|--------|-------------|
 | `title` | Yes | string | Human-readable rule name |
-| `category` | Yes | `architecture`, `security`, `style`, `testing`, `performance`, `documentation`, `accessibility` | Rule domain |
+| `category` | Yes | `architecture`, `security`, `style`, `testing`, `performance`, `documentation`, `accessibility`, `infra`, `workflow` | Rule domain |
 | `severity` | Yes | `error`, `warning`, `info` | How critical the rule is |
 | `modality` | Yes | `must`, `should`, `may` | Enforcement level (RFC 2119) |
 | `tags` | No | string[] | Keywords for search matching |
+| `stack` | No | string[] | Tech stack filter (e.g., `[java, spring-boot]`, `[typescript]`, `[docker]`) |
+| `scope` | No | string[] | Project scope filter (e.g., `[backend, api]`, `[infra]`) |
 
 ### Modality (RFC 2119)
 
@@ -114,32 +143,49 @@ const apiKey = "sk_live_abc123...";
 your-project/
 ├── .rulebound/
 │   ├── config.json          # Project config (optional)
+│   ├── agents.json          # Agent profiles for multi-agent review (optional)
 │   └── rules/
 │       ├── global/
 │       │   ├── error-handling.md
 │       │   ├── no-hardcoded-secrets.md
-│       │   └── testing-requirements.md
+│       │   ├── testing-requirements.md
+│       │   └── code-review-standards.md
 │       ├── typescript/
 │       │   ├── strict-types.md
 │       │   └── zod-validation.md
 │       ├── java-spring/
 │       │   ├── dependency-injection.md
-│       │   └── exception-handling.md
-│       └── security/
-│           ├── input-sanitization.md
-│           └── authentication.md
+│       │   ├── exception-handling.md
+│       │   ├── dto-pattern.md
+│       │   ├── hexagonal-architecture.md
+│       │   ├── testcontainers-setup.md
+│       │   ├── archunit-enforcement.md
+│       │   └── integration-test-requirements.md
+│       ├── security/
+│       │   ├── input-sanitization.md
+│       │   └── authentication-authorization.md
+│       ├── infra/
+│       │   ├── kubernetes-resource-limits.md
+│       │   ├── docker-no-latest-tag.md
+│       │   ├── use-existing-dockerfile.md
+│       │   └── redis-connection-pool.md
+│       └── workflow/
+│           ├── git-author-identity.md
+│           └── branch-naming.md
 ```
 
 ## Example Rules
 
 The `examples/rules/` directory includes production-ready rules for:
 
-- **Global** — Error handling, secrets, testing, code review
-- **TypeScript** — Strict types, Zod validation
-- **Java/Spring Boot** — DI, DTOs, exception handling
-- **Go** — Error handling, struct validation
-- **React** — Server Components
-- **Security** — Input sanitization, authentication
+- **Global** -- Error handling, secrets, testing, code review
+- **TypeScript** -- Strict types, Zod validation
+- **Java/Spring Boot** -- DI, DTOs, exception handling, hexagonal architecture, Testcontainers, ArchUnit, integration tests
+- **Go** -- Error handling, struct validation
+- **React** -- Server Components
+- **Security** -- Input sanitization, authentication & authorization
+- **Infra** -- Kubernetes resource limits, Docker tag pinning, Dockerfile reuse, Redis connection pooling
+- **Workflow** -- Git author identity, branch naming
 
 Copy them to your project:
 
@@ -151,13 +197,18 @@ rulebound init --examples
 
 | Command | Description |
 |---------|-------------|
-| `rulebound init` | Create `.rulebound/rules/` directory |
+| `rulebound init` | Create `.rulebound/rules/` directory and config |
 | `rulebound generate` | Generate CLAUDE.md, .cursor/rules.md, copilot-instructions.md |
-| `rulebound find-rules` | Search rules by task, category, or tags |
-| `rulebound validate` | Validate a plan against all rules |
+| `rulebound find-rules` | Search rules by task, category, tags, or stack |
+| `rulebound validate` | Validate a plan against matched rules |
 | `rulebound diff` | Validate git diff against rules |
 | `rulebound score` | Calculate compliance score (0-100) + generate badge |
 | `rulebound hook` | Install/remove pre-commit git hook |
+| `rulebound enforce` | View or update enforcement mode (advisory, moderate, strict) |
+| `rulebound ci` | Validate PR changes in CI/CD pipeline |
+| `rulebound review` | Multi-agent review with consensus |
+| `rulebound check-code` | AST-based code analysis (tree-sitter, 10 languages) |
+| `rulebound agents list` | List configured agent profiles |
 | `rulebound rules list` | List all rules |
 | `rulebound rules show <id>` | Show rule detail |
 | `rulebound rules lint` | Score rules on Quality Attributes (Atomicity, Completeness, Clarity) |
@@ -170,6 +221,7 @@ rulebound init --examples
 --title <title>     Search by title keyword
 --category <cat>    Filter by category
 --tags <tags>       Filter by tags (comma-separated)
+--stack <stack>     Filter by tech stack (comma-separated)
 --format <fmt>      Output: table (default), json, inject
 --dir <path>        Custom rules directory
 ```
@@ -179,6 +231,34 @@ rulebound init --examples
 ```
 --plan <text>       Plan text to validate
 --file <path>       Path to plan file (.md or .txt)
+--format <fmt>      Output: pretty (default), json
+--dir <path>        Custom rules directory
+--llm               Use LLM for deep validation (requires AI SDK)
+```
+
+### Enforce Options
+
+```
+--mode <mode>       Set enforcement mode: advisory, moderate, strict
+--threshold <n>     Set score threshold (0-100)
+```
+
+### CI Options
+
+```
+--base <branch>     Base branch to diff against (default: main)
+--format <fmt>      Output: pretty (default), json, github
+--llm               Use LLM for deep validation
+--dir <path>        Custom rules directory
+```
+
+### Review Options
+
+```
+--agents <agents>   Comma-separated agent names
+--plan <text>       Plan text to review
+--diff              Review current git diff
+--llm               Use LLM for deep validation
 --dir <path>        Custom rules directory
 ```
 
@@ -212,6 +292,8 @@ Validate your git changes against rules before committing:
 ```bash
 rulebound diff
 rulebound diff --ref main
+rulebound diff --format json
+rulebound diff --llm
 ```
 
 ## Pre-Commit Hook
@@ -274,6 +356,231 @@ rulebound rules history "global.error-handling"
 ```
 
 Shows commit history, authors, and diff stats for any rule file.
+
+## Enforcement Modes
+
+Control how strictly Rulebound blocks commits and CI:
+
+```bash
+# View current enforcement config
+rulebound enforce
+
+# Set enforcement mode
+rulebound enforce --mode strict
+rulebound enforce --threshold 80
+```
+
+Three modes:
+- **advisory** -- Never blocks. Reports violations as warnings.
+- **moderate** -- Blocks on MUST violations and low scores.
+- **strict** -- Blocks on any violation.
+
+Configuration is stored in `.rulebound/config.json` under the `enforcement` key.
+
+## CI/CD Integration
+
+Validate PR changes in your CI pipeline:
+
+```bash
+# Basic CI validation
+rulebound ci
+
+# Against a specific base branch
+rulebound ci --base develop
+
+# GitHub Actions annotations
+rulebound ci --format github
+
+# With LLM-powered deep validation
+rulebound ci --llm
+```
+
+Add to your GitHub Actions workflow:
+
+```yaml
+- name: Rulebound CI
+  run: npx rulebound ci --base main --format github
+```
+
+Exit codes: `0` = passed, `1` = blocked/failed, `2` = config error.
+
+## Multi-Agent Review
+
+Run validation through multiple agent profiles with consensus:
+
+```bash
+# Review with all configured agents
+rulebound review --plan "Add REST API with JWT auth"
+
+# Review current git diff
+rulebound review --diff
+
+# Specific agents only
+rulebound review --agents "security-agent,arch-agent" --plan "..."
+```
+
+Agent profiles are defined in `.rulebound/agents.json`. Each agent has roles, rule scopes, and enforcement levels. The review command builds a consensus across all agents.
+
+## MCP Server
+
+Rulebound includes an MCP (Model Context Protocol) server that lets AI agents query and validate against project rules in real-time.
+
+### Setup
+
+```json
+{
+  "mcpServers": {
+    "rulebound": {
+      "command": "npx",
+      "args": ["-y", "@rulebound/mcp"]
+    }
+  }
+}
+```
+
+### Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `find_rules` | Find relevant rules for a task (auto-detects project stack) |
+| `validate_plan` | Validate an implementation plan against matched rules |
+| `check_code` | Check a code snippet against relevant rules |
+| `list_rules` | List all available rules for the project's stack |
+
+The MCP server auto-detects the project's tech stack from files like `pom.xml`, `package.json`, `go.mod`, etc., and filters rules accordingly.
+
+## AST Code Analysis
+
+Rulebound includes a WASM-based AST analyzer powered by [tree-sitter](https://tree-sitter.github.io/). It parses actual source files and detects structural anti-patterns — no regex, no heuristics.
+
+```bash
+rulebound check-code --file src/service.ts
+```
+
+```
+AST CODE ANALYSIS
+────────────────────────────────────────────────────────────
+File:     src/service.ts
+Language: typescript
+Nodes:    146
+Parse:    16ms
+Query:    44ms
+────────────────────────────────────────────────────────────
+
+  ERROR No 'any' Type (ts-no-any)
+         Use 'unknown' with type guards instead of 'any'
+         L1:15 any
+         Fix: Replace 'any' with 'unknown' and add type narrowing
+
+  ERROR No eval() (ts-no-eval)
+         eval() is a security risk and should never be used
+         L7:5 eval("some code")
+         Fix: Use JSON.parse(), new Function(), or refactor logic
+
+────────────────────────────────────────────────────────────
+  2 error(s) in 2 finding(s)
+```
+
+### Supported Languages
+
+| Language   | Queries | Key Detections                                        |
+|------------|---------|-------------------------------------------------------|
+| TypeScript | 10      | `any`, `eval`, `console.log`, `debugger`, empty catch, `var`, non-null assertion, type assertion, nested ternary, `alert` |
+| JavaScript | 7       | Same as TS minus TS-specific checks                    |
+| Python     | 7       | `eval`, `exec`, `print`, bare except, `pass` in except, mutable default args, `import *` |
+| Java       | 5       | `@Autowired` field injection, `System.out.println`, `Thread.sleep`, `catch(Throwable)`, empty catch |
+| Go         | 3       | `fmt.Println`, `panic()`, unchecked errors             |
+| Rust       | 4       | `unwrap()`, `expect()`, `println!`/`dbg!`, `todo!()`  |
+
+### Options
+
+```bash
+rulebound check-code --file <path>           # Auto-detect language
+rulebound check-code --file <path> -l python # Override language
+rulebound check-code --file <path> -q ts-no-eval,ts-no-any  # Run specific queries
+```
+
+## LLM Gateway
+
+The gateway is a transparent HTTP proxy that sits between your AI tools and LLM APIs. It intercepts every request to enforce rules in real-time.
+
+```bash
+# Set your AI tool to use the gateway
+export OPENAI_API_BASE=http://localhost:4000/openai/v1
+```
+
+**How it works:**
+1. AI tool sends request to gateway (thinks it's talking to OpenAI)
+2. Gateway loads project rules, injects them into the system prompt
+3. Request forwarded to real LLM API
+4. Response comes back, gateway scans code blocks for violations
+5. Advisory mode: appends warnings. Strict mode: blocks with 422.
+
+Supports **OpenAI**, **Anthropic**, and **Google** API formats. Handles both regular and SSE streaming responses.
+
+## Enterprise Server API
+
+Full HTTP API for centralized rule management, validation, and compliance tracking.
+
+```
+POST /v1/validate          Real-time code validation (uses engine)
+GET  /v1/rules             List rules with versioning
+POST /v1/rules             Create rule
+GET  /v1/sync              Pull latest rules (centralized sync)
+GET  /v1/audit             Query audit log
+GET  /v1/compliance/:id    Compliance score + trend
+POST /v1/webhooks/endpoints Register outbound webhook
+POST /v1/webhooks/in       Inbound webhooks (GitHub/GitLab)
+```
+
+### Notifications
+
+Built-in notification routing to 4 providers:
+
+| Provider  | Format      | Events                     |
+|-----------|-------------|----------------------------|
+| Slack     | Block Kit   | violation.detected, compliance.score_changed, rule.updated |
+| MS Teams  | MessageCard | Same as above              |
+| Discord   | Embeds      | Same as above              |
+| PagerDuty | Events v2   | violation.detected (critical) |
+
+## SDKs
+
+Client libraries for 6 languages. All share the same API surface:
+
+```python
+# Python
+from rulebound import RuleboundClient
+
+client = RuleboundClient("http://localhost:3001", api_key="rb_your_token")
+result = client.validate(code="const x: any = 5;", rules=["ts-no-any"])
+print(result.status)  # "FAILED"
+```
+
+```go
+// Go
+client := rulebound.NewClient("http://localhost:3001", "rb_your_token")
+result, _ := client.Validate(ctx, rulebound.ValidateRequest{
+    Code: "const x: any = 5;",
+})
+```
+
+```typescript
+// TypeScript
+const client = new RuleboundClient("http://localhost:3001", "rb_your_token");
+const result = await client.validate({ code: "const x: any = 5;" });
+```
+
+Available: **Python** (httpx) · **Go** (stdlib) · **TypeScript** (fetch) · **Java** (HttpClient) · **C#/.NET** (HttpClient) · **Rust** (reqwest)
+
+## Dashboard
+
+Web-based dashboard for compliance monitoring:
+
+- **Overview** — Compliance score ring, project stats, top violations, activity feed
+- **Audit Log** — Filterable table of all validation events
+- **Compliance** — Sparkline trend charts, progress bars per project
+- **Webhooks** — Endpoint management, delivery history, test sending
 
 ## Using with AI Agents
 
@@ -353,9 +660,15 @@ pnpm --filter web dev
 ### Tech Stack
 
 - **CLI:** TypeScript, Commander.js, Chalk
-- **Web:** Next.js 16, React 19, Tailwind CSS 4, Drizzle ORM
-- **Database:** PostgreSQL 17
-- **Monorepo:** Turborepo + pnpm
+- **Engine:** TypeScript, web-tree-sitter (WASM AST parsing), tree-sitter-wasms (10 language grammars)
+- **Gateway:** TypeScript, HTTP proxy with SSE stream interception
+- **Server:** TypeScript, Hono (HTTP), Drizzle ORM, HMAC-SHA256 webhooks
+- **MCP Server:** TypeScript, @modelcontextprotocol/sdk, Zod
+- **Web:** Next.js 16, React 19, Tailwind CSS 4, Radix UI, Lucide Icons
+- **Database:** PostgreSQL 17, Drizzle ORM
+- **SDKs:** Python (httpx), Go (stdlib), TypeScript (fetch), Java (HttpClient), C#/.NET (HttpClient), Rust (reqwest)
+- **Testing:** Vitest 4 (112 tests)
+- **Monorepo:** Turborepo + pnpm workspaces
 
 ## Contributing
 

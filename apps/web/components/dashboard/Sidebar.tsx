@@ -10,12 +10,20 @@ import {
   Settings,
   Menu,
   X,
+  LayoutDashboard,
+  ScrollText,
+  Webhook,
+  TrendingUp,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const navItems = [
+  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/rules", label: "Rules", icon: BookOpen },
   { href: "/projects", label: "Projects", icon: FolderKanban },
+  { href: "/audit", label: "Audit Log", icon: ScrollText },
+  { href: "/compliance", label: "Compliance", icon: TrendingUp },
+  { href: "/webhooks", label: "Webhooks", icon: Webhook },
   { href: "/import", label: "Import", icon: Import },
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const

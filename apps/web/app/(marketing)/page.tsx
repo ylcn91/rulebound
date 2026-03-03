@@ -2,6 +2,7 @@ import { Header } from "@/components/shared/header";
 import { Hero } from "@/components/marketing/hero";
 import { Problem } from "@/components/marketing/problem";
 import { HowItWorks } from "@/components/marketing/how-it-works";
+import { ArchitectureFlow } from "@/components/marketing/architecture-flow";
 import { Comparison } from "@/components/marketing/comparison";
 import { Features } from "@/components/marketing/features";
 import { OpenSource } from "@/components/marketing/open-source";
@@ -18,6 +19,8 @@ export default function MarketingPage() {
         <Problem />
         <div className="divider-dots" role="separator" />
         <HowItWorks />
+        <div className="divider-dots" role="separator" />
+        <ArchitectureFlow />
         <div className="divider-dots" role="separator" />
         <Comparison />
         <div className="divider-dots" role="separator" />

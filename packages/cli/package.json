@@ -12,6 +12,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@rulebound/engine": "workspace:*",
     "chalk": "^5",
     "commander": "^13",
     "zod": "^4.3.6"

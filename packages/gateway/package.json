@@ -1,0 +1,28 @@
+{
+  "name": "@rulebound/gateway",
+  "version": "0.1.0",
+  "description": "LLM proxy gateway for Rulebound — transparent rule injection and response validation for any AI coding tool",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "rulebound-gateway": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@rulebound/engine": "workspace:*",
+    "hono": "^4.7.0",
+    "@hono/node-server": "^1.14.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "tsup": "^8",
+    "typescript": "^5.7",
+    "vitest": "^4.0.18"
+  }
+}

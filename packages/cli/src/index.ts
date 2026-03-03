@@ -15,6 +15,7 @@ import { enforceCommand } from "./commands/enforce.js"
 import { ciCommand } from "./commands/ci.js"
 import { listAgentsCommand } from "./commands/agents.js"
 import { reviewCommand } from "./commands/review.js"
+import { checkCodeCommand } from "./commands/check-code.js"
 
 const require = createRequire(import.meta.url)
 const pkg = require("../package.json") as { version: string }
@@ -150,5 +151,13 @@ rulesCmd
   .option("-d, --dir <path>", "Path to rules directory")
   .option("-n, --limit <number>", "Number of versions to show", "20")
   .action(historyCommand)
+
+program
+  .command("check-code")
+  .description("Analyze source file with AST-based anti-pattern detection (tree-sitter)")
+  .option("--file <path>", "Path to the source file to analyze")
+  .option("-l, --language <lang>", "Language override (auto-detected from extension)")
+  .option("-q, --queries <ids>", "Comma-separated builtin query IDs to run")
+  .action(checkCodeCommand)
 
 program.parse()

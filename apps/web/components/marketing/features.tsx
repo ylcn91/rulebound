@@ -1,4 +1,4 @@
-import { Database, Crosshair, ShieldCheck, Blocks, GitBranch, BarChart3, Layers, Terminal, FileOutput, GitCompare, Award, GitCommitHorizontal } from "lucide-react";
+import { Database, Crosshair, ShieldCheck, Blocks, GitBranch, BarChart3, Layers, Terminal, FileOutput, GitCompare, Award, GitCommitHorizontal, Shield, Workflow, Users, Plug, TreePine, Radar, Globe, Bell, Code2, Gauge } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 const features = [
@@ -73,6 +73,66 @@ const features = [
     description:
       "Install the CLI, run find-rules and validate from your terminal. Integrates with CI/CD pipelines and git hooks.",
     icon: Terminal,
+  },
+  {
+    title: "Enforcement Modes",
+    description:
+      "Choose advisory, moderate, or strict enforcement. Control when violations block commits and CI pipelines with configurable score thresholds.",
+    icon: Shield,
+  },
+  {
+    title: "CI/CD Pipeline",
+    description:
+      "Validate PR changes in CI with GitHub Actions annotations. Supports pretty, JSON, and GitHub output formats.",
+    icon: Workflow,
+  },
+  {
+    title: "Multi-Agent Review",
+    description:
+      "Define agent profiles with roles and rule scopes. Run multi-agent review with consensus across security, architecture, and style agents.",
+    icon: Users,
+  },
+  {
+    title: "MCP Server",
+    description:
+      "AI agents query and validate against rules in real-time via Model Context Protocol. Auto-detects project stack and filters rules.",
+    icon: Plug,
+  },
+  {
+    title: "AST Code Analysis",
+    description:
+      "Tree-sitter WASM parser detects structural anti-patterns across 10 languages. 28 built-in queries — no regex, real AST matching.",
+    icon: TreePine,
+  },
+  {
+    title: "LLM Gateway",
+    description:
+      "Transparent proxy between AI tools and LLM APIs. Injects rules into prompts, scans responses for violations in real-time.",
+    icon: Radar,
+  },
+  {
+    title: "Enterprise Server API",
+    description:
+      "Full REST API for centralized rule management, validation, compliance scoring, audit logging, and webhook orchestration.",
+    icon: Globe,
+  },
+  {
+    title: "Notification Integrations",
+    description:
+      "Slack, Microsoft Teams, Discord, and PagerDuty. Event-based routing with severity mapping for real-time violation alerts.",
+    icon: Bell,
+  },
+  {
+    title: "6-Language SDK",
+    description:
+      "Client libraries for Python, Go, TypeScript, Java, C#/.NET, and Rust. Same API surface, native HTTP, zero overhead.",
+    icon: Code2,
+  },
+  {
+    title: "Compliance Dashboard",
+    description:
+      "Real-time compliance scores, sparkline trends, audit log, webhook management. Full visibility into AI code quality.",
+    icon: Gauge,
   },
 ];
 
