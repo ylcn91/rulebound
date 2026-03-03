@@ -1,24 +1,34 @@
-import { Key, Trash2, Plus, Terminal } from "lucide-react"
+import { Key, Trash2, Plus, Terminal, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
+import { apiFetch } from "@/lib/api"
 
-const MOCK_TOKENS = [
-  {
-    id: "1",
-    name: "CI Pipeline",
-    createdAt: "2026-01-15",
-    lastUsedAt: "2026-02-22",
-  },
-  {
-    id: "2",
-    name: "Local Development",
-    createdAt: "2026-02-01",
-    lastUsedAt: "2026-02-20",
-  },
-] as const
+interface ApiToken {
+  id: string
+  orgId: string
+  userId: string
+  name: string
+  tokenPrefix: string
+  scopes: string[] | null
+  expiresAt: string | null
+  lastUsedAt: string | null
+  createdAt: string
+}
 
-export default function SettingsPage() {
+interface TokensResponse {
+  data: ApiToken[]
+}
+
+export default async function SettingsPage() {
+  let tokens: ApiToken[] | null = null
+  try {
+    const response = await apiFetch<TokensResponse>("/tokens")
+    tokens = response.data
+  } catch {
+    // Fall through — tokens section will show error
+  }
+
   return (
     <div className="max-w-2xl space-y-8">
       <div>
@@ -64,32 +74,41 @@ $ rulebound find-rules --task "your task"`}</pre>
             Generate Token
           </Button>
         </div>
-        <Card className="border-2">
-          <div className="divide-y divide-(--color-border)">
-            {MOCK_TOKENS.map((token) => (
-              <div
-                key={token.id}
-                className="flex items-center justify-between px-6 py-4"
-              >
-                <div className="flex items-center gap-3">
-                  <Key className="h-4 w-4 text-(--color-muted) shrink-0" />
-                  <div>
-                    <p className="font-mono text-sm font-medium text-(--color-text-primary)">
-                      {token.name}
-                    </p>
-                    <p className="font-mono text-xs text-(--color-muted)">
-                      Created {token.createdAt} / Last used{" "}
-                      {token.lastUsedAt}
-                    </p>
+        {tokens === null ? (
+          <Card className="border-2 border-dashed">
+            <CardContent className="pt-6 text-center">
+              <AlertTriangle className="h-8 w-8 text-(--color-muted) mx-auto mb-3" />
+              <p className="text-sm text-(--color-text-secondary)">Could not load tokens. Is the API server running?</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-2">
+            <div className="divide-y divide-(--color-border)">
+              {tokens.map((token) => (
+                <div
+                  key={token.id}
+                  className="flex items-center justify-between px-6 py-4"
+                >
+                  <div className="flex items-center gap-3">
+                    <Key className="h-4 w-4 text-(--color-muted) shrink-0" />
+                    <div>
+                      <p className="font-mono text-sm font-medium text-(--color-text-primary)">
+                        {token.name}
+                      </p>
+                      <p className="font-mono text-xs text-(--color-muted)">
+                        Created {token.createdAt} / Last used{" "}
+                        {token.lastUsedAt ?? "never"}
+                      </p>
+                    </div>
                   </div>
+                  <Button size="sm" variant="danger">
+                    Revoke
+                  </Button>
                 </div>
-                <Button size="sm" variant="danger">
-                  Revoke
-                </Button>
-              </div>
-            ))}
-          </div>
-        </Card>
+              ))}
+            </div>
+          </Card>
+        )}
       </section>
 
       {/* Workspace section */}

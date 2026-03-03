@@ -2,69 +2,25 @@ import { Search, Filter, Download, AlertTriangle, CheckCircle, Clock } from "luc
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
+import { apiFetch } from "@/lib/api"
 
-const MOCK_AUDIT_ENTRIES = [
-  {
-    id: "1",
-    action: "validation.violation",
-    status: "VIOLATED",
-    ruleName: "No Hardcoded Secrets",
-    projectName: "api-gateway",
-    userName: "dev@company.com",
-    metadata: { reason: "Found hardcoded API key in config" },
-    createdAt: "2026-03-03T14:22:00Z",
-  },
-  {
-    id: "2",
-    action: "validation.pass",
-    status: "PASS",
-    ruleName: "Error Handling Standards",
-    projectName: "auth-service",
-    userName: "dev@company.com",
-    metadata: { reason: "All error handling rules satisfied" },
-    createdAt: "2026-03-03T14:15:00Z",
-  },
-  {
-    id: "3",
-    action: "rule.updated",
-    status: "INFO",
-    ruleName: "Constructor Injection",
-    projectName: null,
-    userName: "admin@company.com",
-    metadata: { changeNote: "Updated to require final fields" },
-    createdAt: "2026-03-03T13:45:00Z",
-  },
-  {
-    id: "4",
-    action: "sync.completed",
-    status: "INFO",
-    ruleName: null,
-    projectName: "frontend-app",
-    userName: null,
-    metadata: { rulesCount: 15 },
-    createdAt: "2026-03-03T12:00:00Z",
-  },
-  {
-    id: "5",
-    action: "validation.violation",
-    status: "VIOLATED",
-    ruleName: "Test Coverage 80%",
-    projectName: "api-gateway",
-    userName: "dev2@company.com",
-    metadata: { reason: "Coverage at 62%, below threshold" },
-    createdAt: "2026-03-03T11:30:00Z",
-  },
-  {
-    id: "6",
-    action: "webhook.delivered",
-    status: "INFO",
-    ruleName: null,
-    projectName: "api-gateway",
-    userName: null,
-    metadata: { endpoint: "https://hooks.slack.com/..." },
-    createdAt: "2026-03-03T11:30:00Z",
-  },
-]
+interface AuditEntry {
+  id: string
+  action: string
+  status: string
+  ruleId: string | null
+  projectId: string | null
+  userId: string | null
+  metadata: Record<string, unknown> | null
+  createdAt: string
+  orgId: string
+}
+
+interface AuditResponse {
+  data: AuditEntry[]
+  total: number
+}
 
 function StatusIcon({ status }: { status: string }) {
   if (status === "VIOLATED") return <AlertTriangle className="h-4 w-4 text-(--color-accent)" />
@@ -77,7 +33,43 @@ function formatTime(iso: string): string {
   return date.toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
 }
 
-export default function AuditPage() {
+function getEntryDetail(metadata: Record<string, unknown> | null): string {
+  if (!metadata) return "-"
+  return (metadata.reason as string) ?? (metadata.changeNote as string) ?? "-"
+}
+
+export default async function AuditPage() {
+  let entries: AuditEntry[] | null = null
+  try {
+    const response = await apiFetch<AuditResponse>("/audit")
+    entries = response.data
+  } catch {
+    // Fall through to error UI below
+  }
+
+  if (!entries) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="font-mono text-xl font-bold text-(--color-text-primary)">
+              Audit Log
+            </h1>
+            <p className="text-sm text-(--color-text-secondary) mt-1">
+              Track all validation events, rule changes, and enforcement actions
+            </p>
+          </div>
+        </div>
+        <Card className="border-2 border-dashed">
+          <CardContent className="pt-6 text-center">
+            <AlertTriangle className="h-8 w-8 text-(--color-muted) mx-auto mb-3" />
+            <p className="text-sm text-(--color-text-secondary)">Could not load data. Is the API server running?</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -110,9 +102,6 @@ export default function AuditPage() {
         </select>
         <select className="flex h-10 border-2 border-(--color-border) bg-(--color-surface) px-3 py-2 font-mono text-sm text-(--color-text-primary) cursor-pointer">
           <option value="">All projects</option>
-          <option value="api-gateway">api-gateway</option>
-          <option value="auth-service">auth-service</option>
-          <option value="frontend-app">frontend-app</option>
         </select>
       </div>
 
@@ -140,7 +129,7 @@ export default function AuditPage() {
             </tr>
           </thead>
           <tbody>
-            {MOCK_AUDIT_ENTRIES.map((entry) => (
+            {entries.map((entry) => (
               <tr key={entry.id} className="border-b border-(--color-border) last:border-b-0 hover:bg-(--color-grid) transition-colors duration-150">
                 <td className="px-4 py-3">
                   <StatusIcon status={entry.status} />
@@ -151,22 +140,22 @@ export default function AuditPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell">
-                  {entry.ruleName ? (
-                    <span className="text-(--color-text-primary)">{entry.ruleName}</span>
+                  {entry.ruleId ? (
+                    <span className="text-(--color-text-primary)">{entry.ruleId}</span>
                   ) : (
                     <span className="text-(--color-muted)">-</span>
                   )}
                 </td>
                 <td className="px-4 py-3 hidden sm:table-cell">
-                  {entry.projectName ? (
-                    <Badge variant="default">{entry.projectName}</Badge>
+                  {entry.projectId ? (
+                    <Badge variant="default">{entry.projectId}</Badge>
                   ) : (
                     <span className="text-(--color-muted)">-</span>
                   )}
                 </td>
                 <td className="px-4 py-3 hidden lg:table-cell">
                   <span className="text-xs text-(--color-text-secondary) truncate block max-w-[300px]">
-                    {entry.metadata?.reason ?? entry.metadata?.changeNote ?? "-"}
+                    {getEntryDetail(entry.metadata)}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right">

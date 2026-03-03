@@ -1,36 +1,73 @@
-import { TrendingUp, TrendingDown, Minus } from "lucide-react"
+import { TrendingUp, TrendingDown, Minus, AlertTriangle } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { apiFetch } from "@/lib/api"
+import { db } from "@/lib/db"
+import { projects } from "@/lib/db/schema"
+import { desc } from "drizzle-orm"
 
-const MOCK_COMPLIANCE_DATA = [
-  {
-    project: "auth-service",
-    currentScore: 92,
-    previousScore: 89,
-    passCount: 23,
-    violatedCount: 1,
-    notCoveredCount: 3,
-    history: [85, 87, 88, 89, 91, 92],
-  },
-  {
-    project: "api-gateway",
-    currentScore: 76,
-    previousScore: 78,
-    passCount: 18,
-    violatedCount: 4,
-    notCoveredCount: 5,
-    history: [80, 79, 78, 77, 76, 76],
-  },
-  {
-    project: "frontend-app",
-    currentScore: 88,
-    previousScore: 83,
-    passCount: 21,
-    violatedCount: 2,
-    notCoveredCount: 4,
-    history: [78, 80, 82, 83, 85, 88],
-  },
-]
+interface ComplianceTrend {
+  score: number
+  passCount: number
+  violatedCount: number
+  notCoveredCount: number
+  date: string
+}
+
+interface ComplianceData {
+  projectId: string
+  currentScore: number | null
+  trend: ComplianceTrend[]
+}
+
+interface ComplianceResponse {
+  data: ComplianceData
+}
+
+interface ProjectCompliance {
+  project: string
+  currentScore: number
+  previousScore: number
+  passCount: number
+  violatedCount: number
+  notCoveredCount: number
+  history: number[]
+}
+
+async function fetchComplianceData(): Promise<ProjectCompliance[]> {
+  const allProjects = await db
+    .select({ id: projects.id, name: projects.name })
+    .from(projects)
+    .orderBy(desc(projects.updatedAt))
+
+  const results: ProjectCompliance[] = []
+
+  for (const proj of allProjects) {
+    try {
+      const response = await apiFetch<ComplianceResponse>(`/compliance/${proj.id}`)
+      const { currentScore, trend } = response.data
+
+      if (currentScore === null && trend.length === 0) continue
+
+      const latestTrend = trend[0]
+      const previousTrend = trend[1]
+
+      results.push({
+        project: proj.name,
+        currentScore: currentScore ?? 0,
+        previousScore: previousTrend?.score ?? currentScore ?? 0,
+        passCount: latestTrend?.passCount ?? 0,
+        violatedCount: latestTrend?.violatedCount ?? 0,
+        notCoveredCount: latestTrend?.notCoveredCount ?? 0,
+        history: trend.map((t) => t.score).reverse(),
+      })
+    } catch {
+      // Skip projects with no compliance data
+    }
+  }
+
+  return results
+}
 
 function TrendIcon({ current, previous }: { current: number; previous: number }) {
   const diff = current - previous
@@ -75,10 +112,38 @@ function ScoreBar({ score }: { score: number }) {
   )
 }
 
-export default function CompliancePage() {
-  const avgScore = Math.round(
-    MOCK_COMPLIANCE_DATA.reduce((sum, p) => sum + p.currentScore, 0) / MOCK_COMPLIANCE_DATA.length
-  )
+export default async function CompliancePage() {
+  let complianceData: ProjectCompliance[] | null = null
+  try {
+    complianceData = await fetchComplianceData()
+  } catch {
+    // Fall through to error UI below
+  }
+
+  if (!complianceData) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="font-mono text-xl font-bold text-(--color-text-primary)">
+            Compliance
+          </h1>
+          <p className="text-sm text-(--color-text-secondary) mt-1">
+            Track compliance scores and trends across all projects
+          </p>
+        </div>
+        <Card className="border-2 border-dashed">
+          <CardContent className="pt-6 text-center">
+            <AlertTriangle className="h-8 w-8 text-(--color-muted) mx-auto mb-3" />
+            <p className="text-sm text-(--color-text-secondary)">Could not load data. Is the API server running?</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  const avgScore = complianceData.length > 0
+    ? Math.round(complianceData.reduce((sum, p) => sum + p.currentScore, 0) / complianceData.length)
+    : 0
 
   return (
     <div className="space-y-6">
@@ -102,7 +167,7 @@ export default function CompliancePage() {
         <Card className="border-2">
           <CardContent className="pt-5 pb-5 text-center">
             <p className="font-mono text-3xl font-bold text-green-600">
-              {MOCK_COMPLIANCE_DATA.filter((p) => p.currentScore >= 80).length}
+              {complianceData.filter((p) => p.currentScore >= 80).length}
             </p>
             <p className="font-mono text-xs text-(--color-muted) uppercase tracking-widest mt-1">Passing (&gt;80)</p>
           </CardContent>
@@ -110,7 +175,7 @@ export default function CompliancePage() {
         <Card className="border-2">
           <CardContent className="pt-5 pb-5 text-center">
             <p className="font-mono text-3xl font-bold text-(--color-accent)">
-              {MOCK_COMPLIANCE_DATA.reduce((sum, p) => sum + p.violatedCount, 0)}
+              {complianceData.reduce((sum, p) => sum + p.violatedCount, 0)}
             </p>
             <p className="font-mono text-xs text-(--color-muted) uppercase tracking-widest mt-1">Total Violations</p>
           </CardContent>
@@ -146,7 +211,7 @@ export default function CompliancePage() {
             </tr>
           </thead>
           <tbody>
-            {MOCK_COMPLIANCE_DATA.map((p) => (
+            {complianceData.map((p) => (
               <tr key={p.project} className="border-b border-(--color-border) last:border-b-0 hover:bg-(--color-grid) transition-colors duration-150">
                 <td className="px-4 py-4">
                   <span className="font-mono font-medium text-(--color-text-primary)">{p.project}</span>
