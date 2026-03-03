@@ -3,6 +3,7 @@ import { analyzeCode } from "./analyzer.js"
 import { getBuiltinQueries, getQueryById } from "./builtin-queries.js"
 import { isSupportedLanguage } from "./parser-manager.js"
 import type { SupportedLanguage, ASTQueryDefinition, RuleASTConfig } from "./types.js"
+import { logger } from "@rulebound/shared/logger"
 
 function detectLanguageFromContent(plan: string): SupportedLanguage | null {
   const patterns: [RegExp, SupportedLanguage][] = [
@@ -153,8 +154,12 @@ export class ASTMatcher implements Matcher {
               suggestedFix: firstMatch.suggestedFix,
             })
           }
-        } catch {
-          // Language not loaded or query invalid, skip
+        } catch (error) {
+          logger.debug("AST analysis skipped: language not loaded or query invalid", {
+            language: lang,
+            ruleId: rule.id,
+            error: error instanceof Error ? error.message : String(error),
+          })
         }
       }
 

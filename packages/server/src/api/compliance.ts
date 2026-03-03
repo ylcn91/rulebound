@@ -1,6 +1,7 @@
 import { Hono } from "hono"
 import { getDb, schema } from "../db/index.js"
 import { eq, desc, and, gte } from "drizzle-orm"
+import { complianceSnapshotSchema } from "../schemas.js"
 
 const app = new Hono()
 
@@ -40,12 +41,15 @@ app.get("/:projectId", async (c) => {
 app.post("/:projectId/snapshot", async (c) => {
   const db = getDb()
   const projectId = c.req.param("projectId")
-  const body = await c.req.json()
-  const { score, passCount, violatedCount, notCoveredCount } = body
+  const raw = await c.req.json().catch(() => null)
+  if (!raw) return c.json({ error: "Invalid JSON" }, 400)
 
-  if (score === undefined) {
-    return c.json({ error: "Missing required field: score" }, 400)
+  const parsed = complianceSnapshotSchema.safeParse(raw)
+  if (!parsed.success) {
+    return c.json({ error: "Validation failed", details: parsed.error.issues }, 400)
   }
+
+  const { score, passCount, violatedCount, notCoveredCount } = parsed.data
 
   const [snapshot] = await db
     .insert(schema.complianceSnapshots)

@@ -2,6 +2,7 @@ import { Hono } from "hono"
 import { getDb, schema } from "../db/index.js"
 import { eq, and } from "drizzle-orm"
 import { createHash, randomBytes } from "node:crypto"
+import { tokenCreateSchema } from "../schemas.js"
 
 const app = new Hono()
 
@@ -26,12 +27,15 @@ app.get("/", async (c) => {
 
 app.post("/", async (c) => {
   const db = getDb()
-  const body = await c.req.json()
-  const { orgId, userId, name, scopes, expiresAt } = body
+  const raw = await c.req.json().catch(() => null)
+  if (!raw) return c.json({ error: "Invalid JSON" }, 400)
 
-  if (!orgId || !userId || !name) {
-    return c.json({ error: "Missing required fields: orgId, userId, name" }, 400)
+  const parsed = tokenCreateSchema.safeParse(raw)
+  if (!parsed.success) {
+    return c.json({ error: "Validation failed", details: parsed.error.issues }, 400)
   }
+
+  const { orgId, userId, name, scopes, expiresAt } = parsed.data
 
   const { token, hash, prefix } = generateToken()
 

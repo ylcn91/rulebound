@@ -16,7 +16,7 @@ function loadConfigFile(configPath: string): Record<string, unknown> {
   }
   try {
     return JSON.parse(readFileSync(configPath, "utf-8")) as Record<string, unknown>
-  } catch {
+  } catch (_error) {
     return {}
   }
 }

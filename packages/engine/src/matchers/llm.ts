@@ -1,4 +1,5 @@
 import type { Rule, Matcher, MatcherContext, MatchResult, MatchStatus, LLMConfig } from "../types.js"
+import { logger } from "@rulebound/shared/logger"
 
 interface LLMValidationResult {
   readonly status: MatchStatus
@@ -67,7 +68,8 @@ async function getModel(config: LLMConfig): Promise<ReturnType<ModelProvider>> {
     try {
       const { anthropic } = await import("@ai-sdk/anthropic")
       return anthropic(modelName)
-    } catch {
+    } catch (error) {
+      logger.debug("Failed to import @ai-sdk/anthropic", { error: error instanceof Error ? error.message : String(error) })
       throw new Error("LLM validation requires AI packages. Run: pnpm add ai @ai-sdk/anthropic")
     }
   }
@@ -76,7 +78,8 @@ async function getModel(config: LLMConfig): Promise<ReturnType<ModelProvider>> {
     try {
       const { openai } = await import("@ai-sdk/openai")
       return openai(modelName)
-    } catch {
+    } catch (error) {
+      logger.debug("Failed to import @ai-sdk/openai", { error: error instanceof Error ? error.message : String(error) })
       throw new Error("LLM validation requires AI packages. Run: pnpm add ai @ai-sdk/openai")
     }
   }

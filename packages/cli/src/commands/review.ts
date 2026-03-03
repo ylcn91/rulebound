@@ -27,7 +27,7 @@ function getGitDiff(): string | null {
   try {
     const diff = execSync("git diff HEAD", { encoding: "utf-8" })
     return diff.trim() || null
-  } catch {
+  } catch (_error) {
     return null
   }
 }

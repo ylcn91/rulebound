@@ -1,6 +1,7 @@
 import { Hono } from "hono"
 import type { GatewayConfig } from "./config.js"
 import { getCachedRules } from "./rule-cache.js"
+import { logger } from "./logger.js"
 import {
   buildRuleInjectionText,
   injectRulesOpenAI,
@@ -128,7 +129,11 @@ export function createProxy(config: GatewayConfig) {
               return c.json(modified)
             }
           }
-        } catch { /* parse error — pass through */ }
+        } catch (error) {
+          logger.warn("Failed to parse response for violation scanning", {
+            error: error instanceof Error ? error.message : String(error),
+          })
+        }
       }
     }
 
@@ -207,7 +212,11 @@ function extractContentFromSSE(chunk: string): string {
       const parsed = JSON.parse(data)
       const delta = parsed.choices?.[0]?.delta?.content ?? parsed.delta?.text ?? ""
       content += delta
-    } catch { /* ignore parse errors in streaming */ }
+    } catch (error) {
+      logger.debug("Failed to parse SSE chunk", {
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
   }
 
   return content

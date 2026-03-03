@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@rulebound/engine": "workspace:*",
+    "@rulebound/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.12.1",
     "zod": "^3.25.0"
   },

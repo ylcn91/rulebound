@@ -72,7 +72,7 @@ export async function validateCommand(options: ValidateOptions): Promise<void> {
   if (options.file) {
     try {
       planText = readFileSync(options.file, "utf-8")
-    } catch {
+    } catch (_error) {
       console.error(chalk.red(`Failed to read file: ${options.file}`))
       process.exit(1)
     }

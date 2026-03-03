@@ -16,8 +16,10 @@
   },
   "dependencies": {
     "@rulebound/engine": "workspace:*",
+    "@rulebound/shared": "workspace:*",
     "drizzle-orm": "^0.45.1",
-    "postgres": "^3.4.8"
+    "postgres": "^3.4.8",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@hono/node-server": "^1.14.0",

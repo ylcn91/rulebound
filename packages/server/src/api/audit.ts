@@ -1,6 +1,7 @@
 import { Hono } from "hono"
 import { getDb, schema } from "../db/index.js"
 import { eq, desc, and, gte, lte } from "drizzle-orm"
+import { auditCreateSchema } from "../schemas.js"
 
 const app = new Hono()
 
@@ -39,12 +40,15 @@ app.get("/", async (c) => {
 
 app.post("/", async (c) => {
   const db = getDb()
-  const body = await c.req.json()
-  const { orgId, projectId, userId, action, ruleId, status, metadata } = body
+  const raw = await c.req.json().catch(() => null)
+  if (!raw) return c.json({ error: "Invalid JSON" }, 400)
 
-  if (!orgId || !action || !status) {
-    return c.json({ error: "Missing required fields: orgId, action, status" }, 400)
+  const parsed = auditCreateSchema.safeParse(raw)
+  if (!parsed.success) {
+    return c.json({ error: "Validation failed", details: parsed.error.issues }, 400)
   }
+
+  const { orgId, projectId, userId, action, ruleId, status, metadata } = parsed.data
 
   const [created] = await db
     .insert(schema.auditLog)

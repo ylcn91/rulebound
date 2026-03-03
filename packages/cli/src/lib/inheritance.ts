@@ -18,7 +18,7 @@ export function loadConfig(cwd: string): RuleboundConfig | null {
 
   try {
     return JSON.parse(readFileSync(configPath, "utf-8")) as RuleboundConfig
-  } catch {
+  } catch (_error) {
     return null
   }
 }

@@ -1,5 +1,7 @@
 import { createParser, loadLanguage } from "./parser-manager.js"
 import { getBuiltinQueries, getQueryById } from "./builtin-queries.js"
+import type Parser from "web-tree-sitter"
+import { logger } from "@rulebound/shared/logger"
 import type {
   SupportedLanguage,
   ASTQueryDefinition,
@@ -7,8 +9,6 @@ import type {
   ASTCapturedNode,
   ASTAnalysisResult,
 } from "./types.js"
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
 export async function analyzeCode(
   code: string,
@@ -41,7 +41,7 @@ export async function analyzeCode(
   return { language, matches, parseErrors, nodeCount, parseTimeMs, queryTimeMs }
 }
 
-function countErrors(node: any): number {
+function countErrors(node: Parser.SyntaxNode): number {
   let errors = 0
   const cursor = node.walk()
   let reachedRoot = false
@@ -69,13 +69,13 @@ function countErrors(node: any): number {
 }
 
 function matchesCaptureFilters(
-  captures: any[],
+  captures: Parser.QueryCapture[],
   filters: Record<string, string | readonly string[]> | undefined
 ): boolean {
   if (!filters) return true
 
   for (const [captureName, expected] of Object.entries(filters)) {
-    const capture = captures.find((c: any) => c.name === captureName)
+    const capture = captures.find((c: Parser.QueryCapture) => c.name === captureName)
     if (!capture) return false
 
     const text = capture.node.text
@@ -90,10 +90,10 @@ function matchesCaptureFilters(
 }
 
 function runQueries(
-  root: any,
+  root: Parser.SyntaxNode,
   language: SupportedLanguage,
   queryDefs: readonly ASTQueryDefinition[],
-  langObj: any
+  langObj: Parser.Language
 ): readonly ASTMatch[] {
   const matches: ASTMatch[] = []
 
@@ -111,7 +111,7 @@ function runQueries(
         if (!primaryCapture) continue
 
         const node = primaryCapture.node
-        const captured: ASTCapturedNode[] = match.captures.map((c: any) => ({
+        const captured: ASTCapturedNode[] = match.captures.map((c: Parser.QueryCapture) => ({
           name: c.name,
           type: c.node.type,
           text: c.node.text.slice(0, 200),
@@ -137,8 +137,12 @@ function runQueries(
       }
 
       query.delete()
-    } catch {
-      // Query syntax not supported for this language -- skip
+    } catch (error) {
+      logger.debug("Query syntax not supported for this language, skipping", {
+        queryId: def.id,
+        language,
+        error: error instanceof Error ? error.message : String(error),
+      })
     }
   }
 

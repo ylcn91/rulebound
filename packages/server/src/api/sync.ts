@@ -1,7 +1,8 @@
 import { Hono } from "hono"
 import { getDb, schema } from "../db/index.js"
-import { eq, and, gt } from "drizzle-orm"
+import { eq, and, gte, or, isNull, arrayOverlaps } from "drizzle-orm"
 import { createHash } from "node:crypto"
+import { syncAckSchema } from "../schemas.js"
 
 const app = new Hono()
 
@@ -19,19 +20,23 @@ app.get("/", async (c) => {
   const since = c.req.query("since")
   const stack = c.req.query("stack")
 
-  let dbRules = await db.select().from(schema.rules).where(eq(schema.rules.isActive, true))
+  const conditions = [eq(schema.rules.isActive, true)]
 
   if (since) {
-    const sinceDate = new Date(since)
-    dbRules = dbRules.filter((r) => r.updatedAt > sinceDate)
+    conditions.push(gte(schema.rules.updatedAt, new Date(since)))
   }
 
   if (stack) {
     const stackList = stack.split(",").map((s) => s.trim().toLowerCase())
-    dbRules = dbRules.filter((r) =>
-      !r.stack || r.stack.length === 0 || r.stack.some((s) => stackList.includes(s?.toLowerCase() ?? ""))
+    conditions.push(
+      or(
+        arrayOverlaps(schema.rules.stack, stackList),
+        isNull(schema.rules.stack),
+      )!
     )
   }
+
+  const dbRules = await db.select().from(schema.rules).where(and(...conditions))
 
   const versionHash = computeRulesHash(dbRules)
 
@@ -60,12 +65,15 @@ app.get("/", async (c) => {
 
 app.post("/ack", async (c) => {
   const db = getDb()
-  const body = await c.req.json()
-  const { projectId, ruleVersionHash } = body
+  const raw = await c.req.json().catch(() => null)
+  if (!raw) return c.json({ error: "Invalid JSON" }, 400)
 
-  if (!projectId || !ruleVersionHash) {
-    return c.json({ error: "Missing projectId or ruleVersionHash" }, 400)
+  const parsed = syncAckSchema.safeParse(raw)
+  if (!parsed.success) {
+    return c.json({ error: "Validation failed", details: parsed.error.issues }, 400)
   }
+
+  const { projectId, ruleVersionHash } = parsed.data
 
   const [existing] = await db
     .select()

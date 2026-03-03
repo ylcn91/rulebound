@@ -1,7 +1,9 @@
 import { Hono } from "hono"
 import { validate, type Rule } from "@rulebound/engine"
 import { getDb, schema } from "../db/index.js"
-import { eq, and } from "drizzle-orm"
+import { eq, and, or, isNull, arrayOverlaps } from "drizzle-orm"
+import { validateBodySchema } from "../schemas.js"
+import { logger } from "@rulebound/shared/logger"
 
 const app = new Hono()
 
@@ -23,26 +25,34 @@ function dbRuleToEngineRule(dbRule: typeof schema.rules.$inferSelect): Rule {
 }
 
 app.post("/", async (c) => {
-  const body = await c.req.json()
-  const { plan, code, language, project, task, useLlm } = body
+  const raw = await c.req.json().catch(() => null)
+  if (!raw) return c.json({ error: "Invalid JSON" }, 400)
 
-  if (!plan && !code) {
-    return c.json({ error: "Provide 'plan' or 'code' field" }, 400)
+  const parsed = validateBodySchema.safeParse(raw)
+  if (!parsed.success) {
+    return c.json({ error: "Validation failed", details: parsed.error.issues }, 400)
   }
+
+  const { plan, code, language, project, task, useLlm } = parsed.data
 
   const textToValidate = plan ?? code
+  if (!textToValidate) {
+    return c.json({ error: "Either 'plan' or 'code' is required" }, 400)
+  }
   const db = getDb()
 
-  let dbRules = await db.select().from(schema.rules).where(eq(schema.rules.isActive, true))
+  const conditions = [eq(schema.rules.isActive, true)]
 
-  if (language || project) {
-    const stackFilter = language ? [language] : []
-    if (stackFilter.length > 0) {
-      dbRules = dbRules.filter((r) =>
-        !r.stack || r.stack.length === 0 || r.stack.some((s) => stackFilter.includes(s?.toLowerCase() ?? ""))
-      )
-    }
+  if (language) {
+    conditions.push(
+      or(
+        arrayOverlaps(schema.rules.stack, [language.toLowerCase()]),
+        isNull(schema.rules.stack),
+      )!
+    )
   }
+
+  const dbRules = await db.select().from(schema.rules).where(and(...conditions))
 
   const rules = dbRules.map(dbRuleToEngineRule)
   const report = await validate({
@@ -64,7 +74,12 @@ app.post("/", async (c) => {
           metadata: { reason: result.reason, severity: result.severity },
         })
       }
-    } catch { /* audit logging is best-effort */ }
+    } catch (error) {
+      logger.warn("Audit log insert failed (best-effort)", {
+        orgId,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
   }
 
   return c.json(report)

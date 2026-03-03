@@ -25,10 +25,10 @@ export async function diffCommand(options: DiffOptions): Promise<void> {
 
   try {
     diffText = execFileSync("git", ["diff", ref], { encoding: "utf-8" })
-  } catch {
+  } catch (_error) {
     try {
       diffText = execFileSync("git", ["diff", "--cached"], { encoding: "utf-8" })
-    } catch {
+    } catch (_cachedError) {
       console.error(chalk.red("Failed to get git diff. Are you in a git repository?"))
       process.exit(1)
     }

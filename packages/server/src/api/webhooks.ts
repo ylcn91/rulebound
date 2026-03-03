@@ -3,8 +3,15 @@ import { getDb, schema } from "../db/index.js"
 import { eq } from "drizzle-orm"
 import { deliverWebhook, type WebhookEvent, type WebhookPayload } from "../webhooks/dispatcher.js"
 import { verifyGitHubSignature, parseGitHubEvent } from "../webhooks/receivers.js"
+import { webhookEndpointCreateSchema } from "../schemas.js"
+import { encrypt, decrypt } from "../lib/crypto.js"
 
 const app = new Hono()
+
+/** Returns the first 8 chars of the secret for safe display (e.g. "whsec_ab...") */
+function secretPrefix(secret: string): string {
+  return secret.slice(0, 8) + "..."
+}
 
 // --- Outbound webhook management ---
 
@@ -16,26 +23,35 @@ app.get("/endpoints", async (c) => {
     ? await db.select().from(schema.webhookEndpoints).where(eq(schema.webhookEndpoints.orgId, orgId))
     : await db.select().from(schema.webhookEndpoints)
 
-  const safe = endpoints.map(({ secret, ...rest }) => rest)
+  const safe = endpoints.map(({ encryptedSecret, ...rest }) => ({
+    ...rest,
+    secretPrefix: rest.secretHash,
+  }))
   return c.json({ data: safe })
 })
 
 app.post("/endpoints", async (c) => {
   const db = getDb()
-  const body = await c.req.json()
-  const { orgId, url, secret, events, description } = body
+  const raw = await c.req.json().catch(() => null)
+  if (!raw) return c.json({ error: "Invalid JSON" }, 400)
 
-  if (!orgId || !url || !secret || !events?.length) {
-    return c.json({ error: "Missing required fields: orgId, url, secret, events" }, 400)
+  const parsed = webhookEndpointCreateSchema.safeParse(raw)
+  if (!parsed.success) {
+    return c.json({ error: "Validation failed", details: parsed.error.issues }, 400)
   }
+
+  const { orgId, url, secret, events, description } = parsed.data
+
+  const encryptedSecret = encrypt(secret)
+  const secretHash = secretPrefix(secret)
 
   const [created] = await db
     .insert(schema.webhookEndpoints)
-    .values({ orgId, url, secret, events, description })
+    .values({ orgId, url, encryptedSecret, secretHash, events, description })
     .returning()
 
-  const { secret: _, ...safe } = created
-  return c.json({ data: safe }, 201)
+  const { encryptedSecret: _, ...safe } = created
+  return c.json({ data: { ...safe, secret } }, 201)
 })
 
 app.delete("/endpoints/:id", async (c) => {
@@ -53,13 +69,15 @@ app.post("/endpoints/:id/test", async (c) => {
   const [endpoint] = await db.select().from(schema.webhookEndpoints).where(eq(schema.webhookEndpoints.id, id))
   if (!endpoint) return c.json({ error: "Endpoint not found" }, 404)
 
+  const plainSecret = decrypt(endpoint.encryptedSecret)
+
   const testPayload: WebhookPayload = {
     event: "violation.detected",
     timestamp: new Date().toISOString(),
     data: { test: true, message: "This is a test webhook delivery from Rulebound" },
   }
 
-  const result = await deliverWebhook(endpoint.url, testPayload, endpoint.secret)
+  const result = await deliverWebhook(endpoint.url, testPayload, plainSecret)
 
   await db.insert(schema.webhookDeliveries).values({
     endpointId: id,
@@ -144,7 +162,8 @@ export async function dispatchWebhooks(
     if (!endpoint.isActive) continue
     if (!endpoint.events.includes(event)) continue
 
-    const result = await deliverWebhook(endpoint.url, payload, endpoint.secret)
+    const plainSecret = decrypt(endpoint.encryptedSecret)
+    const result = await deliverWebhook(endpoint.url, payload, plainSecret)
 
     await db.insert(schema.webhookDeliveries).values({
       endpointId: endpoint.id,
