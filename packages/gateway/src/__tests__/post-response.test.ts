@@ -6,6 +6,11 @@ vi.mock("@rulebound/engine", () => ({
   validate: vi.fn(),
 }))
 
+vi.mock("../interceptor/ast-scanner.js", () => ({
+  scanCodeBlockWithAST: vi.fn().mockResolvedValue([]),
+  detectLanguageFromAnnotation: vi.fn().mockReturnValue(null),
+}))
+
 import { validate } from "@rulebound/engine"
 
 const mockValidate = vi.mocked(validate)
@@ -41,7 +46,8 @@ describe("extractCodeBlocks", () => {
     const text = "Here is code:\n```python\ndef hello():\n  return 'hi'\n```"
     const blocks = extractCodeBlocks(text)
     expect(blocks).toHaveLength(1)
-    expect(blocks[0]).toContain("def hello()")
+    expect(blocks[0].code).toContain("def hello()")
+    expect(blocks[0].language).toBe("python")
   })
 
   it("extracts multiple code blocks", () => {
@@ -57,21 +63,25 @@ describe("extractCodeBlocks", () => {
     ].join("\n")
     const blocks = extractCodeBlocks(text)
     expect(blocks).toHaveLength(2)
-    expect(blocks[0]).toContain("const x = 1")
-    expect(blocks[1]).toContain("y = 2")
+    expect(blocks[0].code).toContain("const x = 1")
+    expect(blocks[0].language).toBe("javascript")
+    expect(blocks[1].code).toContain("y = 2")
+    expect(blocks[1].language).toBe("python")
   })
 
   it("handles code blocks with no language specified", () => {
     const text = "```\nsome code\n```"
     const blocks = extractCodeBlocks(text)
     expect(blocks).toHaveLength(1)
-    expect(blocks[0]).toBe("some code")
+    expect(blocks[0].code).toBe("some code")
+    expect(blocks[0].language).toBeNull()
   })
 
   it("trims whitespace from extracted blocks", () => {
     const text = "```js\n  \n  const x = 1\n  \n```"
     const blocks = extractCodeBlocks(text)
-    expect(blocks[0]).toBe("const x = 1")
+    expect(blocks[0].code).toBe("const x = 1")
+    expect(blocks[0].language).toBe("js")
   })
 
   it("handles text with only backticks but no complete block", () => {

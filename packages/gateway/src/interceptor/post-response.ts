@@ -46,8 +46,9 @@ export async function scanResponse(
   const allCode = codeBlocks.map((b) => b.code).join("\n\n")
 
   let semanticViolations: ScanResult["violations"] = []
+  let report: ValidationReport | undefined
   if (rules.length > 0) {
-    const report = await validate({ plan: allCode, rules, task: "LLM response code validation" })
+    report = await validate({ plan: allCode, rules, task: "LLM response code validation" })
     semanticViolations = report.results
       .filter((r) => r.status === "VIOLATED")
       .map((r) => ({
@@ -79,6 +80,7 @@ export async function scanResponse(
   return {
     hasViolations: violations.length > 0,
     violations,
+    report,
   }
 }
 
