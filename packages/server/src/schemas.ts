@@ -67,7 +67,7 @@ export const auditCreateSchema = z
     action: z.string().min(1, "action is required"),
     ruleId: z.string().optional(),
     status: z.string().min(1, "status is required"),
-    metadata: z.record(z.unknown()).optional(),
+    metadata: z.record(z.string(), z.any()).optional(),
   })
   .strip()
 

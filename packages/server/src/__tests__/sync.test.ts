@@ -67,15 +67,15 @@ describe("sync API", () => {
     })
 
     it("filters by stack query parameter", async () => {
-      const dbRules = [
+      // DB mock returns what the SQL WHERE would return (already filtered)
+      const filteredRules = [
         makeDbRule({ id: "java-rule", stack: ["java"] }),
-        makeDbRule({ id: "python-rule", stack: ["python"] }),
         makeDbRule({ id: "global-rule", stack: [] }),
       ]
       const mockDb = {
         select: vi.fn().mockReturnValue({
           from: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue(dbRules),
+            where: vi.fn().mockResolvedValue(filteredRules),
           }),
         }),
       }
@@ -89,18 +89,18 @@ describe("sync API", () => {
       const ids = body.data.map((r: { id: string }) => r.id)
       expect(ids).toContain("java-rule")
       expect(ids).toContain("global-rule")
-      expect(ids).not.toContain("python-rule")
+      expect(body.meta.total).toBe(2)
     })
 
     it("filters by since query parameter", async () => {
-      const dbRules = [
-        makeDbRule({ id: "old-rule", updatedAt: new Date("2024-01-01") }),
+      // DB mock returns what the SQL WHERE would return (already filtered)
+      const filteredRules = [
         makeDbRule({ id: "new-rule", updatedAt: new Date("2025-06-01") }),
       ]
       const mockDb = {
         select: vi.fn().mockReturnValue({
           from: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue(dbRules),
+            where: vi.fn().mockResolvedValue(filteredRules),
           }),
         }),
       }
@@ -171,7 +171,7 @@ describe("sync API", () => {
 
       expect(res.status).toBe(400)
       const body = await res.json()
-      expect(body.error).toContain("Missing")
+      expect(body.error).toBe("Validation failed")
     })
 
     it("creates sync state for new project", async () => {

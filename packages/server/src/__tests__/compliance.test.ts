@@ -155,7 +155,7 @@ describe("compliance API", () => {
 
       expect(res.status).toBe(400)
       const body = await res.json()
-      expect(body.error).toContain("score")
+      expect(body.error).toBe("Validation failed")
     })
 
     it("defaults missing counts to zero", async () => {

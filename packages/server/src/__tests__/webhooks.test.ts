@@ -19,6 +19,11 @@ vi.mock("../webhooks/receivers.js", () => ({
   parseGitHubEvent: vi.fn(),
 }))
 
+vi.mock("../lib/crypto.js", () => ({
+  encrypt: vi.fn((s: string) => `encrypted:${s}`),
+  decrypt: vi.fn((s: string) => s.replace("encrypted:", "")),
+}))
+
 import { getDb } from "../db/index.js"
 import { deliverWebhook } from "../webhooks/dispatcher.js"
 import { verifyGitHubSignature, parseGitHubEvent } from "../webhooks/receivers.js"
@@ -43,7 +48,7 @@ describe("webhooks API", () => {
   describe("GET /endpoints", () => {
     it("returns all endpoints without secrets", async () => {
       const endpoints = [
-        { id: "ep-1", orgId: "org-1", url: "https://example.com", secret: "s3cret", events: ["violation.detected"], isActive: true },
+        { id: "ep-1", orgId: "org-1", url: "https://example.com", encryptedSecret: "encrypted:s3cret", secretHash: "s3cret..", events: ["violation.detected"], isActive: true },
       ]
       const mockDb = {
         select: vi.fn().mockReturnValue({
@@ -60,14 +65,14 @@ describe("webhooks API", () => {
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.data).toHaveLength(1)
-      expect(body.data[0]).not.toHaveProperty("secret")
+      expect(body.data[0]).not.toHaveProperty("encryptedSecret")
       expect(body.data[0].url).toBe("https://example.com")
     })
 
     it("returns all endpoints when no org_id filter", async () => {
       const endpoints = [
-        { id: "ep-1", orgId: "org-1", url: "https://a.com", secret: "s1", events: [] },
-        { id: "ep-2", orgId: "org-2", url: "https://b.com", secret: "s2", events: [] },
+        { id: "ep-1", orgId: "org-1", url: "https://a.com", encryptedSecret: "encrypted:s1", secretHash: "s1......", events: [] },
+        { id: "ep-2", orgId: "org-2", url: "https://b.com", encryptedSecret: "encrypted:s2", secretHash: "s2......", events: [] },
       ]
       const mockDb = {
         select: vi.fn().mockReturnValue({
@@ -91,7 +96,8 @@ describe("webhooks API", () => {
         id: "ep-new",
         orgId: "org-1",
         url: "https://hook.example.com",
-        secret: "hidden",
+        encryptedSecret: "encrypted:supersecretvalue16",
+        secretHash: "supersecr...",
         events: ["violation.detected"],
         description: "Test hook",
       }
@@ -111,7 +117,7 @@ describe("webhooks API", () => {
         body: JSON.stringify({
           orgId: "org-1",
           url: "https://hook.example.com",
-          secret: "hidden",
+          secret: "supersecretvalue16",
           events: ["violation.detected"],
           description: "Test hook",
         }),
@@ -119,8 +125,9 @@ describe("webhooks API", () => {
 
       expect(res.status).toBe(201)
       const body = await res.json()
-      expect(body.data).not.toHaveProperty("secret")
+      expect(body.data).not.toHaveProperty("encryptedSecret")
       expect(body.data.url).toBe("https://hook.example.com")
+      expect(body.data.secret).toBe("supersecretvalue16")
     })
 
     it("returns 400 when missing required fields", async () => {
@@ -133,7 +140,7 @@ describe("webhooks API", () => {
 
       expect(res.status).toBe(400)
       const body = await res.json()
-      expect(body.error).toContain("Missing")
+      expect(body.error).toBe("Validation failed")
     })
   })
 
@@ -182,7 +189,7 @@ describe("webhooks API", () => {
       const endpoint = {
         id: "ep-1",
         url: "https://hook.example.com",
-        secret: "test-secret",
+        encryptedSecret: "encrypted:test-secret",
         events: ["violation.detected"],
       }
       const mockInsert = vi.fn().mockReturnValue({
