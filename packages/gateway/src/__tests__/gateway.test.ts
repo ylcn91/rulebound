@@ -1,8 +1,13 @@
-import { describe, it, expect } from "vitest"
+import { describe, it, expect, vi } from "vitest"
 import { buildRuleInjectionText, injectRulesOpenAI, injectRulesAnthropic } from "../interceptor/pre-request.js"
 import { extractCodeBlocks, scanResponse, buildViolationWarning } from "../interceptor/post-response.js"
 import { StreamScanner } from "../interceptor/stream-scanner.js"
 import type { Rule } from "@rulebound/engine"
+
+vi.mock("../interceptor/ast-scanner.js", () => ({
+  scanCodeBlockWithAST: vi.fn().mockResolvedValue([]),
+  detectLanguageFromAnnotation: vi.fn().mockReturnValue(null),
+}))
 
 function makeRule(overrides: Partial<Rule> = {}): Rule {
   return {
@@ -74,12 +79,22 @@ describe("pre-request", () => {
 })
 
 describe("post-response", () => {
-  it("extracts code blocks", () => {
+  it("extracts code blocks with language annotations", () => {
     const text = "Here is code:\n```python\ndef hello():\n  pass\n```\nAnd more:\n```go\nfunc main() {}\n```"
     const blocks = extractCodeBlocks(text)
     expect(blocks).toHaveLength(2)
-    expect(blocks[0]).toContain("def hello()")
-    expect(blocks[1]).toContain("func main()")
+    expect(blocks[0].code).toContain("def hello()")
+    expect(blocks[0].language).toBe("python")
+    expect(blocks[1].code).toContain("func main()")
+    expect(blocks[1].language).toBe("go")
+  })
+
+  it("returns null language for unannotated code blocks", () => {
+    const text = "Code:\n```\nsome code\n```"
+    const blocks = extractCodeBlocks(text)
+    expect(blocks).toHaveLength(1)
+    expect(blocks[0].code).toBe("some code")
+    expect(blocks[0].language).toBeNull()
   })
 
   it("returns empty for no code blocks", () => {
