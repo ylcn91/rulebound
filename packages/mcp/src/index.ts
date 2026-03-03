@@ -9,6 +9,11 @@ import {
   detectLanguageFromCode,
   detectProjectStack,
 } from "./rule-loader.js"
+import {
+  detectLanguageFromPath,
+  isSupportedLanguage,
+  analyzeWithBuiltins,
+} from "@rulebound/engine"
 
 const server = new McpServer({
   name: "rulebound",
@@ -166,6 +171,88 @@ server.tool(
     }
   }
 )
+
+server.tool(
+  "validate_before_write",
+  "Check code before writing to file. Returns approved:true if clean, approved:false with violations if not. AI agents MUST call this before writing any code file.",
+  {
+    code: z.string().describe("Code to validate before writing"),
+    file_path: z.string().describe("Target file path"),
+    language: z.string().optional().describe("Programming language (auto-detected from file extension if omitted)"),
+  },
+  async ({ code, file_path, language }) => {
+    const lang = language ?? detectLanguageFromPath(file_path) ?? detectLanguageFromCode(code, file_path)
+
+    const rulesDir = findRulesDir(process.cwd())
+    const rules = rulesDir ? loadLocalRules(rulesDir) : []
+    const relevantRules = lang
+      ? filterRules(rules, { stack: lang })
+      : rules
+
+    const astViolations: ReadonlyArray<{
+      readonly rule: string
+      readonly line?: number
+      readonly message: string
+      readonly severity: string
+    }> = lang && isSupportedLanguage(lang)
+      ? await runAstAnalysis(code, lang)
+      : []
+
+    const report = relevantRules.length > 0
+      ? validatePlanAgainstRules(code, relevantRules, `Writing ${file_path}`)
+      : null
+
+    const semanticViolations = report
+      ? report.results
+          .filter((r) => r.status === "VIOLATED")
+          .map((r) => ({
+            rule: r.ruleId,
+            message: r.reason,
+            severity: r.severity,
+            fix: r.suggestedFix,
+          }))
+      : []
+
+    const violations = [
+      ...astViolations.map((v) => ({ ...v, source: "ast" as const })),
+      ...semanticViolations.map((v) => ({ ...v, source: "semantic" as const })),
+    ]
+
+    const approved = violations.length === 0
+    return {
+      content: [{
+        type: "text" as const,
+        text: JSON.stringify({
+          approved,
+          file_path,
+          language: lang ?? "unknown",
+          violations,
+          message: approved
+            ? "Code is clean — safe to write"
+            : `${violations.length} violation(s) found — review before writing`,
+        }, null, 2),
+      }],
+    }
+  }
+)
+
+async function runAstAnalysis(
+  code: string,
+  lang: string
+): Promise<ReadonlyArray<{ readonly rule: string; readonly line?: number; readonly message: string; readonly severity: string }>> {
+  try {
+    const result = await analyzeWithBuiltins(code, lang as Parameters<typeof analyzeWithBuiltins>[1])
+    return result.matches.map((match) => ({
+      rule: match.queryId,
+      line: match.location.startRow + 1,
+      message: match.message,
+      severity: match.severity,
+    }))
+  } catch {
+    // Language not supported by tree-sitter, skip AST analysis
+    return []
+  }
+}
 
 async function main() {
   const transport = new StdioServerTransport()

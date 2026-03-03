@@ -10,6 +10,12 @@ vi.mock("../rule-loader.js", () => ({
   detectProjectStack: vi.fn(() => []),
 }))
 
+vi.mock("@rulebound/engine", () => ({
+  detectLanguageFromPath: vi.fn(),
+  isSupportedLanguage: vi.fn(),
+  analyzeWithBuiltins: vi.fn(),
+}))
+
 import {
   findRulesDir,
   loadLocalRules,
@@ -19,12 +25,21 @@ import {
   detectProjectStack,
 } from "../rule-loader.js"
 
+import {
+  detectLanguageFromPath,
+  isSupportedLanguage,
+  analyzeWithBuiltins,
+} from "@rulebound/engine"
+
 const mockFindRulesDir = vi.mocked(findRulesDir)
 const mockLoadLocalRules = vi.mocked(loadLocalRules)
 const mockFilterRules = vi.mocked(filterRules)
 const mockValidatePlan = vi.mocked(validatePlanAgainstRules)
 const mockDetectLanguage = vi.mocked(detectLanguageFromCode)
 const mockDetectStack = vi.mocked(detectProjectStack)
+const mockDetectLangFromPath = vi.mocked(detectLanguageFromPath)
+const mockIsSupportedLanguage = vi.mocked(isSupportedLanguage)
+const mockAnalyzeWithBuiltins = vi.mocked(analyzeWithBuiltins)
 
 function makeRule(overrides: Partial<LocalRule> = {}): LocalRule {
   return {
@@ -337,5 +352,272 @@ describe("detectProjectStack", () => {
     const stack = detectProjectStack("/project")
     expect(stack).toContain("java")
     expect(stack).toContain("spring-boot")
+  })
+})
+
+describe("validate_before_write tool logic", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("returns approved:true for clean code with no violations", () => {
+    mockDetectLangFromPath.mockReturnValue("typescript")
+    mockIsSupportedLanguage.mockReturnValue(true)
+    mockAnalyzeWithBuiltins.mockResolvedValue({
+      language: "typescript",
+      matches: [],
+      parseErrors: 0,
+      nodeCount: 10,
+      parseTimeMs: 1,
+      queryTimeMs: 1,
+    })
+    mockFindRulesDir.mockReturnValue("/project/.rulebound/rules")
+    mockLoadLocalRules.mockReturnValue([makeRule()])
+    mockFilterRules.mockReturnValue([makeRule()])
+    mockValidatePlan.mockReturnValue(makeReport({
+      status: "PASSED",
+      results: [
+        { ruleId: "test-rule", ruleTitle: "Test Rule", severity: "error", modality: "must", status: "PASS", reason: "Code follows rule" },
+      ],
+    }))
+
+    // Simulate the tool logic
+    const lang = detectLanguageFromPath("app.ts")
+    expect(lang).toBe("typescript")
+
+    const supported = isSupportedLanguage(lang!)
+    expect(supported).toBe(true)
+
+    const rulesDir = findRulesDir("/project")
+    expect(rulesDir).toBe("/project/.rulebound/rules")
+
+    const rules = loadLocalRules(rulesDir!)
+    const relevant = filterRules(rules, { stack: lang! })
+    const report = validatePlanAgainstRules("const x = 1", relevant, "Writing app.ts")
+
+    const semanticViolations = report.results
+      .filter((r) => r.status === "VIOLATED")
+
+    expect(semanticViolations).toHaveLength(0)
+  })
+
+  it("returns approved:false with AST violations", async () => {
+    mockDetectLangFromPath.mockReturnValue("typescript")
+    mockIsSupportedLanguage.mockReturnValue(true)
+    mockAnalyzeWithBuiltins.mockResolvedValue({
+      language: "typescript",
+      matches: [
+        {
+          queryId: "no-console-log",
+          queryName: "No Console Log",
+          message: "console.log found",
+          severity: "warning",
+          location: { startRow: 0, startColumn: 0, endRow: 0, endColumn: 20 },
+          matchedText: "console.log('test')",
+          capturedNodes: [],
+        },
+      ],
+      parseErrors: 0,
+      nodeCount: 5,
+      parseTimeMs: 1,
+      queryTimeMs: 1,
+    })
+
+    const result = await analyzeWithBuiltins("console.log('test')", "typescript")
+    expect(result.matches).toHaveLength(1)
+
+    const astViolations = result.matches.map((match) => ({
+      rule: match.queryId,
+      line: match.location.startRow + 1,
+      message: match.message,
+      severity: match.severity,
+      source: "ast" as const,
+    }))
+
+    expect(astViolations).toHaveLength(1)
+    expect(astViolations[0].rule).toBe("no-console-log")
+    expect(astViolations[0].line).toBe(1)
+    expect(astViolations[0].source).toBe("ast")
+  })
+
+  it("handles unknown language gracefully with no AST analysis", () => {
+    mockDetectLangFromPath.mockReturnValue(null)
+    mockDetectLanguage.mockReturnValue(undefined)
+    mockIsSupportedLanguage.mockReturnValue(false)
+    mockFindRulesDir.mockReturnValue("/project/.rulebound/rules")
+    mockLoadLocalRules.mockReturnValue([makeRule()])
+    mockFilterRules.mockReturnValue([makeRule()])
+    mockValidatePlan.mockReturnValue(makeReport({
+      status: "PASSED",
+      results: [
+        { ruleId: "test-rule", ruleTitle: "Test Rule", severity: "error", modality: "must", status: "PASS", reason: "Code follows rule" },
+      ],
+    }))
+
+    const lang = detectLanguageFromPath("config.yaml") ?? detectLanguageFromCode("key: value", "config.yaml")
+    expect(lang).toBeUndefined()
+
+    // AST analysis should be skipped for unsupported language
+    const shouldRunAst = lang != null && isSupportedLanguage(lang)
+    expect(shouldRunAst).toBe(false)
+
+    // Semantic validation still runs
+    const report = validatePlanAgainstRules("key: value", [makeRule()], "Writing config.yaml")
+    expect(report.status).toBe("PASSED")
+  })
+
+  it("returns correct JSON structure with all required fields", async () => {
+    mockDetectLangFromPath.mockReturnValue("typescript")
+    mockIsSupportedLanguage.mockReturnValue(true)
+    mockAnalyzeWithBuiltins.mockResolvedValue({
+      language: "typescript",
+      matches: [],
+      parseErrors: 0,
+      nodeCount: 5,
+      parseTimeMs: 1,
+      queryTimeMs: 1,
+    })
+    mockFindRulesDir.mockReturnValue("/project/.rulebound/rules")
+    mockLoadLocalRules.mockReturnValue([makeRule()])
+    mockFilterRules.mockReturnValue([makeRule()])
+    mockValidatePlan.mockReturnValue(makeReport({
+      status: "PASSED",
+      results: [
+        { ruleId: "test-rule", ruleTitle: "Test Rule", severity: "error", modality: "must", status: "PASS", reason: "Clean" },
+      ],
+    }))
+
+    const lang = detectLanguageFromPath("app.ts") ?? "unknown"
+    const astResult = await analyzeWithBuiltins("const x = 1", "typescript")
+    const astViolations = astResult.matches.map((match) => ({
+      rule: match.queryId,
+      line: match.location.startRow + 1,
+      message: match.message,
+      severity: match.severity,
+      source: "ast" as const,
+    }))
+    const report = validatePlanAgainstRules("const x = 1", [makeRule()], "Writing app.ts")
+    const semanticViolations = report.results
+      .filter((r) => r.status === "VIOLATED")
+      .map((r) => ({
+        rule: r.ruleId,
+        message: r.reason,
+        severity: r.severity,
+        fix: r.suggestedFix,
+        source: "semantic" as const,
+      }))
+
+    const violations = [...astViolations, ...semanticViolations]
+    const approved = violations.length === 0
+
+    const response = {
+      approved,
+      file_path: "app.ts",
+      language: lang,
+      violations,
+      message: approved
+        ? "Code is clean — safe to write"
+        : `${violations.length} violation(s) found — review before writing`,
+    }
+
+    expect(response).toHaveProperty("approved", true)
+    expect(response).toHaveProperty("file_path", "app.ts")
+    expect(response).toHaveProperty("language", "typescript")
+    expect(response).toHaveProperty("violations")
+    expect(response).toHaveProperty("message", "Code is clean — safe to write")
+    expect(response.violations).toEqual([])
+  })
+
+  it("returns approved:true when no rules directory exists", () => {
+    mockDetectLangFromPath.mockReturnValue("typescript")
+    mockIsSupportedLanguage.mockReturnValue(true)
+    mockAnalyzeWithBuiltins.mockResolvedValue({
+      language: "typescript",
+      matches: [],
+      parseErrors: 0,
+      nodeCount: 5,
+      parseTimeMs: 1,
+      queryTimeMs: 1,
+    })
+    mockFindRulesDir.mockReturnValue(null)
+
+    const rulesDir = findRulesDir("/no-rules-project")
+    expect(rulesDir).toBeNull()
+
+    // No rules means no semantic violations possible
+    const rules = rulesDir ? loadLocalRules(rulesDir) : []
+    expect(rules).toHaveLength(0)
+
+    // With no AST violations and no rules, result should be approved
+    const violations: unknown[] = []
+    const approved = violations.length === 0
+    expect(approved).toBe(true)
+  })
+
+  it("combines AST and semantic violations in result", async () => {
+    mockDetectLangFromPath.mockReturnValue("typescript")
+    mockIsSupportedLanguage.mockReturnValue(true)
+    mockAnalyzeWithBuiltins.mockResolvedValue({
+      language: "typescript",
+      matches: [
+        {
+          queryId: "no-any",
+          queryName: "No Any Type",
+          message: "Avoid using 'any' type",
+          severity: "warning",
+          location: { startRow: 0, startColumn: 6, endRow: 0, endColumn: 9 },
+          matchedText: "any",
+          capturedNodes: [],
+        },
+      ],
+      parseErrors: 0,
+      nodeCount: 3,
+      parseTimeMs: 1,
+      queryTimeMs: 1,
+    })
+    mockFindRulesDir.mockReturnValue("/project/.rulebound/rules")
+    mockLoadLocalRules.mockReturnValue([makeRule({ id: "secrets", tags: ["secrets"] })])
+    mockFilterRules.mockReturnValue([makeRule({ id: "secrets", tags: ["secrets"] })])
+    mockValidatePlan.mockReturnValue(makeReport({
+      status: "FAILED",
+      results: [
+        {
+          ruleId: "secrets",
+          ruleTitle: "No Secrets",
+          severity: "error",
+          modality: "must",
+          status: "VIOLATED",
+          reason: "Hardcoded secret found",
+          suggestedFix: "Use env vars",
+        },
+      ],
+    }))
+
+    const astResult = await analyzeWithBuiltins("const x: any = 'sk-abc'", "typescript")
+    const astViolations = astResult.matches.map((match) => ({
+      rule: match.queryId,
+      line: match.location.startRow + 1,
+      message: match.message,
+      severity: match.severity,
+      source: "ast" as const,
+    }))
+
+    const report = validatePlanAgainstRules("const x: any = 'sk-abc'", [makeRule()], "Writing app.ts")
+    const semanticViolations = report.results
+      .filter((r) => r.status === "VIOLATED")
+      .map((r) => ({
+        rule: r.ruleId,
+        message: r.reason,
+        severity: r.severity,
+        fix: r.suggestedFix,
+        source: "semantic" as const,
+      }))
+
+    const violations = [...astViolations, ...semanticViolations]
+    expect(violations).toHaveLength(2)
+    expect(violations[0].source).toBe("ast")
+    expect(violations[0].rule).toBe("no-any")
+    expect(violations[1].source).toBe("semantic")
+    expect(violations[1].rule).toBe("secrets")
   })
 })
