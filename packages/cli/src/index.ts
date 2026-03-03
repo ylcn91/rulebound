@@ -16,6 +16,7 @@ import { ciCommand } from "./commands/ci.js"
 import { listAgentsCommand } from "./commands/agents.js"
 import { reviewCommand } from "./commands/review.js"
 import { checkCodeCommand } from "./commands/check-code.js"
+import { watchCommand } from "./commands/watch.js"
 
 const require = createRequire(import.meta.url)
 const pkg = require("../package.json") as { version: string }
@@ -159,5 +160,7 @@ program
   .option("-l, --language <lang>", "Language override (auto-detected from extension)")
   .option("-q, --queries <ids>", "Comma-separated builtin query IDs to run")
   .action(checkCodeCommand)
+
+program.addCommand(watchCommand)
 
 program.parse()
