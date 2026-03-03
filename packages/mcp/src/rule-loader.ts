@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
 import type { LocalRule, ValidationReport, ValidationResult } from "./types.js"
+import { logger } from "@rulebound/shared/logger"
 
 interface FrontMatter {
   title?: string
@@ -111,7 +112,12 @@ export function detectProjectStack(cwd: string): string[] {
         if (entries.some((e) => e.endsWith(ext))) {
           stackValues.forEach((s) => stacks.add(s))
         }
-      } catch { /* ignore */ }
+      } catch (error) {
+        logger.debug("Failed to read directory for stack detection", {
+          cwd,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
     } else {
       if (existsSync(join(cwd, file))) {
         stackValues.forEach((s) => stacks.add(s))

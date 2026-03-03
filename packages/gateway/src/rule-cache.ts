@@ -1,5 +1,6 @@
 import type { Rule } from "@rulebound/engine"
 import type { GatewayConfig } from "./config.js"
+import { logger } from "./logger.js"
 
 interface CacheEntry {
   rules: Rule[]
@@ -61,7 +62,11 @@ async function fetchFromServer(config: GatewayConfig): Promise<Rule[]> {
       team: [],
       filePath: "",
     }))
-  } catch {
+  } catch (error) {
+    logger.error("Failed to fetch rules from server", {
+      url: url.toString(),
+      error: error instanceof Error ? error.message : String(error),
+    })
     return []
   }
 }

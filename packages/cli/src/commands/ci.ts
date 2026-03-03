@@ -46,10 +46,10 @@ function getDiff(base: string): string {
 
   try {
     return execFileSync("git", ["diff", `origin/${base}...HEAD`], { encoding: "utf-8" })
-  } catch {
+  } catch (_originError) {
     try {
       return execFileSync("git", ["diff", `${base}...HEAD`], { encoding: "utf-8" })
-    } catch {
+    } catch (_localError) {
       throw new Error(`Failed to get git diff against base "${base}". Are you in a git repository?`)
     }
   }

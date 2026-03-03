@@ -54,7 +54,7 @@ export function loadAgentsConfig(cwd: string): AgentProfile[] {
     const content = readFileSync(configPath, "utf-8")
     const parsed: unknown = JSON.parse(content)
     return parseAgentsConfig(parsed)
-  } catch {
+  } catch (_error) {
     return []
   }
 }

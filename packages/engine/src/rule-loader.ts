@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs"
 import { join, relative, resolve } from "node:path"
 import type { Rule, ProjectConfig, RuleboundConfig } from "./types.js"
+import { logger } from "@rulebound/shared/logger"
 
 interface FrontMatter {
   title?: string
@@ -230,7 +231,12 @@ export function detectProjectStack(cwd: string): string[] {
         if (entries.some((e) => e.endsWith(ext))) {
           stackValues.forEach((s) => stacks.add(s))
         }
-      } catch { /* ignore */ }
+      } catch (error) {
+        logger.debug("Failed to read directory for stack detection", {
+          cwd,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
     } else {
       if (existsSync(join(cwd, file))) {
         stackValues.forEach((s) => stacks.add(s))
@@ -267,7 +273,11 @@ export function loadConfig(cwd: string): RuleboundConfig | null {
   if (!existsSync(configPath)) return null
   try {
     return JSON.parse(readFileSync(configPath, "utf-8")) as RuleboundConfig
-  } catch {
+  } catch (error) {
+    logger.warn("Failed to parse rulebound config", {
+      configPath,
+      error: error instanceof Error ? error.message : String(error),
+    })
     return null
   }
 }

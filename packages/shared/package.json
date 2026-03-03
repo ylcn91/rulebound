@@ -5,6 +5,10 @@
   "exports": {
     ".": {
       "types": "./src/types.ts"
+    },
+    "./logger": {
+      "types": "./src/logger.ts",
+      "default": "./src/logger.ts"
     }
   },
   "files": ["src"],

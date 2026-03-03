@@ -1,18 +1,18 @@
 import { createRequire } from "node:module"
 import { join, extname } from "node:path"
+import type Parser from "web-tree-sitter"
 import type { SupportedLanguage } from "./types.js"
 import { LANGUAGE_WASM_MAP, FILE_EXTENSION_MAP } from "./types.js"
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-let ParserCls: any = null
+let ParserCls: typeof Parser | null = null
 let initialized = false
-const languageCache = new Map<SupportedLanguage, any>()
+const languageCache = new Map<SupportedLanguage, Parser.Language>()
 
 async function ensureInit(): Promise<void> {
   if (initialized) return
 
-  const mod: any = await import("web-tree-sitter")
-  ParserCls = mod.default ?? mod.Parser ?? mod
+  const mod = await import("web-tree-sitter") as { default?: typeof Parser }
+  ParserCls = mod.default ?? (mod as unknown as typeof Parser)
   await ParserCls.init()
   initialized = true
 }
@@ -26,21 +26,23 @@ function getWasmPath(language: SupportedLanguage): string {
   return join(wasmPkgDir, "..", "out", wasmFile)
 }
 
-export async function loadLanguage(language: SupportedLanguage): Promise<any> {
+export async function loadLanguage(language: SupportedLanguage): Promise<Parser.Language> {
   const cached = languageCache.get(language)
   if (cached) return cached
 
   await ensureInit()
   const wasmPath = getWasmPath(language)
-  const lang = await ParserCls.Language.load(wasmPath)
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const lang = await ParserCls!.Language.load(wasmPath)
   languageCache.set(language, lang)
   return lang
 }
 
-export async function createParser(language: SupportedLanguage): Promise<any> {
+export async function createParser(language: SupportedLanguage): Promise<Parser> {
   await ensureInit()
   const lang = await loadLanguage(language)
-  const parser = new ParserCls()
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const parser = new ParserCls!()
   parser.setLanguage(lang)
   return parser
 }
@@ -54,7 +56,9 @@ export function isSupportedLanguage(lang: string): lang is SupportedLanguage {
   return lang in LANGUAGE_WASM_MAP
 }
 
-export async function getQueryClass(): Promise<any> {
+export async function getQueryClass(): Promise<typeof Parser.Query> {
   await ensureInit()
-  return ParserCls.Language.Query ?? ParserCls.Query
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const cls = ParserCls! as typeof Parser & { Query?: typeof Parser.Query }
+  return (cls.Language as typeof Parser.Language & { Query?: typeof Parser.Query }).Query ?? cls.Query!
 }

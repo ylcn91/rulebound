@@ -1,6 +1,6 @@
 import { Hono } from "hono"
 import { getDb, schema } from "../db/index.js"
-import { eq, and, gt } from "drizzle-orm"
+import { eq, and, gte, or, isNull, arrayOverlaps } from "drizzle-orm"
 import { createHash } from "node:crypto"
 import { syncAckSchema } from "../schemas.js"
 
@@ -20,19 +20,23 @@ app.get("/", async (c) => {
   const since = c.req.query("since")
   const stack = c.req.query("stack")
 
-  let dbRules = await db.select().from(schema.rules).where(eq(schema.rules.isActive, true))
+  const conditions = [eq(schema.rules.isActive, true)]
 
   if (since) {
-    const sinceDate = new Date(since)
-    dbRules = dbRules.filter((r) => r.updatedAt > sinceDate)
+    conditions.push(gte(schema.rules.updatedAt, new Date(since)))
   }
 
   if (stack) {
     const stackList = stack.split(",").map((s) => s.trim().toLowerCase())
-    dbRules = dbRules.filter((r) =>
-      !r.stack || r.stack.length === 0 || r.stack.some((s) => stackList.includes(s?.toLowerCase() ?? ""))
+    conditions.push(
+      or(
+        arrayOverlaps(schema.rules.stack, stackList),
+        isNull(schema.rules.stack),
+      )!
     )
   }
+
+  const dbRules = await db.select().from(schema.rules).where(and(...conditions))
 
   const versionHash = computeRulesHash(dbRules)
 

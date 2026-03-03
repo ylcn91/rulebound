@@ -1,5 +1,6 @@
 import type { LocalRule } from "../local-rules.js"
 import type { Matcher, MatcherContext, MatchResult, MatchStatus } from "./types.js"
+import { logger } from "@rulebound/shared/logger"
 
 export interface LLMConfig {
   readonly provider: "anthropic" | "openai"
@@ -72,7 +73,8 @@ async function getModel(
     try {
       const { anthropic } = await import("@ai-sdk/anthropic")
       return anthropic(modelName)
-    } catch {
+    } catch (error) {
+      logger.debug("Failed to import @ai-sdk/anthropic", { error: error instanceof Error ? error.message : String(error) })
       throw new Error(
         "--llm requires AI packages. Run: pnpm add ai @ai-sdk/anthropic"
       )
@@ -83,7 +85,8 @@ async function getModel(
     try {
       const { openai } = await import("@ai-sdk/openai")
       return openai(modelName)
-    } catch {
+    } catch (error) {
+      logger.debug("Failed to import @ai-sdk/openai", { error: error instanceof Error ? error.message : String(error) })
       throw new Error(
         "--llm requires AI packages. Run: pnpm add ai @ai-sdk/openai"
       )

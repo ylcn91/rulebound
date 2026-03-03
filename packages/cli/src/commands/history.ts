@@ -36,7 +36,7 @@ export async function historyCommand(id: string, options: HistoryOptions): Promi
   // Check if we're in a git repo
   try {
     execSync("git rev-parse --git-dir", { cwd: rulesDir, stdio: "pipe" })
-  } catch {
+  } catch (_error) {
     console.error(chalk.red("Not a git repository. Rule versioning requires git."))
     console.error(chalk.dim("Initialize git: git init && git add . && git commit -m 'initial'"))
     process.exit(1)
@@ -86,8 +86,8 @@ export async function historyCommand(id: string, options: HistoryOptions): Promi
           if (statLine) {
             console.log(chalk.dim(`    ${statLine.trim()}`))
           }
-        } catch {
-          // ignore diff errors
+        } catch (_error) {
+          // ignore diff errors for individual commits
         }
       }
 

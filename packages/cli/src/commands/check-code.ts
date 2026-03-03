@@ -23,7 +23,7 @@ export async function checkCodeCommand(options: CheckCodeOptions): Promise<void>
   let code: string
   try {
     code = readFileSync(filePath, "utf-8")
-  } catch {
+  } catch (_error) {
     console.error(chalk.red(`Cannot read file: ${filePath}`))
     process.exit(1)
   }

@@ -2,6 +2,7 @@ import type { Context, Next } from "hono"
 import { createHash } from "node:crypto"
 import { getDb, schema } from "../db/index.js"
 import { eq } from "drizzle-orm"
+import { logger } from "@rulebound/shared/logger"
 
 function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex")
@@ -47,7 +48,10 @@ export async function authMiddleware(c: Context, next: Next) {
     c.set("orgId" as never, apiToken.orgId as never)
     c.set("userId" as never, apiToken.userId as never)
     c.set("tokenScopes" as never, (apiToken.scopes ?? []) as never)
-  } catch {
+  } catch (error) {
+    logger.error("Authentication middleware failed", {
+      error: error instanceof Error ? error.message : String(error),
+    })
     return c.json({ error: "Authentication failed" }, 500)
   }
 
