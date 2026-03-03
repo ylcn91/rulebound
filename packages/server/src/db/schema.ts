@@ -177,7 +177,8 @@ export const webhookEndpoints = pgTable("webhook_endpoints", {
     .references(() => organizations.id)
     .notNull(),
   url: text("url").notNull(),
-  secret: text("secret").notNull(),
+  encryptedSecret: text("encrypted_secret").notNull(),
+  secretHash: text("secret_hash").notNull(),
   events: text("events").array().notNull(),
   isActive: boolean("is_active").default(true).notNull(),
   description: text("description"),

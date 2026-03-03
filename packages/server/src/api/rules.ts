@@ -1,6 +1,7 @@
 import { Hono } from "hono"
 import { getDb, schema } from "../db/index.js"
 import { eq, ilike, or, arrayContains, and, desc } from "drizzle-orm"
+import { ruleCreateSchema, ruleUpdateSchema } from "../schemas.js"
 
 const app = new Hono()
 
@@ -53,12 +54,15 @@ app.get("/:id", async (c) => {
 
 app.post("/", async (c) => {
   const db = getDb()
-  const body = await c.req.json()
-  const { title, content, category, severity, modality, tags, stack, ruleSetId } = body
+  const raw = await c.req.json().catch(() => null)
+  if (!raw) return c.json({ error: "Invalid JSON" }, 400)
 
-  if (!title || !content || !category) {
-    return c.json({ error: "Missing required fields: title, content, category" }, 400)
+  const parsed = ruleCreateSchema.safeParse(raw)
+  if (!parsed.success) {
+    return c.json({ error: "Validation failed", details: parsed.error.issues }, 400)
   }
+
+  const { title, content, category, severity, modality, tags, stack, ruleSetId } = parsed.data
 
   const [created] = await db
     .insert(schema.rules)
@@ -80,7 +84,15 @@ app.post("/", async (c) => {
 app.put("/:id", async (c) => {
   const db = getDb()
   const id = c.req.param("id")
-  const body = await c.req.json()
+  const raw = await c.req.json().catch(() => null)
+  if (!raw) return c.json({ error: "Invalid JSON" }, 400)
+
+  const parsed = ruleUpdateSchema.safeParse(raw)
+  if (!parsed.success) {
+    return c.json({ error: "Validation failed", details: parsed.error.issues }, 400)
+  }
+
+  const body = parsed.data
 
   const [existing] = await db.select().from(schema.rules).where(eq(schema.rules.id, id))
   if (!existing) return c.json({ error: "Rule not found" }, 404)

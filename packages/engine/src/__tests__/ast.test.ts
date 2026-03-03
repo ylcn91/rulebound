@@ -224,6 +224,42 @@ public class MyService {
     expect(result.matches.length).toBe(2)
   })
 
+  // Regression tests for ts-no-any false positives
+  it("ts-no-any: clean code with only string/number/boolean types produces 0 matches", async () => {
+    const code = `const x: string = "hello"\nfunction foo(x: number): boolean { return true }`
+    const result = await analyzeCode(code, "typescript", [getQueryById("ts-no-any")!])
+    expect(result.matches.length).toBe(0)
+    for (const match of result.matches) {
+      expect(match.queryId).toBe("ts-no-any")
+    }
+  })
+
+  it("ts-no-any: code with single any usage produces exactly 1 match", async () => {
+    const code = `const x: any = 1`
+    const result = await analyzeCode(code, "typescript", [getQueryById("ts-no-any")!])
+    expect(result.matches.length).toBe(1)
+    expect(result.matches[0].queryId).toBe("ts-no-any")
+    expect(result.matches[0].matchedText).toBe("any")
+  })
+
+  it("ts-no-any: multiple any usages produce exact count", async () => {
+    const code = `function foo(x: any): any { const y: any = x; return y }`
+    const result = await analyzeCode(code, "typescript", [getQueryById("ts-no-any")!])
+    expect(result.matches.length).toBe(3)
+    for (const match of result.matches) {
+      expect(match.queryId).toBe("ts-no-any")
+      expect(match.matchedText).toBe("any")
+    }
+  })
+
+  it("ts-no-any: mixed types — only any matches, not string or number", async () => {
+    const code = `const a: string = ""; const b: any = 1; const c: number = 2;`
+    const result = await analyzeCode(code, "typescript", [getQueryById("ts-no-any")!])
+    expect(result.matches.length).toBe(1)
+    expect(result.matches[0].queryId).toBe("ts-no-any")
+    expect(result.matches[0].matchedText).toBe("any")
+  })
+
   it("reports parse time and query time", async () => {
     const result = await analyzeCode("const x = 1;", "typescript")
     expect(result.parseTimeMs).toBeGreaterThanOrEqual(0)

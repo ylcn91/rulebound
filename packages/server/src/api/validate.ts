@@ -2,6 +2,7 @@ import { Hono } from "hono"
 import { validate, type Rule } from "@rulebound/engine"
 import { getDb, schema } from "../db/index.js"
 import { eq, and } from "drizzle-orm"
+import { validateBodySchema } from "../schemas.js"
 
 const app = new Hono()
 
@@ -23,14 +24,20 @@ function dbRuleToEngineRule(dbRule: typeof schema.rules.$inferSelect): Rule {
 }
 
 app.post("/", async (c) => {
-  const body = await c.req.json()
-  const { plan, code, language, project, task, useLlm } = body
+  const raw = await c.req.json().catch(() => null)
+  if (!raw) return c.json({ error: "Invalid JSON" }, 400)
 
-  if (!plan && !code) {
-    return c.json({ error: "Provide 'plan' or 'code' field" }, 400)
+  const parsed = validateBodySchema.safeParse(raw)
+  if (!parsed.success) {
+    return c.json({ error: "Validation failed", details: parsed.error.issues }, 400)
   }
 
+  const { plan, code, language, project, task, useLlm } = parsed.data
+
   const textToValidate = plan ?? code
+  if (!textToValidate) {
+    return c.json({ error: "Either 'plan' or 'code' is required" }, 400)
+  }
   const db = getDb()
 
   let dbRules = await db.select().from(schema.rules).where(eq(schema.rules.isActive, true))
