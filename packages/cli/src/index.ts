@@ -34,6 +34,7 @@ program
   .command("init")
   .description("Initialize .rulebound/ with rules directory and config")
   .option("--examples", "Copy example rules to get started")
+  .option("--no-hook", "Skip pre-commit hook installation")
   .action(initCommand)
 
 program

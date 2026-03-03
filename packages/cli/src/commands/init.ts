@@ -4,6 +4,7 @@ import chalk from "chalk"
 
 interface InitOptions {
   examples?: boolean
+  hook?: boolean
 }
 
 const CONFIG_TEMPLATE = `{
@@ -49,6 +50,45 @@ export async function initCommand(options: InitOptions): Promise<void> {
     }
   } else {
     createStarterRule(rulesDir)
+  }
+
+  // Auto-install pre-commit hook unless explicitly skipped
+  const gitDir = resolve(cwd, ".git")
+  if (existsSync(gitDir) && options.hook !== false) {
+    const hooksDir = resolve(gitDir, "hooks")
+    const hookPath = resolve(hooksDir, "pre-commit")
+
+    if (!existsSync(hookPath)) {
+      const { chmodSync } = await import("node:fs")
+      if (!existsSync(hooksDir)) mkdirSync(hooksDir, { recursive: true })
+
+      const hookContent = `#!/bin/sh
+# Rulebound pre-commit hook (auto-installed by rulebound init)
+# Validates staged changes against project rules
+
+echo "Rulebound: validating changes..."
+
+DIFF=$(git diff --cached)
+if [ -z "$DIFF" ]; then
+  exit 0
+fi
+
+npx rulebound diff --ref HEAD 2>/dev/null
+EXIT_CODE=$?
+
+if [ $EXIT_CODE -ne 0 ]; then
+  echo ""
+  echo "Rulebound: commit blocked. Fix rule violations first."
+  echo "Run 'rulebound diff' for details."
+  exit 1
+fi
+
+exit 0
+`
+      writeFileSync(hookPath, hookContent)
+      chmodSync(hookPath, 0o755)
+      console.log(chalk.white("Installed pre-commit hook."))
+    }
   }
 
   console.log()

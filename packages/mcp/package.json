@@ -1,0 +1,24 @@
+{
+  "name": "@rulebound/mcp",
+  "version": "0.1.0",
+  "description": "MCP server for Rulebound rule enforcement — enables AI agents to query and validate against project rules in real-time",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "rulebound-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "tsup": "^8",
+    "typescript": "^5.7"
+  }
+}
