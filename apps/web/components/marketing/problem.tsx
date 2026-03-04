@@ -4,23 +4,23 @@ import { Card, CardContent } from "@/components/ui/card";
 const steps = [
   {
     number: "01",
-    title: "Define Once",
+    title: "Codify",
     description:
-      "Write your engineering rules once in a central hub. No more scattered .cursor/rules.md or CLAUDE.md files across every repo.",
+      "Turn your engineering standards into structured, versioned rules. Markdown files, git-tracked, inherited across projects.",
     icon: BookOpen,
   },
   {
     number: "02",
-    title: "Auto-Inject",
+    title: "Intercept",
     description:
-      "Rulebound automatically selects the right rules based on the task at hand and injects them into your AI agent's context.",
+      "Rulebound analyzes code at the AST level and intercepts LLM responses through a gateway proxy — before violations reach your repo.",
     icon: Zap,
   },
   {
     number: "03",
-    title: "Validate",
+    title: "Enforce",
     description:
-      "Before code ships, Rulebound validates the AI's task plan against your rules. Catch violations before they hit your codebase.",
+      "Pre-commit hooks, CI checks, and real-time IDE diagnostics. Choose advisory, moderate, or strict — block or warn, your call.",
     icon: ShieldCheck,
   },
 ];
@@ -31,12 +31,12 @@ export function Problem() {
       <div className="mx-auto max-w-6xl px-6">
         <p className="section-label">Problem</p>
         <h2 className="mt-3 font-mono text-3xl font-bold tracking-tight sm:text-4xl">
-          Where is your 10x productivity gain hiding?
+          Fast Code Without Guard Rails is Just Fast Debt.
         </h2>
         <p className="mt-4 max-w-2xl text-(--color-text-secondary)">
-          You bought AI coding tools to move faster. Instead, you spend hours
-          babysitting agents that don&apos;t know your architecture, your naming
-          conventions, or your security policies.
+          Your AI agents don&apos;t read your architecture docs, ignore your
+          naming conventions, and skip your security policies. Every PR becomes
+          a review marathon.
         </p>
         <p className="mt-3 font-mono font-semibold text-(--color-text-primary) underline decoration-2 underline-offset-4">
           Rulebound fixes this.

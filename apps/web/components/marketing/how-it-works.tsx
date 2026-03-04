@@ -1,8 +1,8 @@
 const steps = [
   {
     number: 1,
-    title: "Define Your Rules",
-    description: "Write plain-language engineering rules in Markdown. Group them by domain — security, testing, architecture, style.",
+    title: "Write Rules as Blueprints",
+    description: "Plain Markdown with frontmatter. Categorize by domain, assign severity, tag by stack. Version-controlled alongside your code.",
     code: `# security/input-validation.md
 
 ## Rule: Validate All User Input
@@ -14,8 +14,8 @@ const steps = [
   },
   {
     number: 2,
-    title: "Install the CLI",
-    description: "One command to connect Rulebound to your workflow. Works with any AI coding agent.",
+    title: "Connect Your Stack",
+    description: "One install — CLI, MCP server, or gateway proxy. Works with Claude Code, Cursor, Copilot, and any OpenAI-compatible API.",
     code: `$ npm install -g @rulebound/cli
 
 $ rulebound init
@@ -28,8 +28,8 @@ Rulebound initialized. Ready.`,
   },
   {
     number: 3,
-    title: "AI Gets Context",
-    description: "When your AI agent starts a task, Rulebound finds the relevant rules and injects them automatically.",
+    title: "Rules Find the Code",
+    description: "Rulebound matches rules to tasks by stack, category, and semantic relevance. No manual selection — the right rules surface automatically.",
     code: `$ rulebound find-rules --task "build checkout API"
 
 Matching rules to task context...
@@ -41,8 +41,8 @@ Matching rules to task context...
   },
   {
     number: 4,
-    title: "Validate & Ship",
-    description: "Before merging, validate the AI's work against your rules. Catch issues before they reach production.",
+    title: "Enforce at Every Layer",
+    description: "AST analysis catches structural anti-patterns. The gateway scans LLM responses. Pre-commit hooks gate your repo. CI annotations flag PRs.",
     code: `$ rulebound validate --plan task-plan.json
 
 Checking 3 rules against plan...

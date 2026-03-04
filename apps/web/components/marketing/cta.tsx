@@ -5,11 +5,11 @@ export function CTA() {
     <section className="bg-(--color-background) py-(--spacing-section)">
       <div className="mx-auto max-w-6xl px-6 text-center">
         <h2 className="font-mono text-3xl font-bold tracking-tight sm:text-4xl">
-          Stay on track. Start contributing.
+          Your Standards. Every Agent. Every Commit.
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-(--color-text-secondary)">
-          Give your AI coding agents the context they need. Define your rules
-          once and let every agent follow them &mdash; automatically.
+          Open source, self-hostable, MIT licensed. Clone the repo, define your
+          rules, and start enforcing in under 5 minutes.
         </p>
 
         <div className="mt-8">

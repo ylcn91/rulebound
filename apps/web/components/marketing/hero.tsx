@@ -15,42 +15,30 @@ function TerminalDemo() {
       <div className="p-5 text-sm leading-relaxed">
         <p>
           <span className="text-[#39bae6]">$</span>{" "}
-          <span className="text-[#e6e1cf]">rulebound find-rules</span>{" "}
-          <span className="text-[#5c6773]">--task &quot;add auth flow&quot;</span>
+          <span className="text-[#e6e1cf]">rulebound watch</span>{" "}
+          <span className="text-[#5c6773]">src/</span>
         </p>
+        <p className="mt-2 text-[#5c6773]">
+          Watching src/ for changes...
+        </p>
+
         <p className="mt-3 text-[#5c6773]">
-          Searching rules for context...
+          <span className="text-[#e6e1cf]">[07:38:12]</span>{" "}
+          src/api/auth.ts changed
+        </p>
+        <p className="mt-1 text-[#ff6b6b]">
+          &nbsp;&nbsp;[ERROR] session-mgmt:14 &mdash; JWT expiry exceeds 30min team policy (found: 7d)
+        </p>
+        <p className="text-[#febc2e]">
+          &nbsp;&nbsp;[WARN] &nbsp;token-storage:23 &mdash; localStorage forbidden for tokens, use httpOnly cookies
+        </p>
+
+        <p className="mt-3 text-[#5c6773]">
+          <span className="text-[#e6e1cf]">[07:38:15]</span>{" "}
+          src/api/auth.ts saved
         </p>
         <p className="mt-1 text-[#aad94c]">
-          Found 4 matching rules:
-        </p>
-        <p className="mt-1 text-[#e6e1cf]">
-          &nbsp;&nbsp;auth/session-management.md
-        </p>
-        <p className="text-[#e6e1cf]">
-          &nbsp;&nbsp;security/input-validation.md
-        </p>
-        <p className="text-[#e6e1cf]">
-          &nbsp;&nbsp;api/error-handling.md
-        </p>
-        <p className="text-[#e6e1cf]">
-          &nbsp;&nbsp;testing/coverage-requirements.md
-        </p>
-        <p className="mt-3">
-          <span className="text-[#39bae6]">$</span>{" "}
-          <span className="text-[#e6e1cf]">rulebound generate</span>
-        </p>
-        <p className="mt-1 text-[#e6e1cf]">
-          &nbsp;&nbsp;CLAUDE.md
-        </p>
-        <p className="text-[#e6e1cf]">
-          &nbsp;&nbsp;.cursor/rules.md
-        </p>
-        <p className="text-[#e6e1cf]">
-          &nbsp;&nbsp;.github/copilot-instructions.md
-        </p>
-        <p className="mt-1 text-[#aad94c]">
-          Generated 3 config files. Ready to ship.
+          &nbsp;&nbsp;All rules passed. Clean.
         </p>
         <span className="cursor-blink inline-block h-4 w-2 translate-y-0.5 bg-[#e6e1cf]" />
       </div>
@@ -65,14 +53,14 @@ export function Hero() {
       <div className="relative z-10 mx-auto max-w-6xl px-6 pb-24 pt-32 md:pt-40 md:pb-32">
         <div className="stamp text-(--color-accent) text-base mb-6">Open Source</div>
         <h1 className="font-mono text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl text-(--color-text-primary)">
-          Your AI Coding Agent
+          Ship AI Code That Actually
           <br />
-          Doesn&apos;t Know Your Rules.
+          Follows the Blueprint.
         </h1>
         <p className="mt-6 max-w-2xl text-lg text-(--color-text-secondary) leading-relaxed">
-          Coding agents like Claude Code and Cursor are fast. But without your
-          team&apos;s standards, they&apos;re fast in the wrong direction. Rulebound
-          automatically gives your AI the context it needs &mdash; every time.
+          AI agents write code fast &mdash; but speed without structure creates
+          debt. Rulebound enforces your engineering standards at every layer:
+          AST, gateway, and commit.
         </p>
 
         <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">

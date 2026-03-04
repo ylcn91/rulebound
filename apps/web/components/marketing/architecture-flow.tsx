@@ -9,10 +9,17 @@ import {
   ScanSearch,
   BarChart3,
   Bell,
-  ArrowRight,
+  ArrowDown,
 } from "lucide-react";
 
-const nodes = [
+interface NodeDef {
+  readonly id: string;
+  readonly label: string;
+  readonly description: string;
+  readonly icon: typeof Code2;
+}
+
+const topRow: readonly NodeDef[] = [
   {
     id: "developer",
     label: "Developer",
@@ -43,6 +50,9 @@ const nodes = [
     description: "Keyword, Semantic, LLM, and AST analysis pipeline",
     icon: ScanSearch,
   },
+];
+
+const bottomRow: readonly NodeDef[] = [
   {
     id: "dashboard",
     label: "Dashboard",
@@ -57,19 +67,23 @@ const nodes = [
   },
 ];
 
+const allNodes: readonly NodeDef[] = [...topRow, ...bottomRow];
+
+type Phase = "hidden" | "drawing" | "flowing";
+
 export function ArchitectureFlow() {
   const sectionRef = useRef<HTMLDivElement>(null);
-  const [isVisible, setIsVisible] = useState(false);
+  const [phase, setPhase] = useState<Phase>("hidden");
 
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          setIsVisible(true);
+          setPhase("drawing");
           observer.disconnect();
         }
       },
-      { threshold: 0.15 }
+      { threshold: 0.15 },
     );
 
     if (sectionRef.current) {
@@ -79,6 +93,15 @@ export function ArchitectureFlow() {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    if (phase === "drawing") {
+      const timer = setTimeout(() => setPhase("flowing"), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [phase]);
+
+  const isVisible = phase !== "hidden";
+
   return (
     <section ref={sectionRef} className="py-(--spacing-section) bg-grid">
       <div className="mx-auto max-w-6xl px-6">
@@ -87,98 +110,117 @@ export function ArchitectureFlow() {
           End-to-End Rule Enforcement
         </h2>
         <p className="mt-4 max-w-2xl text-(--color-text-secondary) leading-relaxed">
-          From the moment a developer prompts an AI agent to the final compliance report — every step is governed by your rules.
+          From the moment a developer prompts an AI agent to the final
+          compliance report — every step is governed by your rules.
         </p>
 
-        {/* Desktop: horizontal flow */}
+        {/* ── Desktop: grid layout ── */}
         <div className="mt-12 hidden lg:block">
-          <div className="relative">
-            {/* Connection lines */}
-            <svg
-              className="absolute inset-0 w-full h-full pointer-events-none"
-              viewBox="0 0 1100 200"
-              fill="none"
-              preserveAspectRatio="xMidYMid meet"
-              aria-hidden="true"
-            >
-              {/* Main horizontal line through first 4 nodes */}
-              <line
-                x1="80" y1="70" x2="920" y2="70"
-                stroke="var(--color-border)"
-                strokeWidth="2"
-                strokeDasharray="6 4"
-                className={isVisible ? "arch-line-anim" : ""}
-              />
-              {/* Branch down from engine */}
-              <line
-                x1="690" y1="70" x2="690" y2="170"
-                stroke="var(--color-border)"
-                strokeWidth="2"
-                strokeDasharray="6 4"
-                className={isVisible ? "arch-line-anim-delay" : ""}
-              />
-              {/* Horizontal from engine to dashboard and notify */}
-              <line
-                x1="690" y1="170" x2="920" y2="170"
-                stroke="var(--color-border)"
-                strokeWidth="2"
-                strokeDasharray="6 4"
-                className={isVisible ? "arch-line-anim-delay" : ""}
-              />
-              <line
-                x1="690" y1="170" x2="460" y2="170"
-                stroke="var(--color-border)"
-                strokeWidth="2"
-                strokeDasharray="6 4"
-                className={isVisible ? "arch-line-anim-delay" : ""}
-              />
-            </svg>
-
-            {/* Top row: Developer -> Agent -> Gateway -> LLM -> Engine */}
-            <div className="flex items-start justify-between relative z-10">
-              {nodes.slice(0, 5).map((node, i) => (
+          <div className="arch-grid">
+            {/* Row 1: 5 top nodes */}
+            {topRow.map((node, i) => (
+              <div key={node.id} className="arch-cell arch-cell-top">
                 <FlowNode
-                  key={node.id}
                   node={node}
                   index={i}
                   isVisible={isVisible}
+                  tooltipSide="top"
                 />
-              ))}
-            </div>
+              </div>
+            ))}
 
-            {/* Bottom row: Dashboard + Notify (positioned below engine) */}
-            <div className="flex justify-center gap-32 mt-8 relative z-10">
-              <div className="ml-[26%]">
-                <FlowNode
-                  node={nodes[5]}
-                  index={5}
-                  isVisible={isVisible}
-                />
-              </div>
-              <div className="mr-[2%]">
-                <FlowNode
-                  node={nodes[6]}
-                  index={6}
-                  isVisible={isVisible}
-                />
-              </div>
+            {/* Row 2: connectors */}
+            {/* col 1-4: horizontal segments between top nodes */}
+            <Connector
+              direction="horizontal"
+              phase={phase}
+              gridArea="2 / 1 / 3 / 2"
+              delayed={false}
+            />
+            <Connector
+              direction="horizontal"
+              phase={phase}
+              gridArea="2 / 2 / 3 / 3"
+              delayed={false}
+            />
+            <Connector
+              direction="horizontal"
+              phase={phase}
+              gridArea="2 / 3 / 3 / 4"
+              delayed={false}
+            />
+            <Connector
+              direction="horizontal"
+              phase={phase}
+              gridArea="2 / 4 / 3 / 5"
+              delayed={false}
+            />
+
+            {/* Row 3: vertical drop from Gateway (col 3) */}
+            <Connector
+              direction="vertical"
+              phase={phase}
+              gridArea="3 / 3 / 4 / 4"
+              delayed
+            />
+
+            {/* Row 4: horizontal spread left + right from center (col 3) */}
+            <Connector
+              direction="horizontal"
+              phase={phase}
+              gridArea="4 / 2 / 5 / 4"
+              delayed
+            />
+
+            {/* Row 5: vertical drops to bottom nodes */}
+            <Connector
+              direction="vertical"
+              phase={phase}
+              gridArea="5 / 2 / 6 / 3"
+              delayed
+            />
+            <Connector
+              direction="vertical"
+              phase={phase}
+              gridArea="5 / 4 / 6 / 5"
+              delayed
+            />
+
+            {/* Row 6: bottom nodes — Dashboard col 2, Notify col 4 */}
+            <div style={{ gridArea: "6 / 2 / 7 / 3" }} className="arch-cell">
+              <FlowNode
+                node={bottomRow[0]}
+                index={5}
+                isVisible={isVisible}
+                tooltipSide="bottom"
+              />
+            </div>
+            <div style={{ gridArea: "6 / 4 / 7 / 5" }} className="arch-cell">
+              <FlowNode
+                node={bottomRow[1]}
+                index={6}
+                isVisible={isVisible}
+                tooltipSide="bottom"
+              />
             </div>
           </div>
         </div>
 
-        {/* Mobile/Tablet: vertical flow */}
+        {/* ── Mobile/Tablet: vertical flow ── */}
         <div className="mt-12 lg:hidden">
-          <div className="flex flex-col items-center gap-2">
-            {nodes.map((node, i) => (
+          <div className="flex flex-col items-center gap-6">
+            {allNodes.map((node, i) => (
               <div key={node.id} className="flex flex-col items-center">
                 <FlowNode
                   node={node}
                   index={i}
                   isVisible={isVisible}
+                  showDescription
+                  tooltipSide="bottom"
                 />
-                {i < nodes.length - 1 && (
-                  <ArrowRight
-                    className="h-5 w-5 text-(--color-muted) rotate-90 my-1"
+                {i < allNodes.length - 1 && (
+                  <ArrowDown
+                    className={`h-5 w-5 text-(--color-muted) mt-3 ${phase === "flowing" ? "arch-arrow-pulse" : ""}`}
                     aria-hidden="true"
                   />
                 )}
@@ -200,24 +242,123 @@ export function ArchitectureFlow() {
         </div>
       </div>
 
-      <style jsx>{`
-        @keyframes drawLine {
-          from { stroke-dashoffset: 1000; }
-          to { stroke-dashoffset: 0; }
+      <style>{`
+        .arch-grid {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          grid-template-rows: auto 12px 32px 12px 32px auto;
+          justify-items: center;
+          align-items: center;
         }
-        .arch-line-anim {
-          stroke-dashoffset: 1000;
-          animation: drawLine 2s ease-out forwards;
+
+        .arch-cell {
+          display: flex;
+          justify-content: center;
         }
-        .arch-line-anim-delay {
-          stroke-dashoffset: 1000;
-          animation: drawLine 2s ease-out 1s forwards;
+
+        /* ── Connector base ── */
+        .arch-connector {
+          position: relative;
+          width: 100%;
+          height: 100%;
         }
+        .arch-connector::after {
+          content: "";
+          position: absolute;
+          background: repeating-linear-gradient(
+            90deg,
+            var(--color-border) 0px,
+            var(--color-border) 6px,
+            transparent 6px,
+            transparent 10px
+          );
+        }
+        .arch-connector-h::after {
+          top: 50%;
+          left: 0;
+          right: 0;
+          height: 2px;
+          transform: translateY(-50%);
+        }
+        .arch-connector-v::after {
+          left: 50%;
+          top: 0;
+          bottom: 0;
+          width: 2px;
+          transform: translateX(-50%);
+          background: repeating-linear-gradient(
+            180deg,
+            var(--color-border) 0px,
+            var(--color-border) 6px,
+            transparent 6px,
+            transparent 10px
+          );
+        }
+
+        /* ── Draw animation (clip reveal) ── */
+        .arch-connector-draw-h::after {
+          clip-path: inset(0 100% 0 0);
+          animation: clipRevealH 1.2s ease-out forwards;
+        }
+        .arch-connector-draw-v::after {
+          clip-path: inset(0 0 100% 0);
+          animation: clipRevealV 1.2s ease-out forwards;
+        }
+        .arch-connector-draw-delay-h::after {
+          clip-path: inset(0 100% 0 0);
+          animation: clipRevealH 1.2s ease-out 0.8s forwards;
+        }
+        .arch-connector-draw-delay-v::after {
+          clip-path: inset(0 0 100% 0);
+          animation: clipRevealV 1.2s ease-out 0.8s forwards;
+        }
+
+        /* ── Flow animation (dash movement) ── */
+        .arch-connector-flow-h::after {
+          animation: flowH 0.6s linear infinite;
+        }
+        .arch-connector-flow-v::after {
+          animation: flowV 0.6s linear infinite;
+        }
+
+        @keyframes clipRevealH {
+          from { clip-path: inset(0 100% 0 0); }
+          to { clip-path: inset(0 0% 0 0); }
+        }
+        @keyframes clipRevealV {
+          from { clip-path: inset(0 0 100% 0); }
+          to { clip-path: inset(0 0 0% 0); }
+        }
+        @keyframes flowH {
+          from { background-position: 0 0; }
+          to { background-position: 20px 0; }
+        }
+        @keyframes flowV {
+          from { background-position: 0 0; }
+          to { background-position: 0 20px; }
+        }
+
+        @keyframes archArrowPulse {
+          0%, 100% { opacity: 0.4; transform: translateY(0); }
+          50% { opacity: 1; transform: translateY(3px); }
+        }
+        .arch-arrow-pulse {
+          animation: archArrowPulse 1.5s ease-in-out infinite;
+        }
+
         @media (prefers-reduced-motion: reduce) {
-          .arch-line-anim,
-          .arch-line-anim-delay {
-            animation: none;
-            stroke-dashoffset: 0;
+          .arch-connector-draw-h::after,
+          .arch-connector-draw-v::after,
+          .arch-connector-draw-delay-h::after,
+          .arch-connector-draw-delay-v::after,
+          .arch-connector-flow-h::after,
+          .arch-connector-flow-v::after {
+            animation: none !important;
+            clip-path: none !important;
+          }
+          .arch-arrow-pulse {
+            animation: none !important;
+            opacity: 1 !important;
           }
         }
       `}</style>
@@ -225,21 +366,61 @@ export function ArchitectureFlow() {
   );
 }
 
+function Connector({
+  direction,
+  phase,
+  gridArea,
+  delayed,
+}: {
+  direction: "horizontal" | "vertical";
+  phase: Phase;
+  gridArea: string;
+  delayed: boolean;
+}) {
+  const dir = direction === "horizontal" ? "h" : "v";
+
+  let animClass = "";
+  if (phase === "drawing") {
+    animClass = delayed
+      ? `arch-connector-draw-delay-${dir}`
+      : `arch-connector-draw-${dir}`;
+  } else if (phase === "flowing") {
+    animClass = `arch-connector-flow-${dir}`;
+  }
+
+  return (
+    <div
+      className={`arch-connector arch-connector-${dir} ${animClass}`}
+      style={{ gridArea }}
+      aria-hidden="true"
+    />
+  );
+}
+
 function FlowNode({
   node,
   index,
   isVisible,
+  showDescription = false,
+  tooltipSide = "top",
 }: {
-  node: (typeof nodes)[number];
+  node: NodeDef;
   index: number;
   isVisible: boolean;
+  showDescription?: boolean;
+  tooltipSide?: "top" | "bottom";
 }) {
   const Icon = node.icon;
   const delay = index * 150;
 
+  const tooltipPosition =
+    tooltipSide === "top"
+      ? "-top-14 left-1/2 -translate-x-1/2"
+      : "-bottom-14 left-1/2 -translate-x-1/2";
+
   return (
     <div
-      className="group relative flex flex-col items-center w-28 cursor-pointer"
+      className={`group relative flex flex-col items-center w-28 ${!showDescription ? "cursor-pointer" : ""}`}
       style={{
         opacity: isVisible ? 1 : 0,
         transform: isVisible ? "translateY(0)" : "translateY(16px)",
@@ -253,13 +434,18 @@ function FlowNode({
         {node.label}
       </span>
 
-      {/* Tooltip */}
-      <div
-        className="absolute -bottom-14 left-1/2 -translate-x-1/2 w-48 px-3 py-2 bg-(--color-text-primary) text-(--color-background) text-[10px] leading-tight font-sans opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 z-20 text-center"
-        role="tooltip"
-      >
-        {node.description}
-      </div>
+      {showDescription ? (
+        <p className="mt-1 text-center text-[11px] leading-snug text-(--color-text-secondary) w-40">
+          {node.description}
+        </p>
+      ) : (
+        <div
+          className={`absolute ${tooltipPosition} w-48 px-3 py-2 bg-(--color-text-primary) text-(--color-background) text-[10px] leading-tight font-sans opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 z-20 text-center`}
+          role="tooltip"
+        >
+          {node.description}
+        </div>
+      )}
     </div>
   );
 }

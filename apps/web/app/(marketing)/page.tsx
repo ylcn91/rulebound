@@ -5,6 +5,7 @@ import { HowItWorks } from "@/components/marketing/how-it-works";
 import { ArchitectureFlow } from "@/components/marketing/architecture-flow";
 import { Comparison } from "@/components/marketing/comparison";
 import { Features } from "@/components/marketing/features";
+import { RealTime } from "@/components/marketing/real-time";
 import { OpenSource } from "@/components/marketing/open-source";
 import { CTA } from "@/components/marketing/cta";
 import { Footer } from "@/components/shared/footer";
@@ -27,6 +28,8 @@ export default function MarketingPage() {
         <Features />
         <div className="divider-dots" role="separator" />
         <OpenSource />
+        <div className="divider-dots" role="separator" />
+        <RealTime />
         <div className="divider-dots" role="separator" />
         <CTA />
       </main>

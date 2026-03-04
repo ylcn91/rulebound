@@ -2,21 +2,21 @@ import { X, Check } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 const without = [
-  ".cursor/rules.md scattered in every repo",
-  "CLAUDE.md buried in project roots",
-  "Developers copy-paste rules between projects",
-  "New team members miss critical standards",
-  "AI agents ignore half your conventions",
-  "Hours lost fixing AI-generated code",
+  "CLAUDE.md and .cursorrules copy-pasted across repos",
+  "Rules exist as tribal knowledge in Slack threads",
+  "AI agents pass code review by luck, not compliance",
+  "New hires spend weeks learning unwritten standards",
+  "Violations caught in PR review, days after writing",
+  "No visibility into which rules are followed or ignored",
 ];
 
 const withRulebound = [
-  "One central hub for all rules",
-  "Rules auto-selected by task context",
-  "Always current, always consistent",
-  "Instant onboarding for new members",
-  "AI follows your standards every time",
-  "Ship at 10x with full confidence",
+  "One rule hub, inherited per project and stack",
+  "AST + semantic analysis catches violations at write-time",
+  "Enforcement modes from advisory to strict blocking",
+  "Rules are code — versioned, reviewed, auditable",
+  "Real-time IDE diagnostics via LSP",
+  "Compliance scores and audit trail per project",
 ];
 
 export function Comparison() {
@@ -25,7 +25,7 @@ export function Comparison() {
       <div className="mx-auto max-w-6xl px-6">
         <p className="section-label">Comparison</p>
         <h2 className="mt-3 font-mono text-3xl font-bold tracking-tight sm:text-4xl">
-          Stop Managing Rules in Scattered Files
+          From Scattered Docs to Structural Enforcement
         </h2>
 
         <div className="mt-12 grid gap-6 md:grid-cols-2">

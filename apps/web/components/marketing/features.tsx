@@ -1,103 +1,15 @@
-import { Database, Crosshair, ShieldCheck, Blocks, GitBranch, BarChart3, Layers, Terminal, FileOutput, GitCompare, Award, GitCommitHorizontal, Shield, Workflow, Users, Plug, TreePine, Radar, Globe, Bell, Code2, Gauge } from "lucide-react";
+import {
+  TreePine,
+  Radar,
+  Crosshair,
+  Plug,
+  Shield,
+  Database,
+  ArrowRight,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
-const features = [
-  {
-    title: "Centralized Rule Hub",
-    description:
-      "Store all your engineering rules in one place. Organize by domain, team, or project. Version-controlled and always in sync.",
-    icon: Database,
-  },
-  {
-    title: "Generate Agent Configs",
-    description:
-      "One command generates CLAUDE.md, .cursor/rules.md, and copilot-instructions.md. Same rules, every agent, zero drift.",
-    icon: FileOutput,
-  },
-  {
-    title: "Task Plan Validation",
-    description:
-      "Before code ships, validate the AI agent's plan against your rules. PASS, WARN, or FAIL — with suggested fixes.",
-    icon: ShieldCheck,
-  },
-  {
-    title: "Diff Validation",
-    description:
-      "Run rulebound diff to validate git changes against your rules. Catch violations before they hit your codebase.",
-    icon: GitCompare,
-  },
-  {
-    title: "Compliance Score",
-    description:
-      "Get a 0-100 compliance score for your rule set. Generate a badge for your README. Track quality over time.",
-    icon: Award,
-  },
-  {
-    title: "Pre-Commit Hook",
-    description:
-      "Install a git hook that validates every commit against your rules. Block violations before they enter the repo.",
-    icon: GitCommitHorizontal,
-  },
-  {
-    title: "Quality Attributes",
-    description:
-      "Score rules on Atomicity, Completeness, and Clarity. Ensure every rule is actionable, unambiguous, and enforceable.",
-    icon: BarChart3,
-  },
-  {
-    title: "Multi-Agent Support",
-    description:
-      "Works with Claude Code, Cursor, GitHub Copilot, and more. One set of rules, every agent, every project.",
-    icon: Blocks,
-  },
-  {
-    title: "Rule Versioning",
-    description:
-      "Track every change to your rules with git. Roll back, compare versions, and audit who changed what and when.",
-    icon: GitBranch,
-  },
-  {
-    title: "Rule Inheritance",
-    description:
-      "Create base rule sets and extend them per project. Override specific rules without duplicating entire sets.",
-    icon: Layers,
-  },
-  {
-    title: "Dynamic Context Selection",
-    description:
-      "Rulebound analyzes each task and selects only the relevant rules. No context window bloat — just the rules that matter.",
-    icon: Crosshair,
-  },
-  {
-    title: "CLI-First Workflow",
-    description:
-      "Install the CLI, run find-rules and validate from your terminal. Integrates with CI/CD pipelines and git hooks.",
-    icon: Terminal,
-  },
-  {
-    title: "Enforcement Modes",
-    description:
-      "Choose advisory, moderate, or strict enforcement. Control when violations block commits and CI pipelines with configurable score thresholds.",
-    icon: Shield,
-  },
-  {
-    title: "CI/CD Pipeline",
-    description:
-      "Validate PR changes in CI with GitHub Actions annotations. Supports pretty, JSON, and GitHub output formats.",
-    icon: Workflow,
-  },
-  {
-    title: "Multi-Agent Review",
-    description:
-      "Define agent profiles with roles and rule scopes. Run multi-agent review with consensus across security, architecture, and style agents.",
-    icon: Users,
-  },
-  {
-    title: "MCP Server",
-    description:
-      "AI agents query and validate against rules in real-time via Model Context Protocol. Auto-detects project stack and filters rules.",
-    icon: Plug,
-  },
+const highlightedFeatures = [
   {
     title: "AST Code Analysis",
     description:
@@ -111,29 +23,48 @@ const features = [
     icon: Radar,
   },
   {
-    title: "Enterprise Server API",
+    title: "Semantic Rule Matching",
     description:
-      "Full REST API for centralized rule management, validation, compliance scoring, audit logging, and webhook orchestration.",
-    icon: Globe,
+      "Rulebound analyzes each task and selects only the relevant rules. No context window bloat — just the rules that matter.",
+    icon: Crosshair,
   },
   {
-    title: "Notification Integrations",
+    title: "MCP Server",
     description:
-      "Slack, Microsoft Teams, Discord, and PagerDuty. Event-based routing with severity mapping for real-time violation alerts.",
-    icon: Bell,
+      "AI agents query and validate against rules in real-time via Model Context Protocol. Auto-detects project stack and filters rules.",
+    icon: Plug,
   },
   {
-    title: "6-Language SDK",
+    title: "Enforcement Modes",
     description:
-      "Client libraries for Python, Go, TypeScript, Java, C#/.NET, and Rust. Same API surface, native HTTP, zero overhead.",
-    icon: Code2,
+      "Choose advisory, moderate, or strict enforcement. Control when violations block commits and CI pipelines with configurable score thresholds.",
+    icon: Shield,
   },
   {
-    title: "Compliance Dashboard",
+    title: "Rule Registry",
     description:
-      "Real-time compliance scores, sparkline trends, audit log, webhook management. Full visibility into AI code quality.",
-    icon: Gauge,
+      "Store all your engineering rules in one place. Organize by domain, team, or project. Version-controlled and always in sync.",
+    icon: Database,
   },
+];
+
+const moreFeatures = [
+  "Generate Agent Configs",
+  "Plan-Before-Code Gating",
+  "Diff Validation",
+  "Compliance Score",
+  "Pre-Commit Hook",
+  "Quality Attributes",
+  "Multi-Agent Support",
+  "Rule Versioning",
+  "Rule Inheritance",
+  "CLI-First Workflow",
+  "CI/CD Pipeline",
+  "Multi-Agent Review",
+  "Enterprise Server API",
+  "Notification Integrations",
+  "6-Language SDK",
+  "Compliance Dashboard",
 ];
 
 export function Features() {
@@ -142,12 +73,15 @@ export function Features() {
       <div className="mx-auto max-w-6xl px-6">
         <p className="section-label">Features</p>
         <h2 className="mt-3 font-mono text-3xl font-bold tracking-tight sm:text-4xl">
-          Everything You Need to Ship With Confidence
+          Engineered to Enforce
         </h2>
 
         <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {features.map((feature) => (
-            <Card key={feature.title} className="border-2 hover:border-(--color-text-primary)/30 transition-colors duration-200">
+          {highlightedFeatures.map((feature) => (
+            <Card
+              key={feature.title}
+              className="border-2 hover:border-(--color-text-primary)/30 transition-colors duration-200"
+            >
               <CardContent className="pt-6">
                 <div className="flex h-10 w-10 items-center justify-center border-2 border-(--color-text-primary)/20">
                   <feature.icon className="h-5 w-5 text-(--color-text-primary)" />
@@ -161,6 +95,37 @@ export function Features() {
               </CardContent>
             </Card>
           ))}
+        </div>
+
+        {/* More features summary */}
+        <div className="mt-8 border-2 border-dashed border-(--color-text-primary)/20 p-6">
+          <div className="flex items-center gap-3">
+            <span className="stamp text-(--color-text-primary) text-xs">
+              {moreFeatures.length}+ more
+            </span>
+            <span className="font-mono text-sm text-(--color-text-secondary)">
+              Everything else you need to ship with confidence
+            </span>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {moreFeatures.map((name) => (
+              <span
+                key={name}
+                className="inline-block font-mono text-xs px-2.5 py-1 border border-(--color-text-primary)/15 text-(--color-text-secondary)"
+              >
+                {name}
+              </span>
+            ))}
+          </div>
+          <a
+            href="https://github.com/ylcn91/rulebound#readme"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 inline-flex items-center gap-1.5 font-mono text-xs font-semibold uppercase tracking-wider text-(--color-text-primary) hover:underline underline-offset-4 cursor-pointer"
+          >
+            See full feature list
+            <ArrowRight className="h-3.5 w-3.5" />
+          </a>
         </div>
       </div>
     </section>

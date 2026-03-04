@@ -7,11 +7,11 @@ export function OpenSource() {
       <div className="mx-auto max-w-6xl px-6 text-center">
         <p className="section-label">Open Source</p>
         <h2 className="mt-3 font-mono text-3xl font-bold tracking-tight sm:text-4xl">
-          Built in the open.
+          No Vendor Lock-in. No SaaS Tax.
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-(--color-text-secondary)">
-          Rulebound is free forever. The entire platform is open-source under
-          the MIT license. Inspect the code, contribute, and make it your own.
+          Rulebound is MIT-licensed and self-hostable. Run it on your
+          infrastructure, audit every line, and own your enforcement pipeline.
         </p>
 
         <div className="mt-6">
