@@ -1,7 +1,10 @@
 "use client"
 
+import Link from "next/link"
 import Markdown from "react-markdown"
 import type { Components } from "react-markdown"
+
+const linkClassName = "text-(--color-text-primary) underline underline-offset-4 decoration-1 decoration-(--color-border) hover:decoration-(--color-text-primary) transition-colors duration-150 cursor-pointer"
 
 const components: Components = {
   h1: ({ children }) => (
@@ -29,14 +32,20 @@ const components: Components = {
       {children}
     </p>
   ),
-  a: ({ href, children }) => (
-    <a
-      href={href}
-      className="text-(--color-text-primary) underline underline-offset-4 decoration-1 decoration-(--color-border) hover:decoration-(--color-text-primary) transition-colors duration-150 cursor-pointer"
-    >
-      {children}
-    </a>
-  ),
+  a: ({ href, children }) => {
+    if (href?.startsWith("/")) {
+      return (
+        <Link href={href as string} className={linkClassName}>
+          {children}
+        </Link>
+      )
+    }
+    return (
+      <a href={href} className={linkClassName} target="_blank" rel="noopener noreferrer">
+        {children}
+      </a>
+    )
+  },
   ul: ({ children }) => (
     <ul className="list-disc pl-6 mb-4 space-y-1 text-(--color-text-secondary)">
       {children}
