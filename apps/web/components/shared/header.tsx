@@ -4,7 +4,7 @@ import { MobileMenu } from "@/components/shared/mobile-menu";
 
 const navLinks = [
   { label: "Features", href: "/#features" },
-  { label: "Docs", href: "https://github.com/ylcn91/rulebound#readme" },
+  { label: "Docs", href: "/docs" },
   { label: "GitHub", href: "https://github.com/ylcn91/rulebound" },
 ];
 
