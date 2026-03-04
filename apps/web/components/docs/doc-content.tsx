@@ -3,6 +3,7 @@
 import Link from "next/link"
 import Markdown from "react-markdown"
 import type { Components } from "react-markdown"
+import remarkGfm from "remark-gfm"
 
 const linkClassName = "text-(--color-text-primary) underline underline-offset-4 decoration-1 decoration-(--color-border) hover:decoration-(--color-text-primary) transition-colors duration-150 cursor-pointer"
 
@@ -120,7 +121,7 @@ interface DocContentProps {
 export function DocContent({ content }: DocContentProps) {
   return (
     <article className="max-w-none">
-      <Markdown components={components}>{content}</Markdown>
+      <Markdown remarkPlugins={[remarkGfm]} components={components}>{content}</Markdown>
     </article>
   )
 }
