@@ -17,6 +17,14 @@ import { listAgentsCommand } from "./commands/agents.js"
 import { reviewCommand } from "./commands/review.js"
 import { checkCodeCommand } from "./commands/check-code.js"
 import { watchCommand } from "./commands/watch.js"
+import { statsCommand } from "./commands/stats.js"
+import {
+  registrySearchCommand,
+  registryInstallCommand,
+  registryListCommand,
+  registryInfoCommand,
+} from "./commands/registry.js"
+import { migrateCommand } from "./commands/migrate.js"
 
 const require = createRequire(import.meta.url)
 const pkg = require("../package.json") as { version: string }
@@ -37,6 +45,7 @@ program
   .description("Initialize .rulebound/ with rules directory and config")
   .option("--examples", "Copy example rules to get started")
   .option("--no-hook", "Skip pre-commit hook installation")
+  .option("--migrate", "Auto-import rules from existing agent configs (CLAUDE.md, .cursorrules, etc.)")
   .action(initCommand)
 
 program
@@ -162,5 +171,43 @@ program
   .action(checkCodeCommand)
 
 program.addCommand(watchCommand)
+
+program
+  .command("stats")
+  .description("Show validation statistics and analytics")
+  .option("-g, --global", "Show global stats across all projects")
+  .option("--days <number>", "Number of days to include (default: 30)")
+  .option("-f, --format <format>", "Output format: pretty, json")
+  .action(statsCommand)
+
+const registryCmd = program.command("registry").description("Search and install rule packages from npm")
+
+registryCmd
+  .command("search [query]")
+  .description("Search npm for rulebound rule packages")
+  .action(registrySearchCommand)
+
+registryCmd
+  .command("install <package>")
+  .description("Install a rule package and add to config extends")
+  .action(registryInstallCommand)
+
+registryCmd
+  .command("list")
+  .description("List installed rule packages")
+  .action(registryListCommand)
+
+registryCmd
+  .command("info <package>")
+  .description("Show details of an installed rule package")
+  .action(registryInfoCommand)
+
+program
+  .command("migrate")
+  .description("Import rules from existing CLAUDE.md, .cursorrules, or other agent config files")
+  .option("--from <file>", "Path to the file to import from")
+  .option("--auto", "Auto-detect and import from all known agent config files")
+  .option("--dry-run", "Show what would be created without writing files")
+  .action(migrateCommand)
 
 program.parse()

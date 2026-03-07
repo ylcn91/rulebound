@@ -1,13 +1,13 @@
 # Rulebound Architecture
 
-**Version:** 1.0
-**Date:** 2026-03-03
+**Version:** 1.1
+**Date:** 2026-03-04
 
 ---
 
 ## System Overview
 
-Rulebound is a monorepo-based platform for enforcing coding rules when AI agents generate code. It consists of 6 packages plus a web dashboard.
+Rulebound is a monorepo-based platform for enforcing coding rules when AI agents generate code. It consists of 8 packages plus a web dashboard.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -26,6 +26,12 @@ Rulebound is a monorepo-based platform for enforcing coding rules when AI agents
 │  │  (terminal)   │  │ (AI protocol)│  │ (dashboard)  │             │
 │  └──────────────┘  └──────────────┘  └──────────────┘             │
 │                                                                     │
+│  ┌──────────────┐  ┌──────────────┐                               │
+│  │   @rulebound  │  │   @rulebound  │                               │
+│  │     /lsp      │  │    /shared   │                               │
+│  │ (IDE server)  │  │ (types/log)  │                               │
+│  └──────────────┘  └──────────────┘                               │
+│                                                                     │
 │  ┌────────────────────────────────────────────────────┐            │
 │  │              SDKs (6 languages)                     │            │
 │  │  Python · Go · TypeScript · Java · C#/.NET · Rust   │            │
@@ -42,19 +48,19 @@ Rulebound is a monorepo-based platform for enforcing coding rules when AI agents
                     │  engine  │  (zero runtime deps)
                     └────┬─────┘
                          │ imported by
-            ┌────────────┼────────────┐
-            │            │            │
-       ┌────▼───┐  ┌────▼───┐  ┌────▼────┐
-       │  cli   │  │  mcp   │  │ gateway │
-       └────────┘  └────────┘  └────┬────┘
-                                    │ calls
-                               ┌────▼────┐
-                               │ server  │
-                               └────┬────┘
-                                    │ serves
-                               ┌────▼────┐
-                               │   web   │
-                               └─────────┘
+       ┌─────────────────┼─────────────────┐
+       │            │    │    │             │
+  ┌────▼───┐  ┌────▼──┐ │ ┌──▼────┐  ┌────▼────┐
+  │  cli   │  │  mcp  │ │ │  lsp  │  │ gateway │
+  └────────┘  └───────┘ │ └───────┘  └────┬────┘
+                         │                 │ calls
+                    ┌────▼────┐       ┌────▼────┐
+                    │ shared  │       │ server  │
+                    │(types)  │       └────┬────┘
+                    └─────────┘            │ serves
+                                      ┌────▼────┐
+                                      │   web   │
+                                      └─────────┘
 ```
 
 ---
@@ -154,7 +160,7 @@ The core validation engine uses a 4-layer pipeline.
               │  Layer 4: AST Matcher       │
               │  ┌────────────────────────┐  │
               │  │ web-tree-sitter WASM   │  │
-              │  │ 28 built-in queries    │  │
+              │  │ 36 built-in queries    │  │
               │  │ 10 languages           │  │
               │  │ Structural matching    │  │
               │  └───────────┬────────────┘  │
@@ -331,12 +337,14 @@ The core validation engine uses a 4-layer pipeline.
   │  │                        │                                │
   │  │  Regular response:     │                                │
   │  │  • Extract code blocks │                                │
+  │  │  • AST scan code blocks│                                │
   │  │  • Run engine.validate │                                │
   │  │  • Append warnings     │                                │
   │  │                        │                                │
   │  │  SSE stream:           │                                │
   │  │  • Buffer chunks       │                                │
   │  │  • Detect code fences  │                                │
+  │  │  • AST scan on close   │                                │
   │  │  • Scan on complete    │                                │
   │  └────────┬──────────────┘                                │
   │           │                                                │
@@ -366,6 +374,7 @@ The core validation engine uses a 4-layer pipeline.
        ├── ci                CI/CD pipeline validation
        ├── review            Multi-agent review with consensus
        ├── check-code        AST-based code analysis (tree-sitter)
+       ├── watch             Real-time file monitoring (debounced)
        ├── agents list       List agent profiles
        └── rules
             ├── list          List all rules
@@ -465,16 +474,18 @@ The core validation engine uses a 4-layer pipeline.
 
 ## Package Stats
 
-| Package    | Files | Lines  | Tests | Dependencies          |
-|------------|-------|--------|-------|-----------------------|
-| engine     | 16    | ~2,500 | 52    | web-tree-sitter, tree-sitter-wasms |
-| server     | 20    | ~1,800 | 8     | hono                  |
-| gateway    | 8     | ~780   | 13    | (uses engine)         |
-| cli        | 20+   | ~3,000 | 39    | commander, chalk      |
-| mcp        | 2     | ~200   | —     | @modelcontextprotocol/sdk |
-| web        | 30+   | ~3,000 | —     | next, react, drizzle  |
-| SDKs (6)   | 8     | ~1,140 | —     | language-native HTTP  |
-| **Total**  |**100+**|**~12,400**|**112**|                    |
+| Package    | Files | Lines  | Tests | Dependencies                       |
+|------------|-------|--------|-------|------------------------------------|
+| engine     | 20    | ~3,100 | 68    | web-tree-sitter, tree-sitter-wasms |
+| cli        | 46    | ~5,100 | 61    | commander, chalk, engine           |
+| server     | 30    | ~3,300 | 57    | hono, drizzle                      |
+| gateway    | 15    | ~1,500 | 58    | engine (AST scanner)               |
+| mcp        | 6     | ~1,300 | 25    | @modelcontextprotocol/sdk          |
+| lsp        | 5     | ~400   | 15    | vscode-languageserver, engine      |
+| shared     | 2     | ~200   | --    | (types + logger)                   |
+| web        | 44    | ~770   | 2     | next, react, drizzle               |
+| SDKs (6)   | 8     | ~1,100 | 24    | language-native HTTP               |
+| **Total**  |**176**|**~16,800**|**310**|                                |
 
 ---
 
@@ -487,8 +498,9 @@ The core validation engine uses a 4-layer pipeline.
 | Web           | Next.js 16, React 19, Tailwind CSS 4          |
 | UI            | Radix UI, Lucide Icons, JetBrains Mono + IBM Plex Sans |
 | Database      | PostgreSQL 17, Drizzle ORM                    |
-| AST Parsing   | web-tree-sitter 0.24.7 (WASM), tree-sitter-wasms |
+| AST Parsing   | web-tree-sitter 0.24.7 (WASM), tree-sitter-wasms, 36 queries |
 | Server        | Hono (lightweight HTTP framework)             |
+| LSP           | vscode-languageserver (IDE diagnostics)       |
 | Auth          | Bearer tokens, HMAC-SHA256 webhook signatures |
 | AI (optional) | Anthropic SDK, OpenAI SDK, Vercel AI SDK      |
-| Testing       | Vitest 4                                      |
+| Testing       | Vitest 4 (310 tests across 30 test files)     |

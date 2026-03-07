@@ -9,6 +9,7 @@ import { complianceApi } from "./api/compliance.js"
 import { syncApi } from "./api/sync.js"
 import { webhooksApi } from "./api/webhooks.js"
 import { tokensApi } from "./api/tokens.js"
+import { analyticsApi } from "./api/analytics.js"
 import { authMiddleware, optionalAuth } from "./middleware/auth.js"
 
 export function createApp() {
@@ -30,6 +31,7 @@ export function createApp() {
   app.route("/v1/compliance", complianceApi)
   app.route("/v1/sync", syncApi)
   app.route("/v1/tokens", tokensApi)
+  app.route("/v1/analytics", analyticsApi)
 
   return app
 }
@@ -57,6 +59,7 @@ export { complianceApi } from "./api/compliance.js"
 export { syncApi } from "./api/sync.js"
 export { webhooksApi, dispatchWebhooks } from "./api/webhooks.js"
 export { tokensApi } from "./api/tokens.js"
+export { analyticsApi } from "./api/analytics.js"
 export { authMiddleware, optionalAuth } from "./middleware/auth.js"
 export { getDb, schema } from "./db/index.js"
 export { signPayload, deliverWebhook } from "./webhooks/dispatcher.js"

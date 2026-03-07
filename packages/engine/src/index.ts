@@ -54,6 +54,15 @@ export type {
   RuleASTConfig,
 } from "./ast/types.js"
 
+// Telemetry
+export {
+  recordValidationEvent,
+  computeStats,
+  loadGlobalEvents,
+  loadProjectEvents,
+} from "./telemetry.js"
+export type { ValidationEvent, StatsReport, TelemetryStore } from "./telemetry.js"
+
 // Types
 export type {
   Rule,

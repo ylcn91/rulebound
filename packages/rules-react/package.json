@@ -1,0 +1,11 @@
+{
+  "name": "@rulebound/rules-react",
+  "version": "0.1.0",
+  "description": "React rules for Rulebound — modern React patterns and best practices",
+  "keywords": ["rulebound", "rules", "react", "nextjs", "server-components"],
+  "license": "MIT",
+  "files": ["rules/**/*.md"],
+  "rulebound": {
+    "rulesDir": "rules"
+  }
+}

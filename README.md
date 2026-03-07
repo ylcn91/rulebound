@@ -2,7 +2,7 @@
 
 [![Rulebound Score](https://img.shields.io/badge/rulebound-93%25-4c1?style=flat-square)](https://github.com/ylcn91/rulebound)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-112%20passing-brightgreen?style=flat-square)]()
+[![Tests](https://img.shields.io/badge/tests-310%20passing-brightgreen?style=flat-square)]()
 
 Centralized rules for AI coding agents. Define your team's standards once — enforce them on every AI-generated line of code.
 
@@ -12,25 +12,35 @@ Works with **Claude Code**, **Cursor**, **GitHub Copilot**, and any AI coding ag
 
 ```
   Developer ──► AI Agent ──► Rulebound Gateway ──► LLM API
-                                    │
-                             ┌──────┴──────┐
-                             │  Validation  │
-                             │   Engine     │
-                             │             │
-                             │ • Keyword   │
-                             │ • Semantic  │
-                             │ • LLM      │
-                             │ • AST      │
-                             └──────┬──────┘
-                                    │
-                    ┌───────────────┼───────────────┐
-                    │               │               │
-               Dashboard      Audit Log      Notifications
-              (Next.js)      (PostgreSQL)   (Slack/Teams/
-                                             Discord/PD)
+                  │                 │
+                  │          ┌──────┴──────┐
+                  │          │  Validation  │
+                  │          │   Engine     │
+                  │          │             │
+                  │          │ • Keyword   │
+                  │          │ • Semantic  │
+                  │          │ • LLM      │
+                  │          │ • AST      │
+                  │          └──────┬──────┘
+                  │                 │
+                  │  ┌──────────────┼───────────────┐
+                  │  │              │               │
+                  │  Dashboard   Audit Log    Notifications
+                  │  (Next.js)  (PostgreSQL)  (Slack/Teams/
+                  │                            Discord/PD)
+                  │
+          ┌───────┼───────┐
+          │       │       │
+     LSP Server   │  MCP Server
+    (IDE inline   │  (AI agent
+     diagnostics) │   enforcement)
+                  │
+             CLI Watch
+           (real-time
+            monitoring)
 ```
 
-**6 packages** · **112 tests** · **10 languages** · **28 AST queries** · **6 SDKs**
+**8 packages** · **310 tests** · **10 languages** · **36 AST queries** · **6 SDKs**
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full architecture documentation with ASCII flow diagrams.
 
@@ -208,6 +218,7 @@ rulebound init --examples
 | `rulebound ci` | Validate PR changes in CI/CD pipeline |
 | `rulebound review` | Multi-agent review with consensus |
 | `rulebound check-code` | AST-based code analysis (tree-sitter, 10 languages) |
+| `rulebound watch` | Real-time file monitoring with live AST + rule validation |
 | `rulebound agents list` | List configured agent profiles |
 | `rulebound rules list` | List all rules |
 | `rulebound rules show <id>` | Show rule detail |
@@ -260,6 +271,27 @@ rulebound init --examples
 --diff              Review current git diff
 --llm               Use LLM for deep validation
 --dir <path>        Custom rules directory
+```
+
+### Watch Options
+
+```
+--debounce <ms>     Debounce delay in milliseconds (default: 300)
+--format <fmt>      Output: pretty (default), json
+--ignore <dirs>     Comma-separated directories to ignore (default: node_modules, .git, dist, .next, coverage)
+```
+
+Monitor files in real-time and get instant feedback on rule violations:
+
+```bash
+# Watch current directory
+rulebound watch
+
+# Watch with JSON output
+rulebound watch --format json
+
+# Custom debounce and ignores
+rulebound watch --debounce 500 --ignore node_modules,.git,dist,build
 ```
 
 ## Generate Agent Configs
@@ -446,6 +478,7 @@ Rulebound includes an MCP (Model Context Protocol) server that lets AI agents qu
 | `validate_plan` | Validate an implementation plan against matched rules |
 | `check_code` | Check a code snippet against relevant rules |
 | `list_rules` | List all available rules for the project's stack |
+| `validate_before_write` | Pre-write enforcement -- validates code before writing to file (AST + semantic) |
 
 The MCP server auto-detects the project's tech stack from files like `pom.xml`, `package.json`, `go.mod`, etc., and filters rules accordingly.
 
@@ -514,9 +547,40 @@ export OPENAI_API_BASE=http://localhost:4000/openai/v1
 2. Gateway loads project rules, injects them into the system prompt
 3. Request forwarded to real LLM API
 4. Response comes back, gateway scans code blocks for violations
-5. Advisory mode: appends warnings. Strict mode: blocks with 422.
+5. AST analysis runs on detected code blocks (language auto-detected from annotations)
+6. Advisory mode: appends warnings. Strict mode: blocks with 422.
 
-Supports **OpenAI**, **Anthropic**, and **Google** API formats. Handles both regular and SSE streaming responses.
+Supports **OpenAI**, **Anthropic**, and **Google** API formats. Handles both regular and SSE streaming responses. The gateway includes a built-in AST scanner that detects code fence annotations (e.g., `` ```typescript ``) and runs tree-sitter analysis on the extracted code blocks.
+
+## LSP Server
+
+Rulebound includes an LSP (Language Server Protocol) server that provides inline diagnostics directly in your IDE. It runs both AST analysis and rule validation on every file change.
+
+### Setup
+
+#### VS Code
+
+Add to your `.vscode/settings.json`:
+
+```json
+{
+  "rulebound.lsp.enabled": true
+}
+```
+
+Or run the LSP server manually:
+
+```bash
+npx @rulebound/lsp --stdio
+```
+
+### Features
+
+- **Real-time diagnostics** -- AST violations and rule violations appear as you type
+- **Debounced analysis** -- 300ms debounce to avoid unnecessary re-analysis
+- **Workspace-aware** -- Automatically loads rules from `.rulebound/rules/` in your workspace
+- **Multi-language** -- Supports all 10 tree-sitter languages (TypeScript, JavaScript, Python, Java, Go, Rust, C#, C++, Ruby, Bash)
+- **On-save analysis** -- Full re-analysis on every file save
 
 ## Enterprise Server API
 
@@ -577,10 +641,14 @@ Available: **Python** (httpx) · **Go** (stdlib) · **TypeScript** (fetch) · **
 
 Web-based dashboard for compliance monitoring:
 
-- **Overview** — Compliance score ring, project stats, top violations, activity feed
-- **Audit Log** — Filterable table of all validation events
-- **Compliance** — Sparkline trend charts, progress bars per project
-- **Webhooks** — Endpoint management, delivery history, test sending
+- **Overview** -- Compliance score ring, project stats, top violations, activity feed
+- **Rules** -- Browse, search, and create rules with syntax-highlighted preview
+- **Projects** -- Project listing with stack detection and compliance scores
+- **Audit Log** -- Filterable table of all validation events
+- **Compliance** -- Sparkline trend charts, progress bars per project
+- **Webhooks** -- Endpoint management, delivery history, test sending
+- **Import** -- Import rules from external sources
+- **Settings** -- Project and organization configuration
 
 ## Using with AI Agents
 
@@ -661,13 +729,15 @@ pnpm --filter web dev
 
 - **CLI:** TypeScript, Commander.js, Chalk
 - **Engine:** TypeScript, web-tree-sitter (WASM AST parsing), tree-sitter-wasms (10 language grammars)
-- **Gateway:** TypeScript, HTTP proxy with SSE stream interception
+- **Gateway:** TypeScript, HTTP proxy with SSE stream interception, AST code block scanning
+- **LSP Server:** TypeScript, vscode-languageserver, real-time AST + rule diagnostics
 - **Server:** TypeScript, Hono (HTTP), Drizzle ORM, HMAC-SHA256 webhooks
-- **MCP Server:** TypeScript, @modelcontextprotocol/sdk, Zod
+- **MCP Server:** TypeScript, @modelcontextprotocol/sdk, Zod, pre-write enforcement
+- **Shared:** TypeScript, common types and structured logger
 - **Web:** Next.js 16, React 19, Tailwind CSS 4, Radix UI, Lucide Icons
 - **Database:** PostgreSQL 17, Drizzle ORM
 - **SDKs:** Python (httpx), Go (stdlib), TypeScript (fetch), Java (HttpClient), C#/.NET (HttpClient), Rust (reqwest)
-- **Testing:** Vitest 4 (112 tests)
+- **Testing:** Vitest 4 (310 tests across 30 test files)
 - **Monorepo:** Turborepo + pnpm workspaces
 
 ## Contributing

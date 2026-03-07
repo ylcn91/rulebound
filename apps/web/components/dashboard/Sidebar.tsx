@@ -14,6 +14,7 @@ import {
   ScrollText,
   Webhook,
   TrendingUp,
+  BarChart3,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/audit", label: "Audit Log", icon: ScrollText },
   { href: "/compliance", label: "Compliance", icon: TrendingUp },
+  { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/webhooks", label: "Webhooks", icon: Webhook },
   { href: "/import", label: "Import", icon: Import },
   { href: "/settings", label: "Settings", icon: Settings },

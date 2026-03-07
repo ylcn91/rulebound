@@ -1,0 +1,11 @@
+{
+  "name": "@rulebound/rules-security",
+  "version": "0.1.0",
+  "description": "Security rules for Rulebound — OWASP-aligned coding standards",
+  "keywords": ["rulebound", "rules", "security", "owasp"],
+  "license": "MIT",
+  "files": ["rules/**/*.md"],
+  "rulebound": {
+    "rulesDir": "rules"
+  }
+}

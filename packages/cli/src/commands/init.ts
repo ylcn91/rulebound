@@ -5,6 +5,7 @@ import chalk from "chalk"
 interface InitOptions {
   examples?: boolean
   hook?: boolean
+  migrate?: boolean
 }
 
 const CONFIG_TEMPLATE = `{
@@ -93,13 +94,23 @@ exit 0
 
   console.log()
   console.log(chalk.white("Rulebound initialized."))
-  console.log()
-  console.log(chalk.dim("  Next steps:"))
-  console.log(chalk.dim("  1. Edit .rulebound/config.json with your project info (stack, scope, team)"))
-  console.log(chalk.dim("  2. Add rules as markdown files in .rulebound/rules/"))
-  console.log(chalk.dim("  3. Run: rulebound rules list"))
-  console.log(chalk.dim("  4. Run: rulebound generate --agent claude-code"))
-  console.log(chalk.dim("  5. Run: rulebound validate --plan \"your plan\""))
+
+  // Auto-migrate if --migrate flag is set
+  if (options.migrate) {
+    console.log()
+    const { migrateCommand } = await import("./migrate.js")
+    await migrateCommand({ auto: true })
+  } else {
+    console.log()
+    console.log(chalk.dim("  Next steps:"))
+    console.log(chalk.dim("  1. Edit .rulebound/config.json with your project info (stack, scope, team)"))
+    console.log(chalk.dim("  2. Add rules as markdown files in .rulebound/rules/"))
+    console.log(chalk.dim("  3. Run: rulebound rules list"))
+    console.log(chalk.dim("  4. Run: rulebound generate --agent claude-code"))
+    console.log(chalk.dim("  5. Run: rulebound validate --plan \"your plan\""))
+    console.log(chalk.dim(""))
+    console.log(chalk.dim("  Tip: Run 'rulebound init --migrate' to import from existing CLAUDE.md/.cursorrules"))
+  }
 }
 
 function findExamplesDir(): string | null {

@@ -1,0 +1,11 @@
+{
+  "name": "@rulebound/rules-typescript",
+  "version": "0.1.0",
+  "description": "TypeScript rules for Rulebound — strict type-safe coding standards",
+  "keywords": ["rulebound", "rules", "typescript", "strict"],
+  "license": "MIT",
+  "files": ["rules/**/*.md"],
+  "rulebound": {
+    "rulesDir": "rules"
+  }
+}
