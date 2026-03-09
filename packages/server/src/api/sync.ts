@@ -1,8 +1,12 @@
 import { Hono } from "hono"
 import { getDb, schema } from "../db/index.js"
-import { eq, and, gte, or, isNull, arrayOverlaps } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import { createHash } from "node:crypto"
 import { syncAckSchema } from "../schemas.js"
+import { requireRequestIdentity } from "../lib/request-context.js"
+import { resolveProjectForOrg } from "../lib/projects.js"
+import { getEffectiveRuleSetIds, resolveRulesForRuleSetIds } from "../lib/rules.js"
+import { emitWebhookEvent, writeAuditEntry } from "../lib/activity.js"
 
 const app = new Hono()
 
@@ -15,42 +19,41 @@ function computeRulesHash(rules: Array<{ id: string; content: string; version: n
 }
 
 app.get("/", async (c) => {
+  const identity = requireRequestIdentity(c)
+  if (identity instanceof Response) return identity
+
   const db = getDb()
-  const project = c.req.query("project")
+  const projectIdentifier = c.req.query("project")
   const since = c.req.query("since")
   const stack = c.req.query("stack")
 
-  const conditions = [eq(schema.rules.isActive, true)]
+  const project = projectIdentifier
+    ? await resolveProjectForOrg(db, identity.orgId, projectIdentifier)
+    : null
 
-  if (since) {
-    conditions.push(gte(schema.rules.updatedAt, new Date(since)))
+  if (projectIdentifier && !project) {
+    return c.json({ error: "Project not found" }, 404)
   }
 
-  if (stack) {
-    const stackList = stack.split(",").map((s) => s.trim().toLowerCase())
-    conditions.push(
-      or(
-        arrayOverlaps(schema.rules.stack, stackList),
-        isNull(schema.rules.stack),
-      )!
-    )
-  }
-
-  const dbRules = await db.select().from(schema.rules).where(and(...conditions))
+  const ruleSetIds = await getEffectiveRuleSetIds(db, identity.orgId, project?.id)
+  const dbRules = await resolveRulesForRuleSetIds(db, ruleSetIds, {
+    since,
+    stack: stack ? stack.split(",") : null,
+  })
 
   const versionHash = computeRulesHash(dbRules)
 
-  const rulesPayload = dbRules.map((r) => ({
-    id: r.id,
-    title: r.title,
-    content: r.content,
-    category: r.category,
-    severity: r.severity,
-    modality: r.modality,
-    tags: r.tags ?? [],
-    stack: r.stack ?? [],
-    version: r.version,
-    updatedAt: r.updatedAt,
+  const rulesPayload = dbRules.map((rule) => ({
+    id: rule.id,
+    title: rule.title,
+    content: rule.content,
+    category: rule.category,
+    severity: rule.severity,
+    modality: rule.modality,
+    tags: rule.tags ?? [],
+    stack: rule.stack ?? [],
+    version: rule.version,
+    updatedAt: rule.updatedAt,
   }))
 
   return c.json({
@@ -64,6 +67,9 @@ app.get("/", async (c) => {
 })
 
 app.post("/ack", async (c) => {
+  const identity = requireRequestIdentity(c)
+  if (identity instanceof Response) return identity
+
   const db = getDb()
   const raw = await c.req.json().catch(() => null)
   if (!raw) return c.json({ error: "Invalid JSON" }, 400)
@@ -73,21 +79,50 @@ app.post("/ack", async (c) => {
     return c.json({ error: "Validation failed", details: parsed.error.issues }, 400)
   }
 
-  const { projectId, ruleVersionHash } = parsed.data
+  const project = await resolveProjectForOrg(db, identity.orgId, parsed.data.projectId)
+  if (!project) {
+    return c.json({ error: "Project not found" }, 404)
+  }
 
   const [existing] = await db
     .select()
     .from(schema.ruleSyncState)
-    .where(eq(schema.ruleSyncState.projectId, projectId))
+    .where(eq(schema.ruleSyncState.projectId, project.id))
 
   if (existing) {
     await db
       .update(schema.ruleSyncState)
-      .set({ ruleVersionHash, status: "synced", lastSyncedAt: new Date() })
+      .set({
+        ruleVersionHash: parsed.data.ruleVersionHash,
+        status: "synced",
+        lastSyncedAt: new Date(),
+      })
       .where(eq(schema.ruleSyncState.id, existing.id))
   } else {
-    await db.insert(schema.ruleSyncState).values({ projectId, ruleVersionHash, status: "synced" })
+    await db.insert(schema.ruleSyncState).values({
+      projectId: project.id,
+      ruleVersionHash: parsed.data.ruleVersionHash,
+      status: "synced",
+    })
   }
+
+  await writeAuditEntry(db, {
+    orgId: identity.orgId,
+    projectId: project.id,
+    userId: identity.userId,
+    action: "sync.completed",
+    status: "success",
+    metadata: {
+      project: project.slug,
+      ruleVersionHash: parsed.data.ruleVersionHash,
+    },
+  })
+
+  await emitWebhookEvent(identity.orgId, "sync.completed", {
+    projectId: project.id,
+    projectSlug: project.slug,
+    ruleVersionHash: parsed.data.ruleVersionHash,
+  })
 
   return c.json({ data: { synced: true } })
 })

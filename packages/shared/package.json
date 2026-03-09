@@ -2,13 +2,18 @@
   "name": "@rulebound/shared",
   "version": "0.1.0",
   "type": "module",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/types.ts"
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js",
+      "default": "./src/index.js"
     },
     "./logger": {
-      "types": "./src/logger.ts",
-      "default": "./src/logger.ts"
+      "types": "./src/logger.d.ts",
+      "import": "./src/logger.js",
+      "default": "./src/logger.js"
     }
   },
   "files": ["src"],

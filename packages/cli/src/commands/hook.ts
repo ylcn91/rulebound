@@ -1,38 +1,11 @@
 import { writeFileSync, chmodSync, existsSync, mkdirSync, unlinkSync } from "node:fs"
 import { resolve } from "node:path"
 import chalk from "chalk"
+import { PRE_COMMIT_HOOK_CONTENT } from "../lib/pre-commit-hook.js"
 
 interface HookOptions {
   remove?: boolean
 }
-
-const HOOK_CONTENT = `#!/bin/sh
-# Rulebound pre-commit hook
-# Validates staged changes against project rules
-
-echo "Rulebound: validating changes..."
-
-# Get staged diff
-DIFF=$(git diff --cached)
-
-if [ -z "$DIFF" ]; then
-  exit 0
-fi
-
-# Run rulebound diff on staged changes
-npx rulebound diff --ref HEAD 2>/dev/null
-
-EXIT_CODE=$?
-
-if [ $EXIT_CODE -ne 0 ]; then
-  echo ""
-  echo "Rulebound: commit blocked. Fix rule violations first."
-  echo "Run 'rulebound diff' for details."
-  exit 1
-fi
-
-exit 0
-`
 
 export async function hookCommand(options: HookOptions): Promise<void> {
   const cwd = process.cwd()
@@ -60,7 +33,7 @@ export async function hookCommand(options: HookOptions): Promise<void> {
     mkdirSync(hooksDir, { recursive: true })
   }
 
-  writeFileSync(hookPath, HOOK_CONTENT)
+  writeFileSync(hookPath, PRE_COMMIT_HOOK_CONTENT)
   chmodSync(hookPath, 0o755)
 
   console.log()

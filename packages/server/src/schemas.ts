@@ -49,7 +49,6 @@ export const ruleUpdateSchema = z
 
 export const webhookEndpointCreateSchema = z
   .object({
-    orgId: z.string().min(1, "orgId is required"),
     url: z.string().url("url must be a valid URL"),
     secret: z.string().min(16, "secret must be at least 16 characters"),
     events: z.array(z.string()).min(1, "at least one event is required"),
@@ -61,7 +60,6 @@ export const webhookEndpointCreateSchema = z
 
 export const auditCreateSchema = z
   .object({
-    orgId: z.string().min(1, "orgId is required"),
     projectId: z.string().optional(),
     userId: z.string().optional(),
     action: z.string().min(1, "action is required"),
@@ -75,7 +73,7 @@ export const auditCreateSchema = z
 
 export const complianceSnapshotSchema = z
   .object({
-    score: z.number({ required_error: "score is required" }),
+    score: z.number().min(0, "score is required"),
     passCount: z.number().int().min(0).optional(),
     violatedCount: z.number().int().min(0).optional(),
     notCoveredCount: z.number().int().min(0).optional(),
@@ -95,10 +93,30 @@ export const syncAckSchema = z
 
 export const tokenCreateSchema = z
   .object({
-    orgId: z.string().min(1, "orgId is required"),
-    userId: z.string().min(1, "userId is required"),
     name: z.string().min(1, "name is required"),
     scopes: z.array(z.string()).optional(),
     expiresAt: z.string().optional(),
+  })
+  .strip()
+
+// ── Projects API ────────────────────────────────────────
+
+export const projectCreateSchema = z
+  .object({
+    name: z.string().min(1, "name is required"),
+    slug: z.string().min(1, "slug cannot be empty").optional(),
+    repoUrl: z.string().url("repoUrl must be a valid URL").optional(),
+    stack: z.array(z.string()).optional(),
+    ruleSetIds: z.array(z.string()).optional(),
+  })
+  .strip()
+
+export const projectUpdateSchema = z
+  .object({
+    name: z.string().min(1, "name cannot be empty").optional(),
+    slug: z.string().min(1, "slug cannot be empty").optional(),
+    repoUrl: z.string().url("repoUrl must be a valid URL").nullable().optional(),
+    stack: z.array(z.string()).optional(),
+    ruleSetIds: z.array(z.string()).optional(),
   })
   .strip()

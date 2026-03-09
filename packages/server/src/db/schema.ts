@@ -8,6 +8,7 @@ import {
   primaryKey,
   jsonb,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core"
 
 // ── Users ──────────────────────────────────────────────
@@ -61,7 +62,10 @@ export const projects = pgTable("projects", {
   stack: text("stack").array(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-})
+}, (table) => [
+  uniqueIndex("projects_org_slug_idx").on(table.orgId, table.slug),
+  index("projects_org_id_idx").on(table.orgId),
+])
 
 // ── Rule Sets ──────────────────────────────────────────
 
@@ -75,7 +79,10 @@ export const ruleSets = pgTable("rule_sets", {
   isGlobal: boolean("is_global").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-})
+}, (table) => [
+  index("rule_sets_org_id_idx").on(table.orgId),
+  index("rule_sets_org_global_idx").on(table.orgId, table.isGlobal),
+])
 
 // ── Rules ──────────────────────────────────────────────
 
@@ -123,7 +130,10 @@ export const projectRuleSets = pgTable(
       .references(() => ruleSets.id)
       .notNull(),
   },
-  (table) => [primaryKey({ columns: [table.projectId, table.ruleSetId] })]
+  (table) => [
+    primaryKey({ columns: [table.projectId, table.ruleSetId] }),
+    index("project_rule_sets_rule_set_idx").on(table.ruleSetId),
+  ]
 )
 
 // ── API Tokens ─────────────────────────────────────────
@@ -143,7 +153,10 @@ export const apiTokens = pgTable("api_tokens", {
   expiresAt: timestamp("expires_at"),
   lastUsedAt: timestamp("last_used_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-})
+}, (table) => [
+  index("api_tokens_org_id_idx").on(table.orgId),
+  index("api_tokens_user_id_idx").on(table.userId),
+])
 
 // ── Audit Log ──────────────────────────────────────────
 
@@ -184,7 +197,9 @@ export const webhookEndpoints = pgTable("webhook_endpoints", {
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-})
+}, (table) => [
+  index("webhook_endpoints_org_id_idx").on(table.orgId),
+])
 
 // ── Webhook Deliveries ─────────────────────────────────
 
@@ -234,7 +249,9 @@ export const ruleSyncState = pgTable("rule_sync_state", {
   ruleVersionHash: text("rule_version_hash").notNull(),
   status: text("status").notNull().default("synced"),
   lastSyncedAt: timestamp("last_synced_at").defaultNow().notNull(),
-})
+}, (table) => [
+  uniqueIndex("rule_sync_state_project_id_idx").on(table.projectId),
+])
 
 // ── Compliance Snapshots ───────────────────────────────
 

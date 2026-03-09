@@ -15,9 +15,11 @@ export async function authMiddleware(c: Context, next: Next) {
     return c.json({ error: "Missing Authorization header" }, 401)
   }
 
-  const token = authHeader.startsWith("Bearer ")
-    ? authHeader.slice(7)
-    : authHeader
+  if (!authHeader.startsWith("Bearer ")) {
+    return c.json({ error: "Authorization header must use Bearer scheme" }, 401)
+  }
+
+  const token = authHeader.slice(7).trim()
 
   if (!token) {
     return c.json({ error: "Invalid token format" }, 401)

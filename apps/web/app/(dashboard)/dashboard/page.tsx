@@ -1,214 +1,43 @@
-import { Shield, AlertTriangle, CheckCircle, TrendingUp, Clock, BookOpen } from "lucide-react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { apiFetch } from "@/lib/api"
-import { db } from "@/lib/db"
-import { projects } from "@/lib/db/schema"
-import { desc } from "drizzle-orm"
-
-interface RulesResponse {
-  data: Array<{ id: string }>
-  total: number
-}
-
-interface AuditEntry {
-  id: string
-  action: string
-  status: string
-  ruleId: string | null
-  projectId: string | null
-  metadata: Record<string, unknown> | null
-  createdAt: string
-}
-
-interface AuditResponse {
-  data: AuditEntry[]
-  total: number
-}
-
-interface ComplianceTrend {
-  score: number
-  passCount: number
-  violatedCount: number
-  notCoveredCount: number
-  date: string
-}
-
-interface ComplianceResponse {
-  data: {
-    projectId: string
-    currentScore: number | null
-    trend: ComplianceTrend[]
-  }
-}
-
-interface ProjectCompliance {
-  name: string
-  score: number
-  trend: string
-  violations: number
-}
-
-interface TopViolation {
-  rule: string
-  count: number
-  severity: string
-}
-
-interface RecentEvent {
-  action: string
-  rule: string | null
-  project: string | null
-  time: string
-}
-
-interface DashboardData {
-  overallScore: number
-  totalRules: number
-  activeProjects: number
-  violations24h: number
-  passRate: string
-  projectsCompliance: ProjectCompliance[]
-  topViolations: TopViolation[]
-  recentEvents: RecentEvent[]
-}
-
-function formatRelativeTime(iso: string): string {
-  const now = Date.now()
-  const then = new Date(iso).getTime()
-  const diffMs = now - then
-  const diffMin = Math.floor(diffMs / 60000)
-
-  if (diffMin < 1) return "just now"
-  if (diffMin < 60) return `${diffMin} min ago`
-
-  const diffHours = Math.floor(diffMin / 60)
-  if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`
-
-  const diffDays = Math.floor(diffHours / 24)
-  return `${diffDays} day${diffDays !== 1 ? "s" : ""} ago`
-}
-
-async function fetchDashboardData(): Promise<DashboardData> {
-  const [rulesRes, auditRes, allProjects] = await Promise.all([
-    apiFetch<RulesResponse>("/rules"),
-    apiFetch<AuditResponse>("/audit?limit=50"),
-    db.select({ id: projects.id, name: projects.name }).from(projects).orderBy(desc(projects.updatedAt)),
-  ])
-
-  const totalRules = rulesRes.total
-  const activeProjects = allProjects.length
-
-  // Fetch compliance per project
-  const complianceResults = await Promise.allSettled(
-    allProjects.map((proj) =>
-      apiFetch<ComplianceResponse>(`/compliance/${proj.id}`).then((res) => ({
-        name: proj.name,
-        ...res.data,
-      }))
-    )
-  )
-
-  const projectsCompliance: ProjectCompliance[] = complianceResults
-    .filter((r): r is PromiseFulfilledResult<{ name: string; projectId: string; currentScore: number | null; trend: ComplianceTrend[] }> =>
-      r.status === "fulfilled" && r.value.currentScore !== null
-    )
-    .map((r) => {
-      const { name, currentScore, trend } = r.value
-      const previousScore = trend[1]?.score ?? currentScore ?? 0
-      const diff = (currentScore ?? 0) - previousScore
-      const latestTrend = trend[0]
-
-      return {
-        name,
-        score: currentScore ?? 0,
-        trend: diff >= 0 ? `+${diff}` : `${diff}`,
-        violations: latestTrend?.violatedCount ?? 0,
-      }
-    })
-
-  // Calculate overall score
-  const overallScore = projectsCompliance.length > 0
-    ? Math.round(projectsCompliance.reduce((sum, p) => sum + p.score, 0) / projectsCompliance.length)
-    : 0
-
-  // Count violations in last 24h from audit entries
-  const violations24h = auditRes.data.filter(
-    (e) => e.status === "VIOLATED"
-  ).length
-
-  // Calculate pass rate from audit entries that are validation results
-  const validationEntries = auditRes.data.filter(
-    (e) => e.action === "validation.violation" || e.action === "validation.pass"
-  )
-  const passCount = validationEntries.filter((e) => e.action === "validation.pass").length
-  const passRate = validationEntries.length > 0
-    ? `${Math.round((passCount / validationEntries.length) * 100)}%`
-    : "N/A"
-
-  // Aggregate top violations by rule
-  const violationCounts: Record<string, { count: number; ruleId: string }> = {}
-  for (const entry of auditRes.data) {
-    if (entry.status === "VIOLATED" && entry.ruleId) {
-      const key = entry.ruleId
-      const existing = violationCounts[key]
-      if (existing) {
-        violationCounts[key] = { ...existing, count: existing.count + 1 }
-      } else {
-        violationCounts[key] = { count: 1, ruleId: entry.ruleId }
-      }
-    }
-  }
-
-  const topViolations: TopViolation[] = Object.entries(violationCounts)
-    .map(([ruleId, data]) => ({
-      rule: ruleId,
-      count: data.count,
-      severity: "error",
-    }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5)
-
-  // Recent events
-  const recentEvents: RecentEvent[] = auditRes.data.slice(0, 10).map((e) => {
-    const projectName = allProjects.find((p) => p.id === e.projectId)?.name ?? null
-    return {
-      action: e.action,
-      rule: e.ruleId,
-      project: projectName,
-      time: formatRelativeTime(e.createdAt),
-    }
-  })
-
-  return {
-    overallScore,
-    totalRules,
-    activeProjects,
-    violations24h,
-    passRate,
-    projectsCompliance,
-    topViolations,
-    recentEvents,
-  }
-}
+import {
+  AlertTriangle,
+  BookOpen,
+  CheckCircle,
+  Clock,
+  Shield,
+  TrendingUp,
+} from "lucide-react";
+import { BackendErrorState } from "@/components/dashboard/BackendErrorState";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { describeApiError } from "@/lib/api";
+import { fetchDashboardOverview } from "@/lib/dashboard-data";
 
 function ScoreRing({ score }: { score: number }) {
-  const radius = 45
-  const circumference = 2 * Math.PI * radius
-  const offset = circumference - (score / 100) * circumference
-  const color = score >= 80 ? "var(--color-text-primary)" : score >= 60 ? "#d97706" : "var(--color-accent)"
+  const radius = 45;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (score / 100) * circumference;
+  const color =
+    score >= 80
+      ? "var(--color-text-primary)"
+      : score >= 60
+        ? "#d97706"
+        : "var(--color-accent)";
 
   return (
     <div className="relative inline-flex items-center justify-center">
       <svg width="120" height="120" viewBox="0 0 120 120">
         <circle
-          cx="60" cy="60" r={radius}
+          cx="60"
+          cy="60"
+          r={radius}
           fill="none"
           stroke="var(--color-border)"
           strokeWidth="8"
         />
         <circle
-          cx="60" cy="60" r={radius}
+          cx="60"
+          cy="60"
+          r={radius}
           fill="none"
           stroke={color}
           strokeWidth="8"
@@ -223,179 +52,230 @@ function ScoreRing({ score }: { score: number }) {
         {score}
       </span>
     </div>
-  )
+  );
 }
 
-export default async function DashboardOverview() {
-  let data: DashboardData | null = null
+export default async function DashboardOverviewPage() {
   try {
-    data = await fetchDashboardData()
-  } catch {
-    // Fall through to error UI below
-  }
+    const data = await fetchDashboardOverview();
 
-  if (!data) {
     return (
       <div className="space-y-6">
         <div>
           <h1 className="font-mono text-xl font-bold text-(--color-text-primary)">
             Dashboard
           </h1>
-          <p className="text-sm text-(--color-text-secondary) mt-1">
+          <p className="mt-1 text-sm text-(--color-text-secondary)">
             Organization-wide compliance overview
           </p>
         </div>
-        <Card className="border-2 border-dashed">
-          <CardContent className="pt-6 text-center">
-            <AlertTriangle className="h-8 w-8 text-(--color-muted) mx-auto mb-3" />
-            <p className="text-sm text-(--color-text-secondary)">Could not load data. Is the API server running?</p>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="font-mono text-xl font-bold text-(--color-text-primary)">
-          Dashboard
-        </h1>
-        <p className="text-sm text-(--color-text-secondary) mt-1">
-          Organization-wide compliance overview
-        </p>
-      </div>
-
-      {/* Stats row */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-2">
-          <CardContent className="pt-5 pb-5">
-            <div className="flex items-center gap-3">
-              <Shield className="h-5 w-5 text-(--color-text-primary)" />
-              <div>
-                <p className="font-mono text-2xl font-bold text-(--color-text-primary)">{data.overallScore}</p>
-                <p className="font-mono text-xs text-(--color-muted) uppercase tracking-widest">Compliance Score</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-2">
-          <CardContent className="pt-5 pb-5">
-            <div className="flex items-center gap-3">
-              <BookOpen className="h-5 w-5 text-(--color-text-primary)" />
-              <div>
-                <p className="font-mono text-2xl font-bold text-(--color-text-primary)">{data.totalRules}</p>
-                <p className="font-mono text-xs text-(--color-muted) uppercase tracking-widest">Active Rules</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-2">
-          <CardContent className="pt-5 pb-5">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="h-5 w-5 text-(--color-accent)" />
-              <div>
-                <p className="font-mono text-2xl font-bold text-(--color-accent)">{data.violations24h}</p>
-                <p className="font-mono text-xs text-(--color-muted) uppercase tracking-widest">Violations (24h)</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-2">
-          <CardContent className="pt-5 pb-5">
-            <div className="flex items-center gap-3">
-              <CheckCircle className="h-5 w-5 text-(--color-text-primary)" />
-              <div>
-                <p className="font-mono text-2xl font-bold text-(--color-text-primary)">{data.passRate}</p>
-                <p className="font-mono text-xs text-(--color-muted) uppercase tracking-widest">Pass Rate</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Compliance score ring + project list */}
-        <Card className="border-2">
-          <CardContent className="pt-6">
-            <h2 className="font-mono text-xs font-semibold text-(--color-muted) uppercase tracking-widest mb-4">
-              Project Compliance
-            </h2>
-            <div className="flex items-center gap-6 mb-6">
-              <ScoreRing score={data.overallScore} />
-              <div className="space-y-1">
-                <p className="text-sm text-(--color-text-secondary)">Organization average</p>
-                <p className="font-mono text-xs text-(--color-muted)">{data.activeProjects} active projects</p>
-              </div>
-            </div>
-            <div className="space-y-3">
-              {data.projectsCompliance.map((p) => (
-                <div key={p.name} className="flex items-center justify-between py-2 border-t border-(--color-border)">
-                  <div>
-                    <p className="font-mono text-sm font-medium text-(--color-text-primary)">{p.name}</p>
-                    <p className="font-mono text-xs text-(--color-muted)">{p.violations} violations</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`font-mono text-xs ${p.trend.startsWith("+") ? "text-green-600" : "text-(--color-accent)"}`}>
-                      {p.trend}
-                    </span>
-                    <span className="font-mono text-lg font-bold text-(--color-text-primary)">{p.score}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Top violated rules */}
-        <Card className="border-2">
-          <CardContent className="pt-6">
-            <h2 className="font-mono text-xs font-semibold text-(--color-muted) uppercase tracking-widest mb-4">
-              Most Violated Rules
-            </h2>
-            <div className="space-y-3">
-              {data.topViolations.map((v, i) => (
-                <div key={v.rule} className="flex items-center justify-between py-2 border-t border-(--color-border)">
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-xs text-(--color-muted) w-4">{i + 1}.</span>
-                    <div>
-                      <p className="text-sm font-medium text-(--color-text-primary)">{v.rule}</p>
-                      <Badge variant={v.severity === "error" ? "accent" : "default"} className="mt-0.5">
-                        {v.severity}
-                      </Badge>
-                    </div>
-                  </div>
-                  <span className="font-mono text-lg font-bold text-(--color-accent)">{v.count}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent activity */}
-      <Card className="border-2">
-        <CardContent className="pt-6">
-          <h2 className="font-mono text-xs font-semibold text-(--color-muted) uppercase tracking-widest mb-4">
-            Recent Activity
-          </h2>
-          <div className="space-y-0">
-            {data.recentEvents.map((e, i) => (
-              <div key={i} className="flex items-center gap-4 py-3 border-t border-(--color-border)">
-                <Clock className="h-4 w-4 text-(--color-muted) shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-(--color-text-primary)">
-                    <span className="font-mono font-medium">{e.action}</span>
-                    {e.rule && <span className="text-(--color-text-secondary)"> on {e.rule}</span>}
-                    {e.project && <span className="text-(--color-muted)"> in {e.project}</span>}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Card className="border-2">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-center gap-3">
+                <Shield className="h-5 w-5 text-(--color-text-primary)" />
+                <div>
+                  <p className="font-mono text-2xl font-bold text-(--color-text-primary)">
+                    {data.overallScore}
+                  </p>
+                  <p className="font-mono text-xs uppercase tracking-widest text-(--color-muted)">
+                    Compliance Score
                   </p>
                 </div>
-                <span className="font-mono text-xs text-(--color-muted) shrink-0">{e.time}</span>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
+            </CardContent>
+          </Card>
+
+          <Card className="border-2">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-center gap-3">
+                <BookOpen className="h-5 w-5 text-(--color-text-primary)" />
+                <div>
+                  <p className="font-mono text-2xl font-bold text-(--color-text-primary)">
+                    {data.totalRules}
+                  </p>
+                  <p className="font-mono text-xs uppercase tracking-widest text-(--color-muted)">
+                    Rules
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="h-5 w-5 text-(--color-accent)" />
+                <div>
+                  <p className="font-mono text-2xl font-bold text-(--color-text-primary)">
+                    {data.violations24h}
+                  </p>
+                  <p className="font-mono text-xs uppercase tracking-widest text-(--color-muted)">
+                    Violations (24h)
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <div>
+                  <p className="font-mono text-2xl font-bold text-(--color-text-primary)">
+                    {data.passRate}
+                  </p>
+                  <p className="font-mono text-xs uppercase tracking-widest text-(--color-muted)">
+                    Pass Rate
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+          <Card className="border-2">
+            <CardContent className="pt-6">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-widest text-(--color-muted)">
+                    Org Score
+                  </p>
+                  <p className="mt-2 text-sm text-(--color-text-secondary)">
+                    Average across projects with backend compliance snapshots.
+                  </p>
+                </div>
+                <ScoreRing score={data.overallScore} />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2">
+            <CardContent className="pt-6">
+              <h2 className="mb-4 font-mono text-xs font-semibold uppercase tracking-widest text-(--color-muted)">
+                Project Compliance
+              </h2>
+              {data.projectsCompliance.length > 0 ? (
+                <div className="space-y-3">
+                  {data.projectsCompliance.map((project) => (
+                    <div
+                      key={project.projectId}
+                      className="flex items-center justify-between gap-3 border-b border-(--color-border) pb-3 last:border-b-0 last:pb-0"
+                    >
+                      <div>
+                        <p className="font-mono text-sm font-bold text-(--color-text-primary)">
+                          {project.name}
+                        </p>
+                        <p className="text-xs text-(--color-text-secondary)">
+                          {project.violations} violations in latest snapshot
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-mono text-lg font-bold text-(--color-text-primary)">
+                          {project.score}
+                        </p>
+                        <p className="font-mono text-xs text-(--color-muted)">
+                          {project.trend}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-(--color-text-secondary)">
+                  No compliance snapshots available yet.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-2">
+          <Card className="border-2">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-(--color-text-primary)" />
+                <h2 className="font-mono text-xs font-semibold uppercase tracking-widest text-(--color-muted)">
+                  Top Violations
+                </h2>
+              </div>
+              {data.topViolations.length > 0 ? (
+                <div className="mt-4 space-y-3">
+                  {data.topViolations.map((entry) => (
+                    <div
+                      key={`${entry.ruleId ?? "unknown"}-${entry.count}`}
+                      className="flex items-center justify-between gap-3"
+                    >
+                      <p className="truncate text-sm text-(--color-text-primary)">
+                        {entry.ruleTitle}
+                      </p>
+                      <Badge variant="outline">{entry.count}</Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-4 text-sm text-(--color-text-secondary)">
+                  No analytics events recorded yet.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-2">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-(--color-text-primary)" />
+                <h2 className="font-mono text-xs font-semibold uppercase tracking-widest text-(--color-muted)">
+                  Recent Events
+                </h2>
+              </div>
+              {data.recentEvents.length > 0 ? (
+                <div className="mt-4 space-y-3">
+                  {data.recentEvents.map((event, index) => (
+                    <div
+                      key={`${event.action}-${event.time}-${index}`}
+                      className="border-b border-(--color-border) pb-3 last:border-b-0 last:pb-0"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-mono text-xs uppercase tracking-widest text-(--color-muted)">
+                          {event.action}
+                        </p>
+                        <span className="font-mono text-xs text-(--color-muted)">
+                          {event.time}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-(--color-text-primary)">
+                        {event.rule ?? "No rule linked"}
+                      </p>
+                      <p className="text-xs text-(--color-text-secondary)">
+                        {event.project ?? "No project linked"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-4 text-sm text-(--color-text-secondary)">
+                  No audit activity available yet.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  } catch (error) {
+    const description = describeApiError(error);
+
+    return (
+      <BackendErrorState
+        heading="Dashboard"
+        subheading="Organization-wide compliance overview"
+        title={description.title}
+        description={description.description}
+      />
+    );
+  }
 }

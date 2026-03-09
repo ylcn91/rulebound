@@ -4,18 +4,45 @@ import { Hono } from "hono"
 vi.mock("../db/index.js", () => ({
   getDb: vi.fn(),
   schema: {
-    rules: { isActive: "is_active" },
     ruleSyncState: { projectId: "project_id", id: "id" },
   },
 }))
 
+vi.mock("../lib/projects.js", () => ({
+  resolveProjectForOrg: vi.fn(),
+}))
+
+vi.mock("../lib/rules.js", () => ({
+  getEffectiveRuleSetIds: vi.fn(),
+  resolveRulesForRuleSetIds: vi.fn(),
+}))
+
+vi.mock("../lib/activity.js", () => ({
+  writeAuditEntry: vi.fn(),
+  emitWebhookEvent: vi.fn(),
+}))
+
 import { getDb } from "../db/index.js"
+import { resolveProjectForOrg } from "../lib/projects.js"
+import { getEffectiveRuleSetIds, resolveRulesForRuleSetIds } from "../lib/rules.js"
+import { writeAuditEntry, emitWebhookEvent } from "../lib/activity.js"
 
 const mockGetDb = vi.mocked(getDb)
+const mockResolveProjectForOrg = vi.mocked(resolveProjectForOrg)
+const mockGetEffectiveRuleSetIds = vi.mocked(getEffectiveRuleSetIds)
+const mockResolveRulesForRuleSetIds = vi.mocked(resolveRulesForRuleSetIds)
+const mockWriteAuditEntry = vi.mocked(writeAuditEntry)
+const mockEmitWebhookEvent = vi.mocked(emitWebhookEvent)
 
 async function createApp() {
   const { syncApi } = await import("../api/sync.js")
   const app = new Hono()
+  app.use("*", async (c, next) => {
+    c.set("orgId" as never, "org-1" as never)
+    c.set("userId" as never, "user-1" as never)
+    c.set("tokenScopes" as never, [] as never)
+    await next()
+  })
   app.route("/sync", syncApi)
   return app
 }
@@ -40,19 +67,28 @@ function makeDbRule(overrides: Record<string, unknown> = {}) {
 describe("sync API", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.resetModules()
+    mockResolveProjectForOrg.mockResolvedValue({
+      id: "proj-1",
+      orgId: "org-1",
+      name: "Project",
+      slug: "project",
+      repoUrl: null,
+      stack: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as never)
+    mockGetEffectiveRuleSetIds.mockResolvedValue(["rs-1"])
+    mockResolveRulesForRuleSetIds.mockResolvedValue([] as never)
+    mockWriteAuditEntry.mockResolvedValue(undefined)
+    mockEmitWebhookEvent.mockResolvedValue(undefined)
   })
 
   describe("GET /", () => {
     it("returns rules with version hash", async () => {
       const dbRules = [makeDbRule()]
-      const mockDb = {
-        select: vi.fn().mockReturnValue({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue(dbRules),
-          }),
-        }),
-      }
-      mockGetDb.mockReturnValue(mockDb as never)
+      mockGetDb.mockReturnValue({} as never)
+      mockResolveRulesForRuleSetIds.mockResolvedValue(dbRules as never)
 
       const app = await createApp()
       const res = await app.request("/sync")
@@ -67,19 +103,12 @@ describe("sync API", () => {
     })
 
     it("filters by stack query parameter", async () => {
-      // DB mock returns what the SQL WHERE would return (already filtered)
       const filteredRules = [
         makeDbRule({ id: "java-rule", stack: ["java"] }),
         makeDbRule({ id: "global-rule", stack: [] }),
       ]
-      const mockDb = {
-        select: vi.fn().mockReturnValue({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue(filteredRules),
-          }),
-        }),
-      }
-      mockGetDb.mockReturnValue(mockDb as never)
+      mockGetDb.mockReturnValue({} as never)
+      mockResolveRulesForRuleSetIds.mockResolvedValue(filteredRules as never)
 
       const app = await createApp()
       const res = await app.request("/sync?stack=java")
@@ -93,18 +122,11 @@ describe("sync API", () => {
     })
 
     it("filters by since query parameter", async () => {
-      // DB mock returns what the SQL WHERE would return (already filtered)
       const filteredRules = [
         makeDbRule({ id: "new-rule", updatedAt: new Date("2025-06-01") }),
       ]
-      const mockDb = {
-        select: vi.fn().mockReturnValue({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue(filteredRules),
-          }),
-        }),
-      }
-      mockGetDb.mockReturnValue(mockDb as never)
+      mockGetDb.mockReturnValue({} as never)
+      mockResolveRulesForRuleSetIds.mockResolvedValue(filteredRules as never)
 
       const app = await createApp()
       const res = await app.request("/sync?since=2025-01-01")
@@ -116,14 +138,8 @@ describe("sync API", () => {
     })
 
     it("returns empty data when no rules exist", async () => {
-      const mockDb = {
-        select: vi.fn().mockReturnValue({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([]),
-          }),
-        }),
-      }
-      mockGetDb.mockReturnValue(mockDb as never)
+      mockGetDb.mockReturnValue({} as never)
+      mockResolveRulesForRuleSetIds.mockResolvedValue([] as never)
 
       const app = await createApp()
       const res = await app.request("/sync")
@@ -139,20 +155,14 @@ describe("sync API", () => {
         makeDbRule({ id: "rule-a", content: "content a", version: 1 }),
         makeDbRule({ id: "rule-b", content: "content b", version: 2 }),
       ]
-      const mockDb = {
-        select: vi.fn().mockReturnValue({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue(dbRules),
-          }),
-        }),
-      }
-      mockGetDb.mockReturnValue(mockDb as never)
+      mockGetDb.mockReturnValue({} as never)
+      mockResolveRulesForRuleSetIds.mockResolvedValue(dbRules as never)
 
       const app = await createApp()
       const res1 = await app.request("/sync")
       const body1 = await res1.json()
 
-      mockGetDb.mockReturnValue(mockDb as never)
+      mockGetDb.mockReturnValue({} as never)
       const res2 = await app.request("/sync")
       const body2 = await res2.json()
 

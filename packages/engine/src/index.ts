@@ -1,5 +1,25 @@
 // Core validation
 export { validate } from "./validate.js"
+export {
+  createBugfixSpec,
+  parseBugfixPlan,
+  parseBugfixSpecMarkdown,
+  renderBugfixPlanTemplate,
+  renderBugfixSpecMarkdown,
+  slugifyBugfixTitle,
+  validateBugfixPlan,
+  validateBugfixSpec,
+} from "./bugfix.js"
+export type {
+  BugCondition,
+  BugfixPlan,
+  BugfixSpec,
+  BugfixSpecDraft,
+  BugfixValidationIssue,
+  BugfixValidationResult,
+  Postcondition,
+  PreservationScenario,
+} from "./bugfix.js"
 
 // Rule loading
 export {

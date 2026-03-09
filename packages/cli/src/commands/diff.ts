@@ -1,45 +1,36 @@
-import { execFileSync } from "node:child_process"
 import chalk from "chalk"
 import { loadLocalRules, matchRulesByContext } from "../lib/local-rules.js"
 import { loadRulesWithInheritance, getProjectConfig } from "../lib/inheritance.js"
 import { validateWithPipeline } from "../lib/validation.js"
-import type { ValidationReport } from "../lib/local-rules.js"
+import type { DiffSelection } from "../lib/git-diff.js"
+import { extractAddedLines, extractChangedFiles, readGitDiff } from "../lib/git-diff.js"
+import { recordCliValidationEvent } from "../lib/telemetry.js"
 
 interface DiffOptions {
-  dir?: string
-  ref?: string
-  format?: string
-  llm?: boolean
+  readonly dir?: string
+  readonly ref?: string
+  readonly staged?: boolean
+  readonly format?: string
+  readonly llm?: boolean
 }
 
-const SAFE_REF_PATTERN = /^[a-zA-Z0-9._\-/~^]+$/
-
 export async function diffCommand(options: DiffOptions): Promise<void> {
-  const ref = options.ref ?? "HEAD"
-  let diffText: string
-
-  if (!SAFE_REF_PATTERN.test(ref)) {
-    console.error(chalk.red(`Invalid ref: "${ref}". Only alphanumeric, '.', '_', '-', '/', '~', '^' allowed.`))
+  let diffSelection: DiffSelection
+  try {
+    diffSelection = readGitDiff({ ref: options.ref, staged: options.staged })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to get git diff. Are you in a git repository?"
+    console.error(chalk.red(message))
     process.exit(1)
   }
 
-  try {
-    diffText = execFileSync("git", ["diff", ref], { encoding: "utf-8" })
-  } catch (_error) {
-    try {
-      diffText = execFileSync("git", ["diff", "--cached"], { encoding: "utf-8" })
-    } catch (_cachedError) {
-      console.error(chalk.red("Failed to get git diff. Are you in a git repository?"))
-      process.exit(1)
-    }
-  }
+  const { diffText } = diffSelection
 
   if (!diffText.trim()) {
     console.log(chalk.dim("No changes detected."))
     return
   }
 
-  // Load rules
   let allRules
   if (options.dir) {
     allRules = loadLocalRules(options.dir)
@@ -52,45 +43,39 @@ export async function diffCommand(options: DiffOptions): Promise<void> {
     process.exit(1)
   }
 
-  // Extract context from diff
-  const addedLines = diffText
-    .split("\n")
-    .filter((l) => l.startsWith("+") && !l.startsWith("+++"))
-    .map((l) => l.slice(1))
-    .join("\n")
+  const addedLines = extractAddedLines(diffText)
+  const filesChanged = extractChangedFiles(diffText)
 
-  const filesChanged = diffText
-    .split("\n")
-    .filter((l) => l.startsWith("+++ b/"))
-    .map((l) => l.replace(/^\+\+\+ b\//, ""))
-
-  // Smart context matching
-  const projectConfig = getProjectConfig(process.cwd())
+  const cwd = process.cwd()
+  const projectConfig = getProjectConfig(cwd)
   const rules = matchRulesByContext(allRules, projectConfig, addedLines.slice(0, 2000))
 
   console.log()
   console.log(chalk.white.bold("DIFF VALIDATION"))
-  console.log(chalk.dim(`Ref: ${ref}`))
+  if (diffSelection.kind === "ref") {
+    console.log(chalk.dim(`Ref: ${diffSelection.label}`))
+  } else {
+    console.log(chalk.dim("Scope: staged changes"))
+  }
   console.log(chalk.dim(`Files changed: ${filesChanged.length}`))
 
   if (filesChanged.length > 0) {
-    for (const f of filesChanged.slice(0, 10)) {
-      console.log(chalk.dim(`  ${f}`))
+    for (const filePath of filesChanged.slice(0, 10)) {
+      console.log(chalk.dim(`  ${filePath}`))
     }
     if (filesChanged.length > 10) {
       console.log(chalk.dim(`  ... and ${filesChanged.length - 10} more`))
     }
   }
 
-  // Validate diff content against rules
   const report = await validateWithPipeline({
     plan: addedLines,
     rules,
-    task: `Diff against ${ref}`,
+    task: diffSelection.kind === "ref" ? `Diff against ${diffSelection.label}` : "Diff of staged changes",
     useLlm: options.llm,
   })
+  recordCliValidationEvent(report, cwd)
 
-  // JSON output
   if (options.format === "json") {
     console.log(JSON.stringify({ ...report, filesChanged }, null, 2))
     if (report.status === "FAILED") process.exit(1)
@@ -100,8 +85,7 @@ export async function diffCommand(options: DiffOptions): Promise<void> {
   console.log(chalk.dim("\u2500".repeat(50)))
   console.log()
 
-  // Only show non-PASS results for diff (more useful)
-  const actionable = report.results.filter((r) => r.status !== "PASS")
+  const actionable = report.results.filter((result) => result.status !== "PASS")
 
   if (actionable.length === 0) {
     console.log(chalk.green("  All changes comply with matched rules."))
@@ -112,7 +96,7 @@ export async function diffCommand(options: DiffOptions): Promise<void> {
 
   for (const item of actionable) {
     const icon = item.status === "VIOLATED" ? chalk.red("\u2717") : chalk.yellow("\u25CB")
-    const statusTag = item.status === "VIOLATED" ? chalk.red(`[VIOLATED]`) : chalk.yellow(`[NOT COVERED]`)
+    const statusTag = item.status === "VIOLATED" ? chalk.red("[VIOLATED]") : chalk.yellow("[NOT COVERED]")
     const modTag = chalk.dim(`${item.modality.toUpperCase()}:`)
 
     console.log(`  ${icon} ${statusTag} ${modTag} ${chalk.white.bold(item.ruleTitle)}`)
@@ -126,8 +110,8 @@ export async function diffCommand(options: DiffOptions): Promise<void> {
   console.log(chalk.dim("\u2500".repeat(50)))
   console.log(
     `  ${chalk.green(`${report.summary.pass} PASS`)} | ` +
-    `${chalk.red(`${report.summary.violated} VIOLATED`)} | ` +
-    `${chalk.yellow(`${report.summary.notCovered} NOT COVERED`)}`
+      `${chalk.red(`${report.summary.violated} VIOLATED`)} | ` +
+      `${chalk.yellow(`${report.summary.notCovered} NOT COVERED`)}`
   )
   console.log()
 

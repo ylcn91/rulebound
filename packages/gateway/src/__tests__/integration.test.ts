@@ -3,6 +3,14 @@ import { createProxy } from "../proxy.js"
 import { invalidateCache } from "../rule-cache.js"
 import type { GatewayConfig } from "../config.js"
 
+vi.mock("@rulebound/engine", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@rulebound/engine")>()
+  return {
+    ...actual,
+    recordValidationEvent: vi.fn(),
+  }
+})
+
 vi.mock("../interceptor/ast-scanner.js", () => ({
   scanCodeBlockWithAST: vi.fn().mockResolvedValue([]),
   detectLanguageFromAnnotation: vi.fn().mockReturnValue(null),
@@ -37,6 +45,17 @@ function anthropicResponse(content: string) {
   return {
     content: [{ type: "text", text: content }],
     stop_reason: "end_turn",
+  }
+}
+
+function googleResponse(content: string) {
+  return {
+    candidates: [{
+      content: {
+        role: "model",
+        parts: [{ text: content }],
+      },
+    }],
   }
 }
 
@@ -86,6 +105,26 @@ describe("Gateway Integration", () => {
     expect(mockFetch).toHaveBeenCalledTimes(1)
     const url = mockFetch.mock.calls[0][0]
     expect(url).toBe("http://mock-openai.test/v1/models")
+  })
+
+  it("preserves query strings when proxying requests", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ models: ["gpt-4"] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    )
+    vi.stubGlobal("fetch", mockFetch)
+
+    const app = createProxy(makeConfig())
+    const res = await app.request("/openai/v1/models?limit=10&after=cursor-1", {
+      method: "GET",
+    })
+
+    expect(res.status).toBe(200)
+    expect(String(mockFetch.mock.calls[0][0])).toBe(
+      "http://mock-openai.test/v1/models?limit=10&after=cursor-1",
+    )
   })
 
   it("detects OpenAI provider from path", async () => {
@@ -183,6 +222,46 @@ describe("Gateway Integration", () => {
         expect(systemMsg.content).toContain("No Secrets")
       }
     })
+
+    it("injects rules into Gemini system instructions", async () => {
+      const mockFetch = vi.fn().mockImplementation(async (url: string) => {
+        if (url.includes("mock-server.test")) {
+          return new Response(JSON.stringify({
+            data: [
+              { id: "r1", title: "No Secrets", content: "No hardcoded secrets", category: "security", severity: "error", modality: "must", tags: [] },
+            ],
+          }), { status: 200 })
+        }
+        return new Response(JSON.stringify(googleResponse("Done")), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      })
+      vi.stubGlobal("fetch", mockFetch)
+
+      const app = createProxy(makeConfig({
+        injectRules: true,
+        ruleboundServerUrl: "http://mock-server.test",
+      }))
+
+      const res = await app.request("/google/v1beta/models/gemini-2.5-pro:generateContent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: "Write code" }] }],
+        }),
+      })
+
+      expect(res.status).toBe(200)
+      const calls = mockFetch.mock.calls
+      const googleCall = calls.find((call) => call[0].includes(":generateContent"))
+      if (googleCall) {
+        const sentBody = JSON.parse(googleCall[1]?.body as string)
+        expect(sentBody.systemInstruction ?? sentBody.system_instruction).toBeDefined()
+        const instruction = sentBody.systemInstruction ?? sentBody.system_instruction
+        expect(instruction.parts[0].text).toContain("rulebound_rules")
+      }
+    })
   })
 
   describe("response scanning", () => {
@@ -221,6 +300,7 @@ describe("Gateway Integration", () => {
       const { scanCodeBlockWithAST } = await import("../interceptor/ast-scanner.js")
       const mockScan = vi.mocked(scanCodeBlockWithAST)
       mockScan.mockResolvedValue([{
+        ruleId: "ts-no-eval",
         ruleTitle: "No eval()",
         severity: "error",
         reason: "AST pattern: eval() detected",
@@ -267,6 +347,7 @@ describe("Gateway Integration", () => {
       const { scanCodeBlockWithAST } = await import("../interceptor/ast-scanner.js")
       const mockScan = vi.mocked(scanCodeBlockWithAST)
       mockScan.mockResolvedValue([{
+        ruleId: "ts-no-eval",
         ruleTitle: "No eval()",
         severity: "error",
         reason: "eval() detected",
@@ -308,6 +389,118 @@ describe("Gateway Integration", () => {
       const body = await res.json()
       const content = body.choices[0].message.content
       expect(content).toContain("Rulebound")
+    })
+
+    it("blocks in moderate mode when AST penalties drop the score below threshold", async () => {
+      const { scanCodeBlockWithAST } = await import("../interceptor/ast-scanner.js")
+      vi.mocked(scanCodeBlockWithAST).mockResolvedValue([
+        {
+          ruleId: "warn-1",
+          ruleTitle: "Warning 1",
+          severity: "warning",
+          reason: "warning",
+          line: 1,
+          codeSnippet: "console.log(1)",
+        },
+        {
+          ruleId: "warn-2",
+          ruleTitle: "Warning 2",
+          severity: "warning",
+          reason: "warning",
+          line: 1,
+          codeSnippet: "console.log(2)",
+        },
+        {
+          ruleId: "warn-3",
+          ruleTitle: "Warning 3",
+          severity: "warning",
+          reason: "warning",
+          line: 1,
+          codeSnippet: "console.log(3)",
+        },
+        {
+          ruleId: "warn-4",
+          ruleTitle: "Warning 4",
+          severity: "warning",
+          reason: "warning",
+          line: 1,
+          codeSnippet: "console.log(4)",
+        },
+      ])
+
+      const { detectLanguageFromAnnotation } = await import("../interceptor/ast-scanner.js")
+      vi.mocked(detectLanguageFromAnnotation).mockReturnValue("javascript")
+
+      const mockFetch = vi.fn().mockImplementation(async (url: string) => {
+        if (url.includes("mock-server.test")) {
+          return new Response(JSON.stringify({ data: [] }), { status: 200 })
+        }
+        return new Response(JSON.stringify(openaiChatResponse("```javascript\nconsole.log(1)\n```")), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      })
+      vi.stubGlobal("fetch", mockFetch)
+
+      const app = createProxy(makeConfig({
+        scanResponses: true,
+        enforcement: "moderate",
+        ruleboundServerUrl: "http://mock-server.test",
+      }))
+
+      const res = await app.request("/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "Write code" }],
+        }),
+      })
+
+      expect(res.status).toBe(422)
+    })
+
+    it("appends warnings to Gemini non-streaming responses in advisory mode", async () => {
+      const { scanCodeBlockWithAST } = await import("../interceptor/ast-scanner.js")
+      vi.mocked(scanCodeBlockWithAST).mockResolvedValue([{
+        ruleId: "ts-no-eval",
+        ruleTitle: "No eval()",
+        severity: "error",
+        reason: "eval() detected",
+        line: 1,
+        codeSnippet: "eval('x')",
+      }])
+
+      const { detectLanguageFromAnnotation } = await import("../interceptor/ast-scanner.js")
+      vi.mocked(detectLanguageFromAnnotation).mockReturnValue("javascript")
+
+      const mockFetch = vi.fn().mockImplementation(async (url: string) => {
+        if (url.includes("mock-server.test")) {
+          return new Response(JSON.stringify({ data: [] }), { status: 200 })
+        }
+        return new Response(JSON.stringify(googleResponse("```javascript\neval('x')\n```")), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      })
+      vi.stubGlobal("fetch", mockFetch)
+
+      const app = createProxy(makeConfig({
+        scanResponses: true,
+        enforcement: "advisory",
+        ruleboundServerUrl: "http://mock-server.test",
+      }))
+
+      const res = await app.request("/google/v1beta/models/gemini-2.5-pro:generateContent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: "Write eval" }] }],
+        }),
+      })
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.candidates[0].content.parts.at(-1).text).toContain("Rulebound")
     })
   })
 
@@ -360,6 +553,72 @@ describe("Gateway Integration", () => {
       const text = await res.text()
       expect(text).toContain("Hello")
       expect(text).toContain("[DONE]")
+    })
+
+    it("terminates Gemini streams in moderate mode with a violation event", async () => {
+      const { scanCodeBlockWithAST } = await import("../interceptor/ast-scanner.js")
+      vi.mocked(scanCodeBlockWithAST).mockResolvedValue([{
+        ruleId: "ts-no-eval",
+        ruleTitle: "No eval()",
+        severity: "error",
+        reason: "AST pattern: eval() detected",
+        line: 1,
+        codeSnippet: "eval('x')",
+      }])
+
+      const { detectLanguageFromAnnotation } = await import("../interceptor/ast-scanner.js")
+      vi.mocked(detectLanguageFromAnnotation).mockReturnValue("javascript")
+
+      const sseChunks = [
+        `data: ${JSON.stringify({
+          candidates: [{
+            content: {
+              role: "model",
+              parts: [{ text: "```javascript\neval('x')\n```" }],
+            },
+          }],
+        })}\n\n`,
+      ]
+
+      const mockStream = new ReadableStream({
+        start(controller) {
+          const encoder = new TextEncoder()
+          for (const chunk of sseChunks) {
+            controller.enqueue(encoder.encode(chunk))
+          }
+          controller.close()
+        },
+      })
+
+      const mockFetch = vi.fn().mockImplementation(async (url: string) => {
+        if (url.includes("mock-server.test")) {
+          return new Response(JSON.stringify({ data: [] }), { status: 200 })
+        }
+        return new Response(mockStream, {
+          status: 200,
+          headers: { "Content-Type": "text/event-stream" },
+        })
+      })
+      vi.stubGlobal("fetch", mockFetch)
+
+      const app = createProxy(makeConfig({
+        scanResponses: true,
+        enforcement: "moderate",
+        ruleboundServerUrl: "http://mock-server.test",
+      }))
+
+      const res = await app.request("/google/v1beta/models/gemini-2.5-pro:streamGenerateContent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: "Write eval" }] }],
+        }),
+      })
+
+      expect(res.status).toBe(200)
+      const text = await res.text()
+      expect(text).toContain("event: rulebound.violation")
+      expect(text).toContain("Provider stream terminated")
     })
   })
 

@@ -7,7 +7,7 @@
 
 ## System Overview
 
-Rulebound is a monorepo-based platform for enforcing coding rules when AI agents generate code. It consists of 8 packages plus a web dashboard.
+Rulebound is a monorepo-based platform for enforcing coding rules when AI agents generate code. It consists of core packages plus a web dashboard and SDKs.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -485,7 +485,7 @@ The core validation engine uses a 4-layer pipeline.
 | shared     | 2     | ~200   | --    | (types + logger)                   |
 | web        | 44    | ~770   | 2     | next, react, drizzle               |
 | SDKs (6)   | 8     | ~1,100 | 24    | language-native HTTP               |
-| **Total**  |**176**|**~16,800**|**310**|                                |
+| **Total**  | Current repository totals should be derived from the live codebase and CI outputs. |
 
 ---
 
@@ -503,4 +503,4 @@ The core validation engine uses a 4-layer pipeline.
 | LSP           | vscode-languageserver (IDE diagnostics)       |
 | Auth          | Bearer tokens, HMAC-SHA256 webhook signatures |
 | AI (optional) | Anthropic SDK, OpenAI SDK, Vercel AI SDK      |
-| Testing       | Vitest 4 (310 tests across 30 test files)     |
+| Testing       | Vitest 4 plus SDK-native test suites           |

@@ -14,7 +14,7 @@ import {
   SemanticMatcher,
   ValidationPipeline,
 } from "../index.js"
-import type { Rule, EnforcementConfig, ValidationResult } from "../types.js"
+import type { EnforcementConfig, Matcher, Rule, ValidationResult } from "../types.js"
 
 function makeRule(overrides: Partial<Rule> = {}): Rule {
   return {
@@ -160,6 +160,42 @@ describe("ValidationPipeline", () => {
     })
     expect(result.layers).toEqual(["keyword", "semantic"])
     expect(result.results).toHaveLength(1)
+  })
+
+  it("preserves violations over higher-confidence pass results", async () => {
+    const rule = makeRule({ id: "boundary.rule" })
+    const keywordMatcher: Matcher = {
+      name: "keyword",
+      match: async () => [{
+        ruleId: rule.id,
+        status: "VIOLATED",
+        confidence: 0.55,
+        reason: "Keyword matcher found a direct contradiction",
+        suggestedFix: "Stay inside the boundary",
+      }],
+    }
+    const semanticMatcher: Matcher = {
+      name: "semantic",
+      match: async () => [{
+        ruleId: rule.id,
+        status: "PASS",
+        confidence: 0.92,
+        reason: "Semantic matcher sees related language",
+      }],
+    }
+
+    const pipeline = new ValidationPipeline([keywordMatcher, semanticMatcher])
+    const result = await pipeline.run({ plan: "test", rules: [rule] })
+
+    expect(result.results).toEqual([
+      {
+        ruleId: rule.id,
+        status: "VIOLATED",
+        confidence: 0.55,
+        reason: "Keyword matcher found a direct contradiction",
+        suggestedFix: "Stay inside the boundary",
+      },
+    ])
   })
 })
 

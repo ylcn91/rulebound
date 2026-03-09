@@ -3,23 +3,41 @@ import { Hono } from "hono"
 
 vi.mock("../db/index.js", () => ({
   getDb: vi.fn(),
-  schema: {
-    auditLog: {
-      orgId: "org_id",
-      projectId: "project_id",
-      action: "action",
-      createdAt: "created_at",
-    },
-  },
+  schema: {},
+}))
+
+vi.mock("../lib/audit.js", () => ({
+  listAuditEntries: vi.fn(),
+  renderAuditCsv: vi.fn(() => "id,action\n1,test"),
+}))
+
+vi.mock("../lib/activity.js", () => ({
+  writeAuditEntry: vi.fn(),
+}))
+
+vi.mock("../lib/projects.js", () => ({
+  resolveProjectForOrg: vi.fn(),
 }))
 
 import { getDb } from "../db/index.js"
+import { listAuditEntries } from "../lib/audit.js"
+import { writeAuditEntry } from "../lib/activity.js"
+import { resolveProjectForOrg } from "../lib/projects.js"
 
 const mockGetDb = vi.mocked(getDb)
+const mockListAuditEntries = vi.mocked(listAuditEntries)
+const mockWriteAuditEntry = vi.mocked(writeAuditEntry)
+const mockResolveProjectForOrg = vi.mocked(resolveProjectForOrg)
 
 async function createApp() {
   const { auditApi } = await import("../api/audit.js")
   const app = new Hono()
+  app.use("*", async (c, next) => {
+    c.set("orgId" as never, "org-1" as never)
+    c.set("userId" as never, "user-1" as never)
+    c.set("tokenScopes" as never, [] as never)
+    await next()
+  })
   app.route("/audit", auditApi)
   return app
 }
@@ -27,6 +45,8 @@ async function createApp() {
 describe("audit API", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockGetDb.mockReturnValue({} as never)
+    mockResolveProjectForOrg.mockResolvedValue(null)
   })
 
   describe("GET /", () => {
@@ -34,20 +54,7 @@ describe("audit API", () => {
       const entries = [
         { id: "a-1", orgId: "org-1", action: "validation.violation", status: "VIOLATED", createdAt: new Date() },
       ]
-      const mockDb = {
-        select: vi.fn().mockReturnValue({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockReturnValue({
-              orderBy: vi.fn().mockReturnValue({
-                limit: vi.fn().mockReturnValue({
-                  offset: vi.fn().mockResolvedValue(entries),
-                }),
-              }),
-            }),
-          }),
-        }),
-      }
-      mockGetDb.mockReturnValue(mockDb as never)
+      mockListAuditEntries.mockResolvedValue(entries as never)
 
       const app = await createApp()
       const res = await app.request("/audit?org_id=org-1")
@@ -59,20 +66,7 @@ describe("audit API", () => {
     })
 
     it("returns empty results when no entries match", async () => {
-      const mockDb = {
-        select: vi.fn().mockReturnValue({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockReturnValue({
-              orderBy: vi.fn().mockReturnValue({
-                limit: vi.fn().mockReturnValue({
-                  offset: vi.fn().mockResolvedValue([]),
-                }),
-              }),
-            }),
-          }),
-        }),
-      }
-      mockGetDb.mockReturnValue(mockDb as never)
+      mockListAuditEntries.mockResolvedValue([] as never)
 
       const app = await createApp()
       const res = await app.request("/audit")
@@ -87,20 +81,7 @@ describe("audit API", () => {
       const entries = [
         { id: "a-1", orgId: "org-1", action: "validation.violation", status: "VIOLATED", createdAt: new Date() },
       ]
-      const mockDb = {
-        select: vi.fn().mockReturnValue({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockReturnValue({
-              orderBy: vi.fn().mockReturnValue({
-                limit: vi.fn().mockReturnValue({
-                  offset: vi.fn().mockResolvedValue(entries),
-                }),
-              }),
-            }),
-          }),
-        }),
-      }
-      mockGetDb.mockReturnValue(mockDb as never)
+      mockListAuditEntries.mockResolvedValue(entries as never)
 
       const app = await createApp()
       const res = await app.request("/audit?action=validation.violation&since=2025-01-01&until=2025-12-31")
@@ -111,20 +92,7 @@ describe("audit API", () => {
     })
 
     it("respects limit and offset parameters", async () => {
-      const mockDb = {
-        select: vi.fn().mockReturnValue({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockReturnValue({
-              orderBy: vi.fn().mockReturnValue({
-                limit: vi.fn().mockReturnValue({
-                  offset: vi.fn().mockResolvedValue([]),
-                }),
-              }),
-            }),
-          }),
-        }),
-      }
-      mockGetDb.mockReturnValue(mockDb as never)
+      mockListAuditEntries.mockResolvedValue([] as never)
 
       const app = await createApp()
       const res = await app.request("/audit?limit=10&offset=5")

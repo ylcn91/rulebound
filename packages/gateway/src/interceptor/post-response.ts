@@ -1,5 +1,14 @@
 import { validate, type Rule, type ValidationReport } from "@rulebound/engine"
-import { scanCodeBlockWithAST, detectLanguageFromAnnotation } from "./ast-scanner.js"
+import {
+  scanCodeBlockWithAST,
+  detectLanguageFromAnnotation,
+  type ASTViolation,
+} from "./ast-scanner.js"
+import {
+  buildEnforcementSummary,
+  type EnforcementSummary,
+  type GatewayViolation,
+} from "./enforcement.js"
 
 const CODE_BLOCK_REGEX = /```(\w*)\n([\s\S]*?)```/g
 
@@ -22,14 +31,10 @@ export function extractCodeBlocks(text: string): readonly CodeBlock[] {
 }
 
 export interface ScanResult {
+  codeBlockCount: number
   hasViolations: boolean
-  violations: Array<{
-    ruleTitle: string
-    severity: string
-    reason: string
-    suggestedFix?: string
-    codeSnippet: string
-  }>
+  violations: GatewayViolation[]
+  enforcement: EnforcementSummary
   report?: ValidationReport
 }
 
@@ -39,7 +44,12 @@ export async function scanResponse(
 ): Promise<ScanResult> {
   const codeBlocks = extractCodeBlocks(responseText)
   if (codeBlocks.length === 0) {
-    return { hasViolations: false, violations: [] }
+    return {
+      codeBlockCount: 0,
+      hasViolations: false,
+      violations: [],
+      enforcement: buildEnforcementSummary(undefined, []),
+    }
   }
 
   // Semantic validation (existing)
@@ -52,34 +62,44 @@ export async function scanResponse(
     semanticViolations = report.results
       .filter((r) => r.status === "VIOLATED")
       .map((r) => ({
+        ruleId: r.ruleId,
         ruleTitle: r.ruleTitle,
         severity: r.severity,
         reason: r.reason,
         suggestedFix: r.suggestedFix,
         codeSnippet: allCode.slice(0, 200),
+        source: "semantic" as const,
+        modality: normalizeSemanticModality(r.modality),
       }))
   }
 
   // AST analysis (new)
-  const astViolations: ScanResult["violations"] = []
+  const astMatches: ASTViolation[] = []
+  const astViolations: typeof semanticViolations = []
   for (const block of codeBlocks) {
     const lang = block.language ? detectLanguageFromAnnotation(block.language) : null
     if (!lang) continue
     const matches = await scanCodeBlockWithAST(block.code, lang)
+    astMatches.push(...matches)
     for (const m of matches) {
       astViolations.push({
+        ruleId: m.ruleId,
         ruleTitle: m.ruleTitle,
         severity: m.severity,
         reason: m.reason,
         codeSnippet: m.codeSnippet,
+        source: "ast",
+        modality: m.severity === "error" ? "must" : "should",
       })
     }
   }
 
   const violations = [...semanticViolations, ...astViolations]
   return {
+    codeBlockCount: codeBlocks.length,
     hasViolations: violations.length > 0,
     violations,
+    enforcement: buildEnforcementSummary(report, astMatches),
     report,
   }
 }
@@ -105,4 +125,11 @@ export function buildViolationWarning(violations: ScanResult["violations"]): str
   lines.push("---")
 
   return lines.join("\n")
+}
+
+function normalizeSemanticModality(modality: string): "must" | "should" | "may" {
+  if (modality === "must" || modality === "should" || modality === "may") {
+    return modality
+  }
+  return "may"
 }

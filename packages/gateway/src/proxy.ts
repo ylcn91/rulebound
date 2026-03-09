@@ -2,15 +2,25 @@ import { Hono } from "hono"
 import type { GatewayConfig } from "./config.js"
 import { getCachedRules } from "./rule-cache.js"
 import { logger } from "./logger.js"
+import { buildRuleInjectionText } from "./interceptor/pre-request.js"
 import {
-  buildRuleInjectionText,
-  injectRulesOpenAI,
-  injectRulesAnthropic,
-} from "./interceptor/pre-request.js"
+  recordGatewayValidationTelemetry,
+  shouldBlockForMode,
+} from "./interceptor/enforcement.js"
 import { scanResponse, buildViolationWarning } from "./interceptor/post-response.js"
 import { StreamScanner } from "./interceptor/stream-scanner.js"
-
-type Provider = "openai" | "anthropic" | "google"
+import {
+  appendWarningToResponse,
+  buildStreamViolationEvent,
+  buildStreamWarningMessage,
+  extractContentFromSSE,
+  extractResponseContent,
+  getStreamTerminator,
+  injectRulesForProvider,
+  isGenerationRequest,
+  isStreamingRequest,
+  type Provider,
+} from "./provider-adapter.js"
 
 function detectProvider(path: string): Provider {
   if (path.startsWith("/anthropic") || path.startsWith("/v1/messages")) return "anthropic"
@@ -44,13 +54,15 @@ export function createProxy(config: GatewayConfig) {
     }
 
     const targetPath = stripProviderPrefix(path)
-    const targetUrl = `${targetBase}${targetPath}`
+    const targetUrl = new URL(targetPath, targetBase)
+    const requestUrl = new URL(c.req.url)
+    targetUrl.search = requestUrl.search
 
-    const isChat = targetPath.includes("/chat/completions") || targetPath.includes("/messages")
+    const isChat = isGenerationRequest(provider, targetPath)
     const method = c.req.method
 
     if (method !== "POST" || !isChat) {
-      const response = await fetch(targetUrl, {
+      const response = await fetch(targetUrl.toString(), {
         method,
         headers: forwardHeaders(c.req.raw.headers, targetBase),
         body: method !== "GET" && method !== "HEAD" ? c.req.raw.body : undefined,
@@ -65,22 +77,18 @@ export function createProxy(config: GatewayConfig) {
 
     // Chat/messages endpoint — apply rule injection + response scanning
     let body = await c.req.json()
-    const isStreaming = body.stream === true
+    const isStreaming = isStreamingRequest(provider, targetPath, body)
 
     // Pre-request: inject rules
     if (config.injectRules) {
       const rules = await getCachedRules(config)
       if (rules.length > 0) {
         const ruleText = buildRuleInjectionText(rules)
-        if (provider === "anthropic") {
-          body = injectRulesAnthropic(body, ruleText)
-        } else {
-          body = injectRulesOpenAI(body, ruleText)
-        }
+        body = injectRulesForProvider(provider, body, ruleText)
       }
     }
 
-    const targetResponse = await fetch(targetUrl, {
+    const targetResponse = await fetch(targetUrl.toString(), {
       method: "POST",
       headers: forwardHeaders(c.req.raw.headers, targetBase),
       body: JSON.stringify(body),
@@ -95,7 +103,7 @@ export function createProxy(config: GatewayConfig) {
 
     // Streaming response
     if (isStreaming) {
-      return handleStreamingResponse(targetResponse, config)
+      return handleStreamingResponse(targetResponse, config, provider)
     }
 
     // Non-streaming response — scan for violations
@@ -103,37 +111,44 @@ export function createProxy(config: GatewayConfig) {
 
     if (config.scanResponses) {
       const rules = await getCachedRules(config)
-      if (rules.length > 0) {
-        try {
-          const parsed = JSON.parse(responseBody)
-          const content = extractResponseContent(parsed, provider)
+      try {
+        const parsed = JSON.parse(responseBody)
+        const content = extractResponseContent(provider, parsed)
 
-          if (content) {
-            const scanResult = await scanResponse(content, rules)
-
-            if (scanResult.hasViolations) {
-              const warning = buildViolationWarning(scanResult.violations)
-
-              if (config.enforcement === "strict") {
-                return c.json({
-                  error: {
-                    message: "Rulebound: Code violations detected. Request blocked.",
-                    type: "rulebound_violation",
-                    violations: scanResult.violations,
-                  },
-                }, 422)
-              }
-
-              // Advisory/moderate: append warning to response
-              const modified = appendWarningToResponse(parsed, provider, warning)
-              return c.json(modified)
-            }
+        if (content) {
+          const scanResult = await scanResponse(content, rules)
+          if (scanResult.codeBlockCount > 0) {
+            recordGatewayValidationTelemetry({
+              report: scanResult.report,
+              violations: scanResult.violations,
+              enforcement: scanResult.enforcement,
+              rulesTotal: scanResult.report?.rulesTotal ?? rules.length,
+              task: "Gateway non-streaming response validation",
+              project: config.project,
+            })
           }
-        } catch (error) {
-          logger.warn("Failed to parse response for violation scanning", {
-            error: error instanceof Error ? error.message : String(error),
-          })
+
+          if (scanResult.hasViolations) {
+            const warning = buildViolationWarning(scanResult.violations)
+
+            if (shouldBlockForMode(config.enforcement, scanResult.enforcement)) {
+              return c.json({
+                error: {
+                  message: "Rulebound: Code violations detected. Request blocked.",
+                  type: "rulebound_violation",
+                  violations: scanResult.violations,
+                },
+              }, 422)
+            }
+
+            const modified = appendWarningToResponse(provider, parsed, warning)
+            return c.json(modified)
+          }
         }
+      } catch (error) {
+        logger.warn("Failed to parse response for violation scanning", {
+          error: error instanceof Error ? error.message : String(error),
+        })
       }
     }
 
@@ -148,7 +163,8 @@ export function createProxy(config: GatewayConfig) {
 
 async function handleStreamingResponse(
   targetResponse: Response,
-  config: GatewayConfig
+  config: GatewayConfig,
+  provider: Provider,
 ): Promise<Response> {
   const rules = config.scanResponses ? await getCachedRules(config) : []
 
@@ -166,28 +182,66 @@ async function handleStreamingResponse(
       const { done, value } = await reader.read()
 
       if (done) {
-        // End of stream — do final scan
-        if (config.scanResponses && scanner.hasCompleteCodeBlock()) {
-          const { hasViolations, warning } = await scanner.scanAccumulated()
-          if (hasViolations && warning) {
-            const warningEvent = `data: ${JSON.stringify({
-              choices: [{
-                delta: { content: `\n\n${warning}` },
-                finish_reason: null,
-              }],
-            })}\n\n`
-            controller.enqueue(encoder.encode(warningEvent))
-          }
-        }
-
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"))
         controller.close()
         return
       }
 
       const chunk = decoder.decode(value, { stream: true })
-      scanner.appendChunk(extractContentFromSSE(chunk))
-      controller.enqueue(value)
+      scanner.appendChunk(extractContentFromSSE(provider, chunk))
+
+      const shouldBufferChunk = scanner.isInsideOpenCodeBlock() || scanner.hasPendingRawChunks()
+      if (shouldBufferChunk) {
+        scanner.appendRawChunk(value)
+      } else {
+        controller.enqueue(value)
+      }
+
+      if (!config.scanResponses || !scanner.hasCompleteCodeBlock()) {
+        return
+      }
+
+      const result = await scanner.scanAccumulated()
+      if (!result.scanResult) {
+        return
+      }
+
+      recordGatewayValidationTelemetry({
+        report: result.scanResult.report,
+        violations: result.scanResult.violations,
+        enforcement: result.scanResult.enforcement,
+        rulesTotal: result.scanResult.report?.rulesTotal ?? rules.length,
+        task: "Gateway streaming response validation",
+        project: config.project,
+      })
+
+      if (result.action === "warn" && result.warning) {
+        for (const pendingChunk of scanner.consumePendingRawChunks()) {
+          controller.enqueue(pendingChunk)
+        }
+        controller.enqueue(encoder.encode(buildStreamWarningMessage(provider, result.warning)))
+        return
+      }
+
+      if (result.action === "block" && result.warning) {
+        scanner.consumePendingRawChunks()
+        const blockingMode = config.enforcement === "moderate" ? "moderate" : "strict"
+        controller.enqueue(encoder.encode(buildStreamViolationEvent(result.warning, blockingMode)))
+        controller.enqueue(encoder.encode(buildStreamWarningMessage(provider, result.warning)))
+        const terminator = getStreamTerminator(provider)
+        if (terminator.length > 0) {
+          controller.enqueue(encoder.encode(terminator))
+        }
+        await reader.cancel("rulebound_violation")
+        controller.close()
+        scanner.reset()
+        return
+      }
+
+      if (result.action === "pass") {
+        for (const pendingChunk of scanner.consumePendingRawChunks()) {
+          controller.enqueue(pendingChunk)
+        }
+      }
     },
   })
 
@@ -199,70 +253,6 @@ async function handleStreamingResponse(
       "Connection": "keep-alive",
     },
   })
-}
-
-function extractContentFromSSE(chunk: string): string {
-  const lines = chunk.split("\n").filter((l) => l.startsWith("data: "))
-  let content = ""
-
-  for (const line of lines) {
-    const data = line.slice(6)
-    if (data === "[DONE]") continue
-    try {
-      const parsed = JSON.parse(data)
-      const delta = parsed.choices?.[0]?.delta?.content ?? parsed.delta?.text ?? ""
-      content += delta
-    } catch (error) {
-      logger.debug("Failed to parse SSE chunk", {
-        error: error instanceof Error ? error.message : String(error),
-      })
-    }
-  }
-
-  return content
-}
-
-function extractResponseContent(body: Record<string, unknown>, provider: Provider): string | null {
-  if (provider === "anthropic") {
-    const content = body.content as Array<{ type: string; text?: string }> | undefined
-    if (content) return content.map((c) => c.text ?? "").join("\n")
-  }
-
-  const choices = body.choices as Array<{ message?: { content?: string } }> | undefined
-  if (choices?.[0]?.message?.content) return choices[0].message.content
-
-  return null
-}
-
-function appendWarningToResponse(
-  body: Record<string, unknown>,
-  provider: Provider,
-  warning: string
-): Record<string, unknown> {
-  if (provider === "anthropic") {
-    const content = body.content as Array<{ type: string; text?: string }> | undefined
-    if (content) {
-      return {
-        ...body,
-        content: [...content, { type: "text", text: warning }],
-      }
-    }
-  }
-
-  const choices = body.choices as Array<{ message?: { content?: string }; [key: string]: unknown }> | undefined
-  if (choices?.[0]?.message?.content) {
-    const modifiedChoices = [...choices]
-    modifiedChoices[0] = {
-      ...modifiedChoices[0],
-      message: {
-        ...modifiedChoices[0].message,
-        content: modifiedChoices[0].message!.content + warning,
-      },
-    }
-    return { ...body, choices: modifiedChoices }
-  }
-
-  return body
 }
 
 function forwardHeaders(headers: Headers, targetBase: string): Headers {

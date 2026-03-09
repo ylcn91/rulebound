@@ -14,6 +14,16 @@ import {
   isSupportedLanguage,
   analyzeWithBuiltins,
 } from "@rulebound/engine"
+import {
+  buildValidationEnforcementSummary,
+  buildValidationViolations,
+  recordMcpValidationTelemetry,
+  shouldBlockValidation,
+} from "./validation.js"
+import {
+  startBugfixWorkflow,
+  validateBugfixPlanRequest,
+} from "./bugfix.js"
 
 const server = new McpServer({
   name: "rulebound",
@@ -22,6 +32,75 @@ const server = new McpServer({
 
 // Auto-detect project stack once at startup
 const projectStack = detectProjectStack(process.cwd())
+
+server.tool(
+  "start_bugfix_workflow",
+  `Start a bugfix-boundary workflow. Use this before writing code for a bugfix so the bug condition C, postcondition P, preservation scenarios, and scope are explicit and stored under .rulebound/bugfixes/.`,
+  {
+    summary: z.string().describe("Short bug summary"),
+    title: z.string().optional().describe("Explicit bugfix title"),
+    condition: z.string().optional().describe("Explicit bug condition C"),
+    postcondition: z.string().optional().describe("Explicit postcondition P"),
+    preservation_scenarios: z.array(z.string()).optional().describe("Scenarios that must remain unchanged outside C"),
+    root_cause_hypothesis: z.string().optional().describe("Current root cause hypothesis"),
+    files_in_scope: z.array(z.string()).optional().describe("Files or paths allowed to change"),
+    files_out_of_scope: z.array(z.string()).optional().describe("Files or paths that must stay unchanged"),
+    spec_path: z.string().optional().describe("Optional bugfix spec path or directory"),
+    write_spec: z.boolean().optional().describe("Write the spec to disk (default: true)"),
+  },
+  async ({
+    summary,
+    title,
+    condition,
+    postcondition,
+    preservation_scenarios,
+    root_cause_hypothesis,
+    files_in_scope,
+    files_out_of_scope,
+    spec_path,
+    write_spec,
+  }) => ({
+    content: [{
+      type: "text" as const,
+      text: JSON.stringify(startBugfixWorkflow({
+        summary,
+        title,
+        condition,
+        postcondition,
+        preservationScenarios: preservation_scenarios,
+        rootCauseHypothesis: root_cause_hypothesis,
+        filesInScope: files_in_scope,
+        filesOutOfScope: files_out_of_scope,
+        specPath: spec_path,
+        writeSpec: write_spec,
+      }), null, 2),
+    }],
+  }),
+)
+
+server.tool(
+  "validate_bugfix_plan",
+  `Validate a bugfix implementation plan against the stored bugfix boundary before any code is written. This enforces root-cause, fix-validation, preservation, and scope sections.`,
+  {
+    plan: z.string().describe("Bugfix implementation plan markdown"),
+    spec_path: z.string().optional().describe("Path to the bugfix spec file (defaults to the latest .rulebound/bugfixes/*.md)"),
+    spec_markdown: z.string().optional().describe("Raw bugfix spec markdown instead of loading from disk"),
+  },
+  async ({ plan, spec_path, spec_markdown }) => {
+    const result = validateBugfixPlanRequest({
+      plan,
+      specPath: spec_path,
+      specMarkdown: spec_markdown,
+    })
+
+    return {
+      content: [{
+        type: "text" as const,
+        text: JSON.stringify(result, null, 2),
+      }],
+    }
+  },
+)
 
 server.tool(
   "find_rules",
@@ -76,6 +155,15 @@ server.tool(
       : rules
 
     const report = validatePlanAgainstRules(plan, relevant, task)
+    const violations = buildValidationViolations(report, [])
+    const enforcement = buildValidationEnforcementSummary(report, [])
+    recordMcpValidationTelemetry({
+      report,
+      violations,
+      enforcement,
+      rulesTotal: report.rulesTotal,
+      task: task ?? "validate_plan",
+    })
 
     // Only return violations — compact output
     return {
@@ -118,6 +206,15 @@ server.tool(
 
     // Run plan validation on the code as if it were a plan
     const report = validatePlanAgainstRules(code, relevant)
+    const telemetryViolations = buildValidationViolations(report, [])
+    const telemetryEnforcement = buildValidationEnforcementSummary(report, [])
+    recordMcpValidationTelemetry({
+      report,
+      violations: telemetryViolations,
+      enforcement: telemetryEnforcement,
+      rulesTotal: report.rulesTotal,
+      task: `check_code:${file_path ?? detectedLang ?? "unknown"}`,
+    })
 
     const violations = report.results
       .filter((r) => r.status === "VIOLATED")
@@ -202,23 +299,18 @@ server.tool(
       ? validatePlanAgainstRules(code, relevantRules, `Writing ${file_path}`)
       : null
 
-    const semanticViolations = report
-      ? report.results
-          .filter((r) => r.status === "VIOLATED")
-          .map((r) => ({
-            rule: r.ruleId,
-            message: r.reason,
-            severity: r.severity,
-            fix: r.suggestedFix,
-          }))
-      : []
+    const violations = buildValidationViolations(report, astViolations)
+    const enforcement = buildValidationEnforcementSummary(report, astViolations)
+    const approved = !shouldBlockValidation("strict", enforcement)
 
-    const violations = [
-      ...astViolations.map((v) => ({ ...v, source: "ast" as const })),
-      ...semanticViolations.map((v) => ({ ...v, source: "semantic" as const })),
-    ]
+    recordMcpValidationTelemetry({
+      report,
+      violations,
+      enforcement,
+      rulesTotal: report?.rulesTotal ?? relevantRules.length,
+      task: `validate_before_write:${file_path}`,
+    })
 
-    const approved = violations.length === 0
     return {
       content: [{
         type: "text" as const,
@@ -227,6 +319,9 @@ server.tool(
           file_path,
           language: lang ?? "unknown",
           violations,
+          score: enforcement.score,
+          hasMustViolation: enforcement.hasMustViolation,
+          hasShouldViolation: enforcement.hasShouldViolation,
           message: approved
             ? "Code is clean — safe to write"
             : `${violations.length} violation(s) found — review before writing`,

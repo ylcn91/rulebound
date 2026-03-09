@@ -14,6 +14,7 @@ import {
   createDebouncer,
   writeOutput,
 } from "../lib/watch-format.js"
+import { recordCliValidationEvent } from "../lib/telemetry.js"
 
 const DEFAULT_IGNORE = ["node_modules", ".git", "dist", ".next", "coverage"]
 
@@ -92,7 +93,7 @@ async function runASTAnalysis(
   }
 }
 
-async function runRuleValidation(
+export async function runRuleValidation(
   code: string,
   relPath: string,
   dir: string,
@@ -113,6 +114,7 @@ async function runRuleValidation(
     }
 
     const report = await validate({ plan: code, rules })
+    recordCliValidationEvent(report, dir)
 
     for (const result of report.results) {
       if (result.status === "PASS") {

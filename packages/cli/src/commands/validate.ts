@@ -4,6 +4,7 @@ import { loadLocalRules, matchRulesByContext } from "../lib/local-rules.js"
 import { loadRulesWithInheritance, getProjectConfig } from "../lib/inheritance.js"
 import { validateWithPipeline } from "../lib/validation.js"
 import type { ValidationReport } from "../lib/local-rules.js"
+import { recordCliValidationEvent } from "../lib/telemetry.js"
 
 interface ValidateOptions {
   plan?: string
@@ -108,6 +109,7 @@ export async function validateCommand(options: ValidateOptions): Promise<void> {
     task: planText.slice(0, 100),
     useLlm: options.llm,
   })
+  recordCliValidationEvent(report, process.cwd())
 
   // JSON output
   if (options.format === "json") {

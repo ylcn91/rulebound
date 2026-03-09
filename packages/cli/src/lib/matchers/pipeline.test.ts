@@ -3,6 +3,7 @@ import { ValidationPipeline } from "./pipeline.js"
 import { KeywordMatcher } from "./keyword.js"
 import { SemanticMatcher } from "./semantic.js"
 import { makeRule } from "../../__tests__/setup.js"
+import type { Matcher } from "./types.js"
 
 describe("ValidationPipeline", () => {
   it("runs multiple matchers and merges by highest confidence", async () => {
@@ -41,6 +42,42 @@ describe("ValidationPipeline", () => {
     })
 
     expect(result.results[0].status).toBe("PASS")
+  })
+
+  it("preserves VIOLATED results over higher-confidence PASS results", async () => {
+    const rule = makeRule({ id: "bugfix-boundary" })
+    const keywordMatcher: Matcher = {
+      name: "keyword",
+      match: async () => [{
+        ruleId: rule.id,
+        status: "VIOLATED",
+        confidence: 0.51,
+        reason: "Keyword matcher found an explicit violation",
+        suggestedFix: "Constrain the fix scope",
+      }],
+    }
+    const semanticMatcher: Matcher = {
+      name: "semantic",
+      match: async () => [{
+        ruleId: rule.id,
+        status: "PASS",
+        confidence: 0.95,
+        reason: "Semantic matcher sees related terminology",
+      }],
+    }
+
+    const pipeline = new ValidationPipeline([keywordMatcher, semanticMatcher])
+    const result = await pipeline.run({ plan: "test", rules: [rule] })
+
+    expect(result.results).toEqual([
+      {
+        ruleId: rule.id,
+        status: "VIOLATED",
+        confidence: 0.51,
+        reason: "Keyword matcher found an explicit violation",
+        suggestedFix: "Constrain the fix scope",
+      },
+    ])
   })
 
   it("returns NOT_COVERED when no matcher finds relevance", async () => {

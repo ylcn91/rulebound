@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process"
 import chalk from "chalk"
+import { DEFAULT_ENFORCEMENT, calculateScore, shouldBlock, type EnforcementConfig } from "@rulebound/engine"
 import {
   loadLocalRules,
   matchRulesByContext,
@@ -7,7 +8,8 @@ import {
 import { validateWithPipeline } from "../lib/validation.js"
 import type { ValidationResult, ValidationReport } from "../lib/local-rules.js"
 import { loadRulesWithInheritance, getProjectConfig, loadConfig } from "../lib/inheritance.js"
-import { shouldBlock, DEFAULT_ENFORCEMENT, type EnforcementConfig } from "../lib/enforcement.js"
+import { extractAddedLines, extractChangedFiles } from "../lib/git-diff.js"
+import { recordCliValidationEvent } from "../lib/telemetry.js"
 
 interface CiOptions {
   readonly base?: string
@@ -55,21 +57,6 @@ function getDiff(base: string): string {
   }
 }
 
-function extractAddedLines(diffText: string): string {
-  return diffText
-    .split("\n")
-    .filter((l) => l.startsWith("+") && !l.startsWith("+++"))
-    .map((l) => l.slice(1))
-    .join("\n")
-}
-
-function extractChangedFiles(diffText: string): string[] {
-  return diffText
-    .split("\n")
-    .filter((l) => l.startsWith("+++ b/"))
-    .map((l) => l.replace(/^\+\+\+ b\//, ""))
-}
-
 function loadEnforcementConfig(cwd: string): EnforcementConfig {
   const config = loadConfig(cwd)
   if (!config) return DEFAULT_ENFORCEMENT
@@ -82,22 +69,6 @@ function loadEnforcementConfig(cwd: string): EnforcementConfig {
     scoreThreshold: raw.scoreThreshold ?? DEFAULT_ENFORCEMENT.scoreThreshold,
     autoPromote: raw.autoPromote ?? DEFAULT_ENFORCEMENT.autoPromote,
   }
-}
-
-function calculateScore(report: ValidationReport): number {
-  const total = report.results.length
-  if (total === 0) return 100
-
-  const passWeight = 1
-  const notCoveredWeight = 0.5
-  const violatedWeight = 0
-
-  const weighted =
-    report.summary.pass * passWeight +
-    report.summary.notCovered * notCoveredWeight +
-    report.summary.violated * violatedWeight
-
-  return Math.round((weighted / total) * 100)
 }
 
 function formatPrettyOutput(report: ValidationReport, filesChanged: string[], score: number): void {
@@ -266,9 +237,10 @@ export async function ciCommand(options: CiOptions): Promise<void> {
     task: `CI diff against ${base}`,
     useLlm: options.llm,
   })
+  recordCliValidationEvent(report, cwd)
 
   // Calculate score and enforcement
-  const score = calculateScore(report)
+  const score = calculateScore(report.results)
   const enforcement = loadEnforcementConfig(cwd)
   const hasMustViolation = report.results.some(
     (r) => r.status === "VIOLATED" && r.modality === "must"

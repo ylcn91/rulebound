@@ -18,6 +18,7 @@ import { reviewCommand } from "./commands/review.js"
 import { checkCodeCommand } from "./commands/check-code.js"
 import { watchCommand } from "./commands/watch.js"
 import { statsCommand } from "./commands/stats.js"
+import { bugfixCommand, validateBugfixCommand } from "./commands/bugfix.js"
 import {
   registrySearchCommand,
   registryInstallCommand,
@@ -83,6 +84,7 @@ program
   .command("diff")
   .description("Validate git diff against rules before merge")
   .option("--ref <ref>", "Git ref to diff against (default: HEAD)")
+  .option("--staged", "Validate staged changes only")
   .option("-f, --format <format>", "Output format: pretty, json")
   .option("-d, --dir <path>", "Path to rules directory")
   .option("--llm", "Use LLM for deep validation (requires AI SDK)")
@@ -209,5 +211,32 @@ program
   .option("--auto", "Auto-detect and import from all known agent config files")
   .option("--dry-run", "Show what would be created without writing files")
   .action(migrateCommand)
+
+const bugfixCmd = program
+  .command("bugfix")
+  .description("Create and validate a bugfix boundary spec")
+
+bugfixCmd
+  .option("-s, --summary <text>", "Bug summary")
+  .option("--title <title>", "Bugfix title")
+  .option("--condition <text>", "Explicit bug condition C")
+  .option("--postcondition <text>", "Explicit postcondition P")
+  .option("--preserve <items>", "Comma-separated preservation scenarios")
+  .option("--root-cause <text>", "Root cause hypothesis")
+  .option("--scope <items>", "Comma-separated files or paths in scope")
+  .option("--out-of-scope <items>", "Comma-separated files or paths explicitly out of scope")
+  .option("-o, --output <path>", "Output file or directory (default: .rulebound/bugfixes/<slug>.md)")
+  .option("-f, --format <format>", "Output format: pretty, json")
+  .option("--force", "Overwrite an existing spec file")
+  .action(bugfixCommand)
+
+bugfixCmd
+  .command("validate")
+  .description("Validate a bugfix spec and optional plan before coding")
+  .option("--file <path>", "Bugfix spec path (defaults to the latest .rulebound/bugfixes/*.md)")
+  .option("--plan <text>", "Plan markdown to validate")
+  .option("--plan-file <path>", "Path to plan markdown file")
+  .option("-f, --format <format>", "Output format: pretty, json")
+  .action(validateBugfixCommand)
 
 program.parse()

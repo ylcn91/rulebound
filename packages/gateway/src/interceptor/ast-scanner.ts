@@ -2,6 +2,7 @@ import { analyzeCode, getBuiltinQueries, isSupportedLanguage } from "@rulebound/
 import type { ASTAnalysisResult } from "@rulebound/engine"
 
 export interface ASTViolation {
+  readonly ruleId: string
   readonly ruleTitle: string
   readonly severity: string
   readonly reason: string
@@ -49,6 +50,7 @@ export async function scanCodeBlockWithAST(
   try {
     const result: ASTAnalysisResult = await analyzeCode(code, language, queries)
     return result.matches.map((m) => ({
+      ruleId: m.queryId,
       ruleTitle: m.queryName,
       severity: m.severity,
       reason: `AST pattern: ${m.message}`,

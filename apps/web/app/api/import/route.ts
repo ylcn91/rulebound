@@ -86,7 +86,55 @@ function parseMarkdown(markdown: string): ParsedRule[] {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { content, source } = body as { content?: string; source?: string }
+    const { content, source, repoUrl, branch } = body as { content?: string; source?: string; repoUrl?: string; branch?: string }
+
+    if (source === "github") {
+      if (!repoUrl || typeof repoUrl !== "string") {
+        return NextResponse.json({ error: "repoUrl is required for GitHub imports" }, { status: 400 })
+      }
+
+      const repoMatch = repoUrl.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/i)
+      if (!repoMatch) {
+        return NextResponse.json({ error: "repoUrl must be a valid GitHub repository URL" }, { status: 400 })
+      }
+
+      const [, owner, repo] = repoMatch
+      const ref = branch && branch.trim().length > 0 ? branch.trim() : "main"
+      const candidates = [
+        "AGENTS.md",
+        "CLAUDE.md",
+        ".cursorrules",
+        ".cursor/rules.md",
+        ".github/copilot-instructions.md",
+      ]
+
+      let remoteContent: string | null = null
+      for (const candidate of candidates) {
+        const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${ref}/${candidate}`
+        const response = await fetch(rawUrl, {
+          headers: { Accept: "text/plain" },
+          cache: "no-store",
+        })
+
+        if (response.ok) {
+          remoteContent = await response.text()
+          break
+        }
+      }
+
+      if (!remoteContent) {
+        return NextResponse.json({ error: "Could not find a supported rules file in that repository" }, { status: 404 })
+      }
+
+      const rules = parseMarkdown(remoteContent)
+      return NextResponse.json({
+        data: {
+          rules,
+          source: "github",
+          count: rules.length,
+        },
+      })
+    }
 
     if (!content || typeof content !== "string") {
       return NextResponse.json({ error: "content is required" }, { status: 400 })
