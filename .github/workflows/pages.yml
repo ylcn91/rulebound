@@ -32,8 +32,9 @@ jobs:
       # Remove API routes for static export
       - run: rm -rf apps/web/app/api
 
-      # Remove dashboard routes (they need API)
+      # Remove admin routes (they need server-side auth + API)
       - run: rm -rf apps/web/app/\(dashboard\)
+      - run: rm -rf apps/web/app/access
 
       - run: pnpm --filter web build
         env:
