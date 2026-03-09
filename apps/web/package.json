@@ -6,7 +6,10 @@
     "dev": "next dev --turbopack --port 3000",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "pnpm exec tsc --noEmit -p tsconfig.lint.json && pnpm run test:css",
+    "test": "pnpm run test:css && vitest run",
+    "test:css": "node --experimental-transform-types __tests__/css-variables.test.ts",
+    "test:focused": "vitest run __tests__/rulebound-api.test.ts __tests__/dashboard-data.test.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1",
@@ -35,6 +38,7 @@
     "drizzle-kit": "^0.31.9",
     "postcss": "^8",
     "tailwindcss": "^4",
-    "typescript": "^5.7"
+    "typescript": "^5.7",
+    "vitest": "^4.0.18"
   }
 }

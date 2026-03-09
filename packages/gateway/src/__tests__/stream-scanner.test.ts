@@ -2,9 +2,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { StreamScanner } from "../interceptor/stream-scanner.js"
 import type { Rule } from "@rulebound/engine"
 
-vi.mock("@rulebound/engine", () => ({
-  validate: vi.fn(),
-}))
+vi.mock("@rulebound/engine", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@rulebound/engine")>()
+  return {
+    ...actual,
+    validate: vi.fn(),
+  }
+})
 
 vi.mock("../interceptor/post-response.js", async (importOriginal) => {
   const original = await importOriginal<typeof import("../interceptor/post-response.js")>()
@@ -39,6 +43,19 @@ function makeRule(overrides: Partial<Rule> = {}): Rule {
 describe("StreamScanner", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockScanResponse.mockResolvedValue({
+      codeBlockCount: 1,
+      hasViolations: false,
+      violations: [],
+      enforcement: {
+        hasMustViolation: false,
+        hasShouldViolation: false,
+        score: 100,
+        semanticScore: 100,
+        astErrorCount: 0,
+        astWarningCount: 0,
+      },
+    })
   })
 
   describe("appendChunk", () => {
@@ -109,7 +126,7 @@ describe("StreamScanner", () => {
       scanner.appendChunk("```js\nconst x = 1\n```")
 
       const result = await scanner.scanAccumulated()
-      expect(result.hasViolations).toBe(false)
+      expect(result.action).toBe("pass")
       expect(result.warning).toBe("")
     })
 
@@ -119,24 +136,41 @@ describe("StreamScanner", () => {
       scanner.appendChunk("Just text, no code")
 
       const result = await scanner.scanAccumulated()
-      expect(result.hasViolations).toBe(false)
+      expect(result.action).toBe("none")
       expect(result.warning).toBe("")
     })
 
     it("calls scanResponse and reports violations", async () => {
       const rules = [makeRule()]
       mockScanResponse.mockResolvedValue({
+        codeBlockCount: 1,
         hasViolations: true,
         violations: [
-          { ruleTitle: "No Secrets", severity: "error", reason: "Found key", codeSnippet: "..." },
+          {
+            ruleId: "no-secrets",
+            ruleTitle: "No Secrets",
+            severity: "error",
+            reason: "Found key",
+            codeSnippet: "...",
+            source: "semantic",
+            modality: "must",
+          },
         ],
+        enforcement: {
+          hasMustViolation: true,
+          hasShouldViolation: false,
+          score: 0,
+          semanticScore: 0,
+          astErrorCount: 0,
+          astWarningCount: 0,
+        },
       })
 
       const scanner = new StreamScanner({ rules, enforcement: "advisory" })
       scanner.appendChunk("```js\nconst key = 'secret'\n```")
 
       const result = await scanner.scanAccumulated()
-      expect(result.hasViolations).toBe(true)
+      expect(result.action).toBe("warn")
       expect(result.warning).toContain("No Secrets")
     })
 
@@ -144,10 +178,27 @@ describe("StreamScanner", () => {
       const onViolation = vi.fn()
       const rules = [makeRule()]
       mockScanResponse.mockResolvedValue({
+        codeBlockCount: 1,
         hasViolations: true,
         violations: [
-          { ruleTitle: "Bad Practice", severity: "warning", reason: "Issue found", codeSnippet: "..." },
+          {
+            ruleId: "bad-practice",
+            ruleTitle: "Bad Practice",
+            severity: "warning",
+            reason: "Issue found",
+            codeSnippet: "...",
+            source: "semantic",
+            modality: "should",
+          },
         ],
+        enforcement: {
+          hasMustViolation: false,
+          hasShouldViolation: true,
+          score: 80,
+          semanticScore: 80,
+          astErrorCount: 0,
+          astWarningCount: 0,
+        },
       })
 
       const scanner = new StreamScanner({ rules, enforcement: "advisory", onViolation })
@@ -162,8 +213,17 @@ describe("StreamScanner", () => {
       const onViolation = vi.fn()
       const rules = [makeRule()]
       mockScanResponse.mockResolvedValue({
+        codeBlockCount: 1,
         hasViolations: false,
         violations: [],
+        enforcement: {
+          hasMustViolation: false,
+          hasShouldViolation: false,
+          score: 100,
+          semanticScore: 100,
+          astErrorCount: 0,
+          astWarningCount: 0,
+        },
       })
 
       const scanner = new StreamScanner({ rules, enforcement: "advisory", onViolation })

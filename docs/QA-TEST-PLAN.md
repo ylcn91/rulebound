@@ -43,19 +43,19 @@ pnpm build          # all 6 packages
 ### Running All Tests
 
 ```bash
-# Engine (52 tests — matchers + AST)
+# Engine (matcher + AST suite)
 cd packages/engine && npx vitest run
 
-# Gateway (13 tests — proxy + interceptors)
+# Gateway (proxy + interceptor suite)
 cd packages/gateway && npx vitest run
 
 # Server (8 tests — notifications)
 cd packages/server && npx vitest run
 
-# CLI (39 tests — commands + pipeline)
+# CLI (commands + pipeline suite)
 cd packages/cli && npx vitest run
 
-# Full suite (112 tests)
+# Full suite
 pnpm test   # or run each package above
 ```
 
@@ -94,7 +94,7 @@ pnpm test   # or run each package above
 
 | ID       | Test Case                                    | File                          | Status   |
 |----------|----------------------------------------------|-------------------------------|----------|
-| AST-001  | Built-in query library has 25+ queries        | `ast.test.ts`                 | Automated|
+| AST-001  | Built-in query library has the expected query inventory | `ast.test.ts` | Automated|
 | AST-002  | Language-specific query filtering             | `ast.test.ts`                 | Automated|
 | AST-003  | Query lookup by ID                            | `ast.test.ts`                 | Automated|
 | AST-004  | Unknown query ID returns undefined            | `ast.test.ts`                 | Automated|
@@ -276,7 +276,7 @@ Steps (repeat for each SDK: Python, Go, TS, Java, C#, Rust):
   5. Verify returns array of rule objects
   6. Call get_compliance(project_id)
   7. Verify returns score + breakdown
-Expected: All 6 SDKs return identical response shapes
+Expected: All SDKs return compatible response shapes
 ```
 
 ### E2E-006: Multi-Language AST Analysis
@@ -371,7 +371,7 @@ echo "=== All smoke tests passed ==="
 | #  | Check                                      | Command / Action           | Pass |
 |----|--------------------------------------------|----------------------------|------|
 | S1 | `pnpm build` succeeds (6 packages)         | `pnpm build`               | [ ]  |
-| S2 | 112 tests pass                             | Run vitest in each package | [ ]  |
+| S2 | Test suites pass                           | Run package and SDK suites | [ ]  |
 | S3 | CLI `--help` shows 14 commands             | `rulebound --help`         | [ ]  |
 | S4 | `check-code` detects TS `any`              | See smoke script           | [ ]  |
 | S5 | `check-code` detects Python `eval`         | See smoke script           | [ ]  |
@@ -477,7 +477,7 @@ Run before every release. All items must pass.
 | #  | Area                | Check                                           | Pass |
 |----|---------------------|-------------------------------------------------|------|
 | R1 | Build               | `pnpm build` — 6 packages, 0 errors             | [ ]  |
-| R2 | Tests               | 112 tests pass (52+13+8+39)                      | [ ]  |
+| R2 | Tests               | Package and SDK suites pass                      | [ ]  |
 | R3 | CLI init            | `rulebound init --examples` creates dir + rules  | [ ]  |
 | R4 | CLI find-rules      | Returns rules matching task context              | [ ]  |
 | R5 | CLI validate        | Detects violations and passes clean plans        | [ ]  |
@@ -511,7 +511,7 @@ Run before every release. All items must pass.
 | Web      | —    | —           | —     | Manual    |
 | **Total**| **112** | **11**   | **123**|           |
 
-**Automated:** 112 tests
+**Automated:** Package and SDK test suites
 **Manual UI:** 30 checks
 **E2E Scenarios:** 6 flows
 **Smoke:** 10 checks

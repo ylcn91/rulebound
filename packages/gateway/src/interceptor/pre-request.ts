@@ -41,6 +41,21 @@ interface AnthropicRequest {
   [key: string]: unknown
 }
 
+interface GoogleTextPart {
+  text?: string
+}
+
+interface GoogleInstruction {
+  parts?: GoogleTextPart[]
+}
+
+interface GoogleRequest {
+  systemInstruction?: GoogleInstruction
+  system_instruction?: GoogleInstruction
+  contents?: Array<{ role?: string; parts?: GoogleTextPart[] }>
+  [key: string]: unknown
+}
+
 export function injectRulesOpenAI(body: OpenAIRequest, ruleText: string): OpenAIRequest {
   if (!body.messages || ruleText.length === 0) return body
 
@@ -79,4 +94,25 @@ export function injectRulesAnthropic(body: AnthropicRequest, ruleText: string): 
   }
 
   return { ...body, system: ruleText }
+}
+
+export function injectRulesGoogle(body: GoogleRequest, ruleText: string): GoogleRequest {
+  if (ruleText.length === 0) return body
+
+  const appendInstruction = (instruction: GoogleInstruction | undefined): GoogleInstruction => ({
+    ...instruction,
+    parts: [...(instruction?.parts ?? []), { text: ruleText }],
+  })
+
+  if ("system_instruction" in body) {
+    return {
+      ...body,
+      system_instruction: appendInstruction(body.system_instruction),
+    }
+  }
+
+  return {
+    ...body,
+    systemInstruction: appendInstruction(body.systemInstruction),
+  }
 }

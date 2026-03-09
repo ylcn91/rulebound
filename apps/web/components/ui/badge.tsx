@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { type HTMLAttributes } from "react";
 
 interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
-  variant?: "default" | "accent" | "stamp";
+  variant?: "default" | "accent" | "stamp" | "outline";
 }
 
 function Badge({ className, variant = "default", ...props }: BadgeProps) {
@@ -17,6 +17,8 @@ function Badge({ className, variant = "default", ...props }: BadgeProps) {
             "bg-(--color-accent)/10 text-(--color-accent) px-2 py-0.5 border border-(--color-accent)/30",
           stamp:
             "stamp text-(--color-text-primary)",
+          outline:
+            "border border-(--color-border) px-2 py-0.5 text-(--color-text-secondary) bg-transparent",
         }[variant],
         className
       )}

@@ -13,7 +13,7 @@ const highlightedFeatures = [
   {
     title: "AST Code Analysis",
     description:
-      "Tree-sitter WASM parser detects structural anti-patterns across 10 languages. 28 built-in queries — no regex, real AST matching.",
+      "Tree-sitter WASM parser detects structural anti-patterns across 10 languages. Built-in structural queries — no regex, real AST matching.",
     icon: TreePine,
   },
   {
@@ -52,6 +52,7 @@ const moreFeatures = [
   "Generate Agent Configs",
   "Plan-Before-Code Gating",
   "Diff Validation",
+  "Behavior-Preserving Bugfix Workflow",
   "Compliance Score",
   "Pre-Commit Hook",
   "Quality Attributes",
@@ -63,7 +64,7 @@ const moreFeatures = [
   "Multi-Agent Review",
   "Enterprise Server API",
   "Notification Integrations",
-  "6-Language SDK",
+  "Multi-Language SDK",
   "Compliance Dashboard",
 ];
 

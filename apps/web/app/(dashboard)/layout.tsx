@@ -1,11 +1,16 @@
-import { Sidebar } from "@/components/dashboard/Sidebar"
-import { TopBar } from "@/components/dashboard/TopBar"
+import { Sidebar } from "@/components/dashboard/Sidebar";
+import { TopBar } from "@/components/dashboard/TopBar";
+import { requireDashboardAccess } from "@/lib/dashboard-auth";
 
-export default function DashboardLayout({
+export const dynamic = "force-dynamic";
+
+export default async function DashboardLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
+  await requireDashboardAccess();
+
   return (
     <div className="min-h-screen bg-(--color-background) flex">
       <Sidebar />
@@ -14,5 +19,5 @@ export default function DashboardLayout({
         <main className="flex-1 p-6">{children}</main>
       </div>
     </div>
-  )
+  );
 }

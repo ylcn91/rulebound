@@ -10,6 +10,7 @@ import { syncApi } from "./api/sync.js"
 import { webhooksApi } from "./api/webhooks.js"
 import { tokensApi } from "./api/tokens.js"
 import { analyticsApi } from "./api/analytics.js"
+import { projectsApi } from "./api/projects.js"
 import { authMiddleware, optionalAuth } from "./middleware/auth.js"
 
 export function createApp() {
@@ -20,11 +21,15 @@ export function createApp() {
 
   app.get("/health", (c) => c.json({ status: "ok", version: "0.1.0" }))
 
-  // Public endpoints (webhook inbound needs to be open)
-  app.route("/v1/webhooks", webhooksApi)
+  app.use("/v1/*", async (c, next) => {
+    if (c.req.path === "/v1/webhooks/in") {
+      await next()
+      return
+    }
 
-  // Protected endpoints
-  app.use("/v1/*", optionalAuth())
+    return authMiddleware(c, next)
+  })
+
   app.route("/v1/validate", validateApi)
   app.route("/v1/rules", rulesApi)
   app.route("/v1/audit", auditApi)
@@ -32,6 +37,8 @@ export function createApp() {
   app.route("/v1/sync", syncApi)
   app.route("/v1/tokens", tokensApi)
   app.route("/v1/analytics", analyticsApi)
+  app.route("/v1/projects", projectsApi)
+  app.route("/v1/webhooks", webhooksApi)
 
   return app
 }
@@ -60,6 +67,7 @@ export { syncApi } from "./api/sync.js"
 export { webhooksApi, dispatchWebhooks } from "./api/webhooks.js"
 export { tokensApi } from "./api/tokens.js"
 export { analyticsApi } from "./api/analytics.js"
+export { projectsApi } from "./api/projects.js"
 export { authMiddleware, optionalAuth } from "./middleware/auth.js"
 export { getDb, schema } from "./db/index.js"
 export { signPayload, deliverWebhook } from "./webhooks/dispatcher.js"

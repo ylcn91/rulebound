@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { resolve, join } from "node:path"
 import chalk from "chalk"
+import { PRE_COMMIT_HOOK_CONTENT } from "../lib/pre-commit-hook.js"
 
 interface InitOptions {
   examples?: boolean
@@ -63,30 +64,7 @@ export async function initCommand(options: InitOptions): Promise<void> {
       const { chmodSync } = await import("node:fs")
       if (!existsSync(hooksDir)) mkdirSync(hooksDir, { recursive: true })
 
-      const hookContent = `#!/bin/sh
-# Rulebound pre-commit hook (auto-installed by rulebound init)
-# Validates staged changes against project rules
-
-echo "Rulebound: validating changes..."
-
-DIFF=$(git diff --cached)
-if [ -z "$DIFF" ]; then
-  exit 0
-fi
-
-npx rulebound diff --ref HEAD 2>/dev/null
-EXIT_CODE=$?
-
-if [ $EXIT_CODE -ne 0 ]; then
-  echo ""
-  echo "Rulebound: commit blocked. Fix rule violations first."
-  echo "Run 'rulebound diff' for details."
-  exit 1
-fi
-
-exit 0
-`
-      writeFileSync(hookPath, hookContent)
+      writeFileSync(hookPath, PRE_COMMIT_HOOK_CONTENT)
       chmodSync(hookPath, 0o755)
       console.log(chalk.white("Installed pre-commit hook."))
     }

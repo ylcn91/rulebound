@@ -2,7 +2,7 @@
 
 [![Rulebound Score](https://img.shields.io/badge/rulebound-93%25-4c1?style=flat-square)](https://github.com/ylcn91/rulebound)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-310%20passing-brightgreen?style=flat-square)]()
+[![Tests](https://img.shields.io/badge/tests-validated-brightgreen?style=flat-square)]()
 
 Centralized rules for AI coding agents. Define your team's standards once — enforce them on every AI-generated line of code.
 
@@ -40,7 +40,7 @@ Works with **Claude Code**, **Cursor**, **GitHub Copilot**, and any AI coding ag
             monitoring)
 ```
 
-**8 packages** · **310 tests** · **10 languages** · **36 AST queries** · **6 SDKs**
+**Monorepo** · **Validated test/build pipeline** · **10 languages** · **36 AST queries** · **Multi-SDK**
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full architecture documentation with ASCII flow diagrams.
 
@@ -211,6 +211,7 @@ rulebound init --examples
 | `rulebound generate` | Generate CLAUDE.md, .cursor/rules.md, copilot-instructions.md |
 | `rulebound find-rules` | Search rules by task, category, tags, or stack |
 | `rulebound validate` | Validate a plan against matched rules |
+| `rulebound bugfix` | Define a bug boundary, postcondition, and preservation checks before patching |
 | `rulebound diff` | Validate git diff against rules |
 | `rulebound score` | Calculate compliance score (0-100) + generate badge |
 | `rulebound hook` | Install/remove pre-commit git hook |
@@ -246,6 +247,24 @@ rulebound init --examples
 --dir <path>        Custom rules directory
 --llm               Use LLM for deep validation (requires AI SDK)
 ```
+
+### Bugfix Workflow
+
+```bash
+# Create a behavior-preserving bugfix spec
+rulebound bugfix start --summary "Deleting a user fails when billing profile is missing"
+
+# Validate a proposed plan against the stored bugfix boundary
+rulebound bugfix validate --spec .rulebound/bugfixes/deleting-a-user-fails-when-billing-profile-is-missing.md --plan "Add a null guard in the delete handler and add fix/preservation tests"
+```
+
+Bugfix sessions are stored under `.rulebound/bugfixes/` and force the agent to define:
+
+- bug condition `C`
+- postcondition `P`
+- preservation scenarios for `not C`
+
+This keeps bugfixes inside a declared behavior boundary instead of silently refactoring adjacent flows.
 
 ### Enforce Options
 
@@ -737,7 +756,7 @@ pnpm --filter web dev
 - **Web:** Next.js 16, React 19, Tailwind CSS 4, Radix UI, Lucide Icons
 - **Database:** PostgreSQL 17, Drizzle ORM
 - **SDKs:** Python (httpx), Go (stdlib), TypeScript (fetch), Java (HttpClient), C#/.NET (HttpClient), Rust (reqwest)
-- **Testing:** Vitest 4 (310 tests across 30 test files)
+- **Testing:** Vitest 4 + SDK-native suites
 - **Monorepo:** Turborepo + pnpm workspaces
 
 ## Contributing

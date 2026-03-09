@@ -11,13 +11,25 @@ vi.mock("../db/index.js", () => ({
   },
 }))
 
+vi.mock("../lib/projects.js", () => ({
+  resolveProjectForOrg: vi.fn(),
+}))
+
 import { getDb } from "../db/index.js"
+import { resolveProjectForOrg } from "../lib/projects.js"
 
 const mockGetDb = vi.mocked(getDb)
+const mockResolveProjectForOrg = vi.mocked(resolveProjectForOrg)
 
 async function createApp() {
   const { complianceApi } = await import("../api/compliance.js")
   const app = new Hono()
+  app.use("*", async (c, next) => {
+    c.set("orgId" as never, "org-1" as never)
+    c.set("userId" as never, "user-1" as never)
+    c.set("tokenScopes" as never, [] as never)
+    await next()
+  })
   app.route("/compliance", complianceApi)
   return app
 }
@@ -25,6 +37,17 @@ async function createApp() {
 describe("compliance API", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.resetModules()
+    mockResolveProjectForOrg.mockResolvedValue({
+      id: "proj-1",
+      orgId: "org-1",
+      name: "Project",
+      slug: "project",
+      repoUrl: null,
+      stack: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as never)
   })
 
   describe("GET /:projectId", () => {
@@ -120,6 +143,15 @@ describe("compliance API", () => {
         snapshotAt: new Date(),
       }
       const mockDb = {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              orderBy: vi.fn().mockReturnValue({
+                limit: vi.fn().mockResolvedValue([]),
+              }),
+            }),
+          }),
+        }),
         insert: vi.fn().mockReturnValue({
           values: vi.fn().mockReturnValue({
             returning: vi.fn().mockResolvedValue([created]),
@@ -172,6 +204,15 @@ describe("compliance API", () => {
         }]),
       })
       const mockDb = {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              orderBy: vi.fn().mockReturnValue({
+                limit: vi.fn().mockResolvedValue([]),
+              }),
+            }),
+          }),
+        }),
         insert: vi.fn().mockReturnValue({
           values: mockInsertValues,
         }),

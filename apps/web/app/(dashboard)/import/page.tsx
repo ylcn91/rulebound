@@ -28,8 +28,11 @@ interface ParsedRule {
 export default function ImportPage() {
   const [activeTab, setActiveTab] = useState<TabId>("paste")
   const [pasteContent, setPasteContent] = useState("")
+  const [repoUrl, setRepoUrl] = useState("")
+  const [branch, setBranch] = useState("main")
   const [parsedRules, setParsedRules] = useState<ParsedRule[]>([])
   const [parsing, setParsing] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function handleParse(content: string) {
@@ -57,6 +60,73 @@ export default function ImportPage() {
     } finally {
       setParsing(false)
     }
+  }
+
+  async function handleGitHubImport() {
+    if (!repoUrl.trim()) return
+
+    setParsing(true)
+    setError(null)
+    setParsedRules([])
+
+    try {
+      const res = await fetch("/api/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: "github",
+          repoUrl: repoUrl.trim(),
+          branch: branch.trim() || "main",
+        }),
+      })
+
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setError(data.error ?? "Failed to import GitHub rules")
+        return
+      }
+
+      setParsedRules(data.data?.rules ?? [])
+    } catch {
+      setError("Failed to import GitHub rules")
+    } finally {
+      setParsing(false)
+    }
+  }
+
+  async function handlePersistRules() {
+    if (parsedRules.length === 0) return
+
+    setSaving(true)
+    setError(null)
+
+    try {
+      for (const rule of parsedRules) {
+        const response = await fetch("/api/rules", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: rule.title,
+            content: rule.content,
+            category: rule.category,
+            severity: rule.severity,
+            modality: rule.modality,
+            tags: [],
+          }),
+        })
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}))
+          throw new Error(payload.error ?? `Failed to save rule "${rule.title}"`)
+        }
+      }
+    } catch (persistError) {
+      setError(persistError instanceof Error ? persistError.message : "Failed to persist imported rules")
+      setSaving(false)
+      return
+    }
+
+    setSaving(false)
   }
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -169,7 +239,7 @@ export default function ImportPage() {
                 >
                   Repository URL
                 </label>
-                <Input id="repo-url" placeholder="https://github.com/owner/repo" />
+                <Input id="repo-url" value={repoUrl} onChange={(event) => setRepoUrl(event.target.value)} placeholder="https://github.com/owner/repo" />
               </div>
               <div className="space-y-1.5">
                 <label
@@ -178,11 +248,11 @@ export default function ImportPage() {
                 >
                   Branch
                 </label>
-                <Input id="branch" placeholder="main" defaultValue="main" />
+                <Input id="branch" value={branch} onChange={(event) => setBranch(event.target.value)} placeholder="main" />
               </div>
-              <Button className="gap-2 cursor-pointer">
+              <Button className="gap-2 cursor-pointer" onClick={handleGitHubImport} disabled={parsing || !repoUrl.trim()}>
                 <Github className="h-4 w-4" />
-                Import Rules
+                {parsing ? "Importing..." : "Import Rules"}
               </Button>
             </div>
           )}
@@ -237,6 +307,11 @@ export default function ImportPage() {
                   </p>
                 </div>
               ))}
+            </div>
+            <div className="mt-4">
+              <Button onClick={handlePersistRules} disabled={saving}>
+                {saving ? "Saving..." : "Save Parsed Rules"}
+              </Button>
             </div>
           </CardContent>
         </Card>

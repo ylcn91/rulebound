@@ -13,15 +13,60 @@ vi.mock("@rulebound/engine", () => ({
   validate: vi.fn(),
 }))
 
+vi.mock("../lib/projects.js", () => ({
+  resolveProjectForOrg: vi.fn(),
+}))
+
+vi.mock("../lib/rules.js", () => ({
+  calculateComplianceScore: vi.fn(() => 100),
+  dbRuleToEngineRule: vi.fn((rule: Record<string, unknown>) => ({
+    id: rule.id,
+    title: rule.title,
+    content: rule.content,
+    category: rule.category,
+    severity: rule.severity,
+    modality: rule.modality,
+    tags: rule.tags ?? [],
+    stack: rule.stack ?? [],
+    scope: [],
+    changeTypes: [],
+    team: [],
+    filePath: "",
+  })),
+  getEffectiveRuleSetIds: vi.fn(),
+  resolveRulesForRuleSetIds: vi.fn(),
+}))
+
+vi.mock("../lib/activity.js", () => ({
+  createComplianceSnapshot: vi.fn(),
+  emitWebhookEvent: vi.fn(),
+  writeAuditEntry: vi.fn(),
+}))
+
 import { getDb } from "../db/index.js"
 import { validate } from "@rulebound/engine"
+import { resolveProjectForOrg } from "../lib/projects.js"
+import { getEffectiveRuleSetIds, resolveRulesForRuleSetIds } from "../lib/rules.js"
+import { writeAuditEntry, emitWebhookEvent, createComplianceSnapshot } from "../lib/activity.js"
 
 const mockGetDb = vi.mocked(getDb)
 const mockValidate = vi.mocked(validate)
+const mockResolveProjectForOrg = vi.mocked(resolveProjectForOrg)
+const mockGetEffectiveRuleSetIds = vi.mocked(getEffectiveRuleSetIds)
+const mockResolveRulesForRuleSetIds = vi.mocked(resolveRulesForRuleSetIds)
+const mockWriteAuditEntry = vi.mocked(writeAuditEntry)
+const mockEmitWebhookEvent = vi.mocked(emitWebhookEvent)
+const mockCreateComplianceSnapshot = vi.mocked(createComplianceSnapshot)
 
 async function createApp() {
   const { validateApi } = await import("../api/validate.js")
   const app = new Hono()
+  app.use("*", async (c, next) => {
+    c.set("orgId" as never, "org-1" as never)
+    c.set("userId" as never, "user-1" as never)
+    c.set("tokenScopes" as never, [] as never)
+    await next()
+  })
   app.route("/validate", validateApi)
   return app
 }
@@ -48,6 +93,25 @@ function makeDbRule(overrides: Record<string, unknown> = {}) {
 describe("validate API", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.resetModules()
+    mockGetDb.mockReturnValue({} as never)
+    mockResolveProjectForOrg.mockResolvedValue(null)
+    mockGetEffectiveRuleSetIds.mockResolvedValue(["rs-1"])
+    mockResolveRulesForRuleSetIds.mockResolvedValue([makeDbRule()] as never)
+    mockWriteAuditEntry.mockResolvedValue(undefined)
+    mockEmitWebhookEvent.mockResolvedValue(undefined)
+    mockCreateComplianceSnapshot.mockResolvedValue({
+      snapshot: {
+        id: "snap-1",
+        projectId: "proj-1",
+        score: 100,
+        passCount: 1,
+        violatedCount: 0,
+        notCoveredCount: 0,
+        snapshotAt: new Date(),
+      },
+      previousScore: null,
+    } as never)
   })
 
   it("returns 400 when neither plan nor code is provided", async () => {
@@ -63,19 +127,6 @@ describe("validate API", () => {
   })
 
   it("returns 200 with validation results for a valid plan", async () => {
-    const dbRules = [makeDbRule()]
-    const mockDb = {
-      select: vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(dbRules),
-        }),
-      }),
-      insert: vi.fn().mockReturnValue({
-        values: vi.fn().mockResolvedValue([]),
-      }),
-    }
-    mockGetDb.mockReturnValue(mockDb as never)
-
     const mockReport = {
       task: "test",
       rulesMatched: 1,
@@ -109,16 +160,6 @@ describe("validate API", () => {
   })
 
   it("returns 200 with code field instead of plan", async () => {
-    const dbRules = [makeDbRule()]
-    const mockDb = {
-      select: vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(dbRules),
-        }),
-      }),
-    }
-    mockGetDb.mockReturnValue(mockDb as never)
-
     const mockReport = {
       task: "test",
       rulesMatched: 1,
@@ -145,14 +186,7 @@ describe("validate API", () => {
       makeDbRule({ id: "python-rule", stack: ["python"] }),
       makeDbRule({ id: "global-rule", stack: [] }),
     ]
-    const mockDb = {
-      select: vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(dbRules),
-        }),
-      }),
-    }
-    mockGetDb.mockReturnValue(mockDb as never)
+    mockResolveRulesForRuleSetIds.mockResolvedValue(dbRules as never)
 
     const mockReport = {
       task: "test",
@@ -172,8 +206,6 @@ describe("validate API", () => {
     })
 
     expect(res.status).toBe(200)
-    // validate should be called with the rules the DB returned
-    // (actual filtering happens at the SQL level via arrayOverlaps)
     expect(mockValidate).toHaveBeenCalledOnce()
     const callArgs = mockValidate.mock.calls[0][0]
     expect(callArgs.rules).toHaveLength(3)
@@ -181,20 +213,6 @@ describe("validate API", () => {
   })
 
   it("logs audit entries for violations when orgId is set", async () => {
-    const dbRules = [makeDbRule()]
-    const mockInsertValues = vi.fn().mockResolvedValue([])
-    const mockDb = {
-      select: vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(dbRules),
-        }),
-      }),
-      insert: vi.fn().mockReturnValue({
-        values: mockInsertValues,
-      }),
-    }
-    mockGetDb.mockReturnValue(mockDb as never)
-
     const mockReport = {
       task: "test",
       rulesMatched: 1,
@@ -214,11 +232,12 @@ describe("validate API", () => {
     }
     mockValidate.mockResolvedValue(mockReport as never)
 
-    // Create an app that sets orgId
     const { validateApi } = await import("../api/validate.js")
     const app = new Hono()
     app.use("*", async (c, next) => {
       c.set("orgId" as never, "org-123" as never)
+      c.set("userId" as never, "user-123" as never)
+      c.set("tokenScopes" as never, [] as never)
       await next()
     })
     app.route("/validate", validateApi)
@@ -230,6 +249,7 @@ describe("validate API", () => {
     })
 
     expect(res.status).toBe(200)
-    expect(mockInsertValues).toHaveBeenCalled()
+    expect(mockWriteAuditEntry).toHaveBeenCalled()
+    expect(mockEmitWebhookEvent).toHaveBeenCalled()
   })
 })

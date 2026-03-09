@@ -2,9 +2,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { extractCodeBlocks, scanResponse, buildViolationWarning } from "../interceptor/post-response.js"
 import type { Rule } from "@rulebound/engine"
 
-vi.mock("@rulebound/engine", () => ({
-  validate: vi.fn(),
-}))
+vi.mock("@rulebound/engine", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@rulebound/engine")>()
+  return {
+    ...actual,
+    validate: vi.fn(),
+  }
+})
 
 vi.mock("../interceptor/ast-scanner.js", () => ({
   scanCodeBlockWithAST: vi.fn().mockResolvedValue([]),
@@ -100,12 +104,14 @@ describe("scanResponse", () => {
     const result = await scanResponse("```js\nconst x = 1\n```", [])
     expect(result.hasViolations).toBe(false)
     expect(result.violations).toEqual([])
+    expect(result.enforcement.score).toBe(100)
   })
 
   it("returns no violations when no code blocks exist", async () => {
     const result = await scanResponse("Just text, no code", [makeRule()])
     expect(result.hasViolations).toBe(false)
     expect(result.violations).toEqual([])
+    expect(result.codeBlockCount).toBe(0)
   })
 
   it("detects violations in code blocks", async () => {
@@ -139,7 +145,10 @@ describe("scanResponse", () => {
     expect(result.violations[0].ruleTitle).toBe("No Secrets")
     expect(result.violations[0].reason).toBe("Found hardcoded secret")
     expect(result.violations[0].suggestedFix).toBe("Use env vars")
+    expect(result.violations[0].source).toBe("semantic")
+    expect(result.violations[0].modality).toBe("must")
     expect(result.report).toBeDefined()
+    expect(result.enforcement.hasMustViolation).toBe(true)
   })
 
   it("returns clean result when no violations found", async () => {
@@ -169,6 +178,7 @@ describe("scanResponse", () => {
 
     expect(result.hasViolations).toBe(false)
     expect(result.violations).toHaveLength(0)
+    expect(result.enforcement.score).toBe(100)
   })
 
   it("includes code snippet in violation output", async () => {

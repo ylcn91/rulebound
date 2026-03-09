@@ -1,7 +1,12 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs"
 import { resolve } from "node:path"
 import chalk from "chalk"
-import { DEFAULT_ENFORCEMENT, type EnforcementConfig, type EnforcementMode } from "../lib/enforcement.js"
+import {
+  DEFAULT_ENFORCEMENT,
+  isValidMode,
+  type EnforcementConfig,
+  type EnforcementMode,
+} from "@rulebound/engine"
 
 const VALID_MODES: readonly EnforcementMode[] = ["advisory", "moderate", "strict"]
 
@@ -28,10 +33,6 @@ function getEnforcementFromConfig(config: Record<string, unknown>): EnforcementC
     scoreThreshold: raw?.scoreThreshold ?? DEFAULT_ENFORCEMENT.scoreThreshold,
     autoPromote: raw?.autoPromote ?? DEFAULT_ENFORCEMENT.autoPromote,
   }
-}
-
-function isValidMode(value: string): value is EnforcementMode {
-  return VALID_MODES.includes(value as EnforcementMode)
 }
 
 export async function enforceCommand(options: EnforceOptions): Promise<void> {

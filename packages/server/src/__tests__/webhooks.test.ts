@@ -36,6 +36,16 @@ const mockParseGitHub = vi.mocked(parseGitHubEvent)
 async function createApp() {
   const { webhooksApi } = await import("../api/webhooks.js")
   const app = new Hono()
+  app.use("*", async (c, next) => {
+    if (c.req.path === "/webhooks/in") {
+      await next()
+      return
+    }
+    c.set("orgId" as never, "org-1" as never)
+    c.set("userId" as never, "user-1" as never)
+    c.set("tokenScopes" as never, [] as never)
+    await next()
+  })
   app.route("/webhooks", webhooksApi)
   return app
 }
@@ -76,7 +86,9 @@ describe("webhooks API", () => {
       ]
       const mockDb = {
         select: vi.fn().mockReturnValue({
-          from: vi.fn().mockReturnValue(Promise.resolve(endpoints)),
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue(endpoints),
+          }),
         }),
       }
       mockGetDb.mockReturnValue(mockDb as never)
@@ -242,17 +254,28 @@ describe("webhooks API", () => {
 
   describe("GET /deliveries", () => {
     it("returns deliveries for an endpoint", async () => {
+      const endpoints = [
+        { id: "ep-1", orgId: "org-1", url: "https://example.com", encryptedSecret: "encrypted:s3cret", secretHash: "s3cret..", events: ["violation.detected"], isActive: true },
+      ]
       const deliveries = [
         { id: "del-1", endpointId: "ep-1", event: "violation.detected", status: "delivered" },
       ]
-      const mockDb = {
-        select: vi.fn().mockReturnValue({
+      const select = vi.fn()
+      select
+        .mockReturnValueOnce({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue(endpoints),
+          }),
+        })
+        .mockReturnValueOnce({
           from: vi.fn().mockReturnValue({
             where: vi.fn().mockReturnValue({
               limit: vi.fn().mockResolvedValue(deliveries),
             }),
           }),
-        }),
+        })
+      const mockDb = {
+        select,
       }
       mockGetDb.mockReturnValue(mockDb as never)
 

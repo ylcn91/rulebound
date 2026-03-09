@@ -1,9 +1,34 @@
-import type { Matcher, MatcherContext, MatchResult, PipelineResult } from "./types.js"
+import type { MatchResult, MatchStatus, Matcher, MatcherContext, PipelineResult } from "./types.js"
 
 interface MatcherResultSet {
   readonly matcherName: string
   readonly matcherIndex: number
   readonly results: readonly MatchResult[]
+}
+
+const STATUS_PRIORITY: Readonly<Record<MatchStatus, number>> = {
+  VIOLATED: 3,
+  PASS: 2,
+  NOT_COVERED: 1,
+}
+
+function shouldReplaceResult(
+  existing: { result: MatchResult; matcherIndex: number },
+  next: MatchResult,
+  matcherIndex: number,
+): boolean {
+  const nextPriority = STATUS_PRIORITY[next.status]
+  const existingPriority = STATUS_PRIORITY[existing.result.status]
+
+  if (nextPriority !== existingPriority) {
+    return nextPriority > existingPriority
+  }
+
+  if (next.confidence !== existing.result.confidence) {
+    return next.confidence > existing.result.confidence
+  }
+
+  return matcherIndex > existing.matcherIndex
 }
 
 function mergeResults(resultSets: readonly MatcherResultSet[]): readonly MatchResult[] {
@@ -18,11 +43,7 @@ function mergeResults(resultSets: readonly MatcherResultSet[]): readonly MatchRe
         continue
       }
 
-      const shouldReplace =
-        result.confidence > existing.result.confidence ||
-        (result.confidence === existing.result.confidence && matcherIndex > existing.matcherIndex)
-
-      if (shouldReplace) {
+      if (shouldReplaceResult(existing, result, matcherIndex)) {
         grouped.set(result.ruleId, { result, matcherIndex })
       }
     }
