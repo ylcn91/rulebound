@@ -10,7 +10,8 @@
     "lint": "turbo lint",
     "test": "turbo test && pnpm run test:sdks:native",
     "test:sdks:native": "bash ./scripts/test-sdks.sh",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\""
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
+    "claude": "bash ./scripts/claude-rb.sh"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.0.18",

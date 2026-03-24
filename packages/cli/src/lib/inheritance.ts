@@ -1,5 +1,6 @@
 import { readFileSync, existsSync } from "node:fs"
 import { resolve } from "node:path"
+import { detectProjectStack } from "@rulebound/engine"
 import type { LocalRule, ProjectConfig } from "./local-rules.js"
 import { loadLocalRules, findRulesDir } from "./local-rules.js"
 
@@ -26,12 +27,23 @@ export function loadConfig(cwd: string): RuleboundConfig | null {
 export function getProjectConfig(cwd: string): ProjectConfig | null {
   const config = loadConfig(cwd)
   if (!config?.project) return null
-  return {
-    name: config.project.name,
-    stack: config.project.stack,
-    scope: config.project.scope,
-    team: config.project.team,
+
+  const { name, stack, scope, team } = config.project
+  const hasValues =
+    (name != null && name !== "") ||
+    (stack != null && stack.length > 0) ||
+    (scope != null && scope.length > 0) ||
+    (team != null && team !== "")
+
+  if (!hasValues) {
+    const detectedStack = detectProjectStack(cwd)
+    if (detectedStack.length > 0) {
+      return { stack: detectedStack }
+    }
+    return null
   }
+
+  return { name, stack, scope, team }
 }
 
 /**

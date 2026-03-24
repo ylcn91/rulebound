@@ -150,8 +150,12 @@ export function matchRulesByContext(
   let matched: Array<{ rule: LocalRule; score: number }> = []
 
   for (const rule of rules) {
-    const hasMetadata = rule.stack.length > 0 || rule.scope.length > 0 || rule.team.length > 0
-    
+    const isGlobalScope = rule.scope.some((s) => s.toLowerCase() === "all")
+    const hasMetadata =
+      rule.stack.length > 0 ||
+      (rule.scope.length > 0 && !isGlobalScope) ||
+      rule.team.length > 0
+
     if (!projectConfig || !hasMetadata) {
       // Global rule or no project config — always include
       matched.push({ rule, score: hasMetadata ? 0 : 1 })

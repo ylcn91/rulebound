@@ -110,7 +110,11 @@ export function matchRulesByContext(
   let matched: Array<{ rule: Rule; score: number }> = []
 
   for (const rule of rules) {
-    const hasMetadata = rule.stack.length > 0 || rule.scope.length > 0 || rule.team.length > 0
+    const isGlobalScope = rule.scope.some((s) => s.toLowerCase() === "all")
+    const hasMetadata =
+      rule.stack.length > 0 ||
+      (rule.scope.length > 0 && !isGlobalScope) ||
+      rule.team.length > 0
 
     if (!projectConfig || !hasMetadata) {
       matched.push({ rule, score: hasMetadata ? 0 : 1 })
@@ -285,12 +289,23 @@ export function loadConfig(cwd: string): RuleboundConfig | null {
 export function getProjectConfig(cwd: string): ProjectConfig | null {
   const config = loadConfig(cwd)
   if (!config?.project) return null
-  return {
-    name: config.project.name,
-    stack: config.project.stack,
-    scope: config.project.scope,
-    team: config.project.team,
+
+  const { name, stack, scope, team } = config.project
+  const hasValues =
+    (name != null && name !== "") ||
+    (stack != null && stack.length > 0) ||
+    (scope != null && scope.length > 0) ||
+    (team != null && team !== "")
+
+  if (!hasValues) {
+    const detectedStack = detectProjectStack(cwd)
+    if (detectedStack.length > 0) {
+      return { stack: detectedStack }
+    }
+    return null
   }
+
+  return { name, stack, scope, team }
 }
 
 export function loadRulesWithInheritance(cwd: string, overrideDir?: string): Rule[] {

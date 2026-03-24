@@ -504,3 +504,140 @@ The core validation engine uses a 4-layer pipeline.
 | Auth          | Bearer tokens, HMAC-SHA256 webhook signatures |
 | AI (optional) | Anthropic SDK, OpenAI SDK, Vercel AI SDK      |
 | Testing       | Vitest 4 plus SDK-native test suites           |
+
+---
+
+## Three-Layer Enforcement
+
+Regardless of which AI tool developers use (Claude Code, Cursor, Codex, Copilot, etc.), rules are enforced at three independent layers:
+
+```
+Developer (any AI tool)
+        │
+        ▼
+   ┌─────────────┐
+   │ MCP Server  │ ← Agent-level rule enforcement
+   │ (7 tools)   │   Agent checks rules BEFORE writing code
+   └──────┬──────┘
+          │
+          ▼
+   ┌─────────────┐
+   │  Gateway    │ ← LLM proxy, rule injection + response scanning
+   │  (proxy)    │   Tool-agnostic: works even without MCP support
+   └──────┬──────┘
+          │
+          ▼
+   ┌─────────────┐
+   │  CLI / CI   │ ← Final gate, pre-merge validation
+   │  (terminal) │   Pre-commit hook or CI pipeline
+   └─────────────┘
+```
+
+If a violation escapes one layer, the next one catches it.
+
+---
+
+## PoC Demo Quick Start
+
+### Prerequisites
+- Node.js 22+, pnpm
+- PostgreSQL 17 running locally
+
+### Step 1: Build All Packages
+```bash
+pnpm install && pnpm build
+```
+
+### Step 2: Start API Server
+```bash
+DATABASE_URL=postgresql://localhost:5432/rulebound \
+PORT=3001 \
+node packages/server/dist/index.js
+# → http://localhost:3001/health
+```
+
+### Step 3: Start Web Dashboard
+```bash
+# Create apps/web/.env.local:
+DATABASE_URL=postgresql://localhost:5432/rulebound
+RULEBOUND_DASHBOARD_PASSCODE=poc-demo-2024
+RULEBOUND_API_URL=http://localhost:3001
+RULEBOUND_API_TOKEN=<your-api-token>
+
+cd apps/web && npx next dev --turbopack --port 3000
+# → http://localhost:3000 (landing page)
+# → http://localhost:3000/access (login with passcode)
+# → http://localhost:3000/dashboard (main dashboard)
+```
+
+### Step 4: Start Gateway
+```bash
+GATEWAY_PORT=4001 \
+RULEBOUND_STACK=typescript,javascript \
+RULEBOUND_ENFORCEMENT=advisory \
+node packages/gateway/dist/index.js
+# → http://localhost:4001/health
+```
+
+### Step 5: Demo CLI Validation
+```bash
+# Bad plan → FAILED
+node packages/cli/dist/index.js validate \
+  --plan "Store API key in code and skip tests"
+
+# Good plan → PASSED
+node packages/cli/dist/index.js validate \
+  --plan "Load secrets from env vars, validate with Zod, write tests with 80% coverage"
+```
+
+### Step 6: Demo MCP Tools
+```bash
+# List available tools
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}
+{"jsonrpc":"2.0","method":"notifications/initialized"}
+{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | node packages/mcp/dist/index.js
+```
+
+### Step 7: Demo Gateway Rule Injection
+```bash
+# Point Claude Code through gateway
+ANTHROPIC_BASE_URL=http://localhost:4001/anthropic claude-code
+# All requests now have project rules injected into system prompt
+```
+
+### Dashboard Pages
+| URL | Page |
+|-----|------|
+| `/` | Landing page |
+| `/access` | Login (passcode) |
+| `/dashboard` | Overview |
+| `/rules` | Rule management |
+| `/rules/new` | Create new rule |
+| `/projects` | Project management |
+| `/analytics` | Validation analytics |
+| `/audit` | Audit log |
+| `/compliance` | Compliance tracking |
+| `/webhooks` | Webhook configuration |
+| `/settings` | Settings |
+| `/docs` | Documentation |
+
+### API Endpoints (Bearer token auth)
+```bash
+# List rules
+curl -H "Authorization: Bearer <token>" http://localhost:3001/v1/rules
+
+# Create rule
+curl -X POST -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"...","content":"...","category":"security","severity":"error"}' \
+  http://localhost:3001/v1/rules
+
+# Validate plan
+curl -X POST -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"plan":"...","task":"..."}' \
+  http://localhost:3001/v1/validate
+
+# Audit log
+curl -H "Authorization: Bearer <token>" http://localhost:3001/v1/audit
+```

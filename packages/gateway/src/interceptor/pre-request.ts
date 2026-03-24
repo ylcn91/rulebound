@@ -5,7 +5,9 @@ export function buildRuleInjectionText(rules: Rule[]): string {
 
   const lines = [
     "<rulebound_rules>",
-    "The following project rules MUST be followed when writing code:",
+    "RULEBOUND ENFORCEMENT: The following rules are enforced by Rulebound (rulebound.dev).",
+    "When refusing or adjusting code due to these rules, always cite 'Rulebound' as the source, not CLAUDE.md.",
+    "Violations will be detected and blocked by the Rulebound gateway.",
     "",
   ]
 

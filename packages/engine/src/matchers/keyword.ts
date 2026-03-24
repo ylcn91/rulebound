@@ -58,8 +58,18 @@ const COMPLIANCE_INDICATORS = [
   "use environment",
   "use env",
   "from env",
+  "env variables",
+  "environment variable",
   "load from",
   "secrets manager",
+  "httponly",
+  "rbac",
+  "abac",
+  "access control",
+  "service layer",
+  "zod schema",
+  "zod validation",
+  "input validation",
 ] as const
 
 const LITERAL_SECRET_PATTERNS = [
@@ -78,21 +88,45 @@ function extractKeywords(title: string, tags: readonly string[], category: strin
   return [...titleWords, ...tags.map((t) => t.toLowerCase()), category.toLowerCase()]
 }
 
+const STOPWORDS = new Set([
+  "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
+  "have", "has", "had", "do", "does", "did", "will", "would", "shall",
+  "should", "may", "might", "can", "could", "must", "need",
+  "to", "of", "in", "for", "on", "with", "at", "by", "from", "as",
+  "into", "through", "during", "before", "after", "above", "below",
+  "that", "this", "these", "those", "it", "its", "they", "them",
+  "and", "but", "or", "nor", "not", "so", "yet", "both", "each",
+  "all", "any", "few", "more", "most", "some", "such", "only", "just",
+  "than", "too", "very", "also", "even", "still", "already",
+  "use", "used", "using", "make", "made", "get", "set", "new", "old",
+  "add", "put", "run", "see", "try", "let", "keep", "give", "take",
+  "come", "go", "way", "well", "back", "own", "same", "real", "like",
+  "client", "server", "type", "types", "class", "function", "object",
+  "value", "values", "error", "errors", "data", "file", "files",
+  "code", "name", "string", "number", "boolean", "array", "list",
+  "component", "module", "package", "import", "export", "return",
+  "method", "field", "property", "interface", "response", "request",
+])
+
+function stripMarkdownFormatting(text: string): string {
+  return text
+    .replace(/`([^`]*)`/g, "$1")
+    .replace(/\*\*([^*]*)\*\*/g, "$1")
+    .replace(/\*([^*]*)\*/g, "$1")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+}
+
 function extractProhibitions(allText: string): readonly string[] {
+  const cleanText = stripMarkdownFormatting(allText)
   const prohibitions: string[] = []
 
   for (const pattern of PROHIBIT_PATTERNS) {
     pattern.lastIndex = 0
-    let match = pattern.exec(allText)
+    let match = pattern.exec(cleanText)
     while (match !== null) {
       prohibitions.push((match[1] ?? match[0]).trim().toLowerCase())
-      match = pattern.exec(allText)
+      match = pattern.exec(cleanText)
     }
-  }
-
-  const negTitleMatch = allText.match(/\bno\s+(\w+)/i)
-  if (negTitleMatch) {
-    prohibitions.push(negTitleMatch[1].toLowerCase())
   }
 
   return prohibitions
@@ -119,11 +153,14 @@ function extractProhibitedSubjects(prohibitions: readonly string[]): readonly st
   const subjects: string[] = []
 
   for (const prohibition of prohibitions) {
-    const words = prohibition.split(/\s+/)
+    const words = prohibition.split(/\s+/).filter((w) => !STOPWORDS.has(w))
     if (words.length > 1) {
-      subjects.push(words.slice(1).join(" "))
+      const subjectPhrase = words.slice(1).join(" ")
+      if (subjectPhrase.length > 3 && !STOPWORDS.has(subjectPhrase)) {
+        subjects.push(subjectPhrase)
+      }
       for (const word of words.slice(1)) {
-        if (word.length > 3) subjects.push(word)
+        if (word.length > 4 && !STOPWORDS.has(word)) subjects.push(word)
       }
     }
   }

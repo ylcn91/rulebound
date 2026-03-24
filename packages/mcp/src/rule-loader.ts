@@ -296,6 +296,39 @@ const VIOLATION_PATTERNS: Record<string, Array<{ match: RegExp; message: string;
     { match: /git\s+config\s+user\.(name|email)/i, message: "Overriding git author", fix: "Use Co-authored-by trailer instead" },
     { match: /--author\s*=/i, message: "Using --author flag", fix: "Use Co-authored-by trailer" },
   ],
+  "console log": [
+    { match: /console\.log\s*\(/i, message: "console.log detected", fix: "Use a structured logger (winston, pino) instead of console.log" },
+    { match: /console\.log/i, message: "console.log usage planned", fix: "Use a structured logger instead of console.log" },
+    { match: /debug\s*(log|print|output)/i, message: "Debug logging planned", fix: "Use structured logger; remove debug statements before committing" },
+  ],
+  "any type": [
+    { match: /:\s*any\b/i, message: "TypeScript 'any' type usage", fix: "Use 'unknown' with type guards or define a proper interface" },
+    { match: /as\s+any\b/i, message: "Type assertion to 'any'", fix: "Use 'unknown' with type narrowing instead of 'any'" },
+    { match: /\bany\s+type/i, message: "'any' type planned", fix: "Define proper TypeScript interfaces or use 'unknown'" },
+    { match: /type\s+any\b/i, message: "'any' type usage", fix: "Use 'unknown' with type guards or proper interfaces" },
+  ],
+  "mutation": [
+    { match: /\.push\s*\(/i, message: "Array mutation via push()", fix: "Use spread operator: [...arr, newItem] instead of arr.push()" },
+    { match: /\.splice\s*\(/i, message: "Array mutation via splice()", fix: "Use filter/slice to create new arrays" },
+    { match: /\.sort\s*\(/i, message: "In-place sort mutation", fix: "Use [...arr].sort() or toSorted() to avoid mutation" },
+    { match: /(?:^|[^=!<>])\w+\.\w+\s*=[^=>]/m, message: "Direct property mutation", fix: "Create new objects with spread: { ...obj, prop: newValue }" },
+    { match: /\bmutate\b|\bmutation\b|modify\s+in\s*place/i, message: "Mutation pattern planned", fix: "Use immutable patterns: spread, map, filter" },
+  ],
+  "file size": [
+    { match: /single\s+(?:large\s+)?file/i, message: "Single large file approach", fix: "Split into smaller files (200-400 lines). Organize by feature/domain" },
+    { match: /everything\s+in\s+one/i, message: "Monolithic file planned", fix: "Split into focused modules under 400 lines each" },
+    { match: /(?:1[0-9]{3}|[2-9]\d{3})\s*lines/i, message: "File exceeding size limit", fix: "Files must stay under 400 lines (800 max). Extract utilities and components" },
+  ],
+  "skip tests": [
+    { match: /skip\s*(the\s+)?test/i, message: "Skipping tests", fix: "Write tests first (TDD). Minimum 80% coverage required" },
+    { match: /no\s+tests?\s+(needed|required|necessary)/i, message: "Skipping tests", fix: "All features require unit and integration tests" },
+    { match: /without\s+(writing\s+)?tests/i, message: "No tests planned", fix: "Write tests first, then implement" },
+    { match: /test(s|ing)?\s+(later|afterward|after)/i, message: "Deferring tests", fix: "Follow TDD: write tests first, then implement" },
+  ],
+  "server components": [
+    { match: /["']use\s+client["']\s*(everywhere|by\s+default|on\s+every)/i, message: "'use client' overuse planned", fix: "Server Components by default; only add 'use client' for interactivity" },
+    { match: /make\s+(everything|all|every\w*)\s+client/i, message: "Unnecessary client components", fix: "Keep Server Components as default. Only use 'use client' when needed for hooks/events" },
+  ],
 }
 
 // Map rule IDs/tags to violation pattern keys
@@ -334,6 +367,24 @@ function getViolationKeysForRule(rule: LocalRule): string[] {
   }
   if (id.includes("kubernetes") || tags.includes("k8s") || title.includes("resource limit")) {
     keys.push("no resource limits")
+  }
+  if (id.includes("console") || tags.includes("console") || tags.includes("logging") || title.includes("console")) {
+    keys.push("console log")
+  }
+  if (id.includes("no-any") || tags.includes("any") || tags.includes("type-safety") || title.includes("any")) {
+    keys.push("any type")
+  }
+  if (id.includes("immutab") || tags.includes("immutability") || tags.includes("mutation") || title.includes("immutable") || title.includes("mutation")) {
+    keys.push("mutation")
+  }
+  if (id.includes("file-size") || tags.includes("file-size") || title.includes("file size")) {
+    keys.push("file size")
+  }
+  if (id.includes("testing") || tags.includes("testing") || tags.includes("unit-tests") || title.includes("testing")) {
+    keys.push("skip tests")
+  }
+  if (id.includes("server-component") || tags.includes("server-components") || title.includes("server component")) {
+    keys.push("server components")
   }
 
   return keys
