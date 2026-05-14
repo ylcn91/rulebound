@@ -43,8 +43,8 @@ export default async function RulesPage({
               Rules
             </h1>
             <p className="mt-1 text-sm text-(--color-text-secondary)">
-              Manage backend-authored enforcement rules for your AI coding
-              agents
+              Self-hosted view of backend-authored rules &mdash; deterministic
+              blockers, advisory findings, and waivers
             </p>
           </div>
           <Button asChild size="sm">
@@ -173,7 +173,7 @@ export default async function RulesPage({
     return (
       <BackendErrorState
         heading="Rules"
-        subheading="Manage backend-authored enforcement rules for your AI coding agents"
+        subheading="Self-hosted view of backend-authored rules — deterministic blockers, advisory findings, and waivers"
         title={description.title}
         description={description.description}
       />

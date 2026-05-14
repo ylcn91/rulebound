@@ -13,7 +13,7 @@ export default async function SettingsPage() {
     return (
       <BackendErrorState
         heading="Settings"
-        subheading="Configure CLI access against the backend token contract"
+        subheading="Self-hosted preview — configure CLI access against the backend token contract"
         title={description.title}
         description={description.description}
       />

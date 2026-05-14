@@ -143,7 +143,8 @@ export function SettingsClient({ tokens }: SettingsClientProps) {
           Settings
         </h1>
         <p className="mt-1 text-sm text-(--color-text-secondary)">
-          Configure CLI access against the backend token contract
+          Self-hosted preview &mdash; configure CLI access against the backend
+          token contract. No org membership, invites, or role enforcement yet.
         </p>
       </div>
 

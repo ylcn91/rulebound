@@ -98,8 +98,8 @@ export default async function AuditPage({
               Audit Log
             </h1>
             <p className="mt-1 text-sm text-(--color-text-secondary)">
-              Track validation events, rule changes, and backend enforcement
-              actions
+              Self-hosted audit viewer &mdash; blockers, advisory findings, rule
+              changes, and waivers from deterministic runs
             </p>
           </div>
 
@@ -228,7 +228,7 @@ export default async function AuditPage({
     return (
       <BackendErrorState
         heading="Audit Log"
-        subheading="Track validation events, rule changes, and backend enforcement actions"
+        subheading="Self-hosted audit viewer — blockers, advisory findings, rule changes, and waivers from deterministic runs"
         title={description.title}
         description={description.description}
       />

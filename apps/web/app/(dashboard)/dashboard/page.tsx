@@ -66,7 +66,7 @@ export default async function DashboardOverviewPage() {
             Dashboard
           </h1>
           <p className="mt-1 text-sm text-(--color-text-secondary)">
-            Organization-wide compliance overview
+            Self-hosted audit viewer for deterministic runs and compliance evidence
           </p>
         </div>
 
@@ -112,7 +112,7 @@ export default async function DashboardOverviewPage() {
                     {data.violations24h}
                   </p>
                   <p className="font-mono text-xs uppercase tracking-widest text-(--color-muted)">
-                    Violations (24h)
+                    Blockers (24h)
                   </p>
                 </div>
               </div>
@@ -142,7 +142,7 @@ export default async function DashboardOverviewPage() {
               <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-mono text-xs uppercase tracking-widest text-(--color-muted)">
-                    Org Score
+                    Aggregate Score
                   </p>
                   <p className="mt-2 text-sm text-(--color-text-secondary)">
                     Average across projects with backend compliance snapshots.
@@ -170,7 +170,7 @@ export default async function DashboardOverviewPage() {
                           {project.name}
                         </p>
                         <p className="text-xs text-(--color-text-secondary)">
-                          {project.violations} violations in latest snapshot
+                          {project.violations} blockers in latest run
                         </p>
                       </div>
                       <div className="text-right">
@@ -199,7 +199,7 @@ export default async function DashboardOverviewPage() {
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-(--color-text-primary)" />
                 <h2 className="font-mono text-xs font-semibold uppercase tracking-widest text-(--color-muted)">
-                  Top Violations
+                  Top Blockers
                 </h2>
               </div>
               {data.topViolations.length > 0 ? (
@@ -229,7 +229,7 @@ export default async function DashboardOverviewPage() {
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-(--color-text-primary)" />
                 <h2 className="font-mono text-xs font-semibold uppercase tracking-widest text-(--color-muted)">
-                  Recent Events
+                  Recent Evidence
                 </h2>
               </div>
               {data.recentEvents.length > 0 ? (
@@ -272,7 +272,7 @@ export default async function DashboardOverviewPage() {
     return (
       <BackendErrorState
         heading="Dashboard"
-        subheading="Organization-wide compliance overview"
+        subheading="Self-hosted audit viewer for deterministic runs and compliance evidence"
         title={description.title}
         description={description.description}
       />

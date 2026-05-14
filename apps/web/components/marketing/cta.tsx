@@ -9,7 +9,8 @@ export function CTA() {
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-(--color-text-secondary)">
           Open source, self-hostable, MIT licensed. Clone the repo, define your
-          rules, and start enforcing in under 5 minutes.
+          rules, and enforce them through the CLI, MCP, and CI. The dashboard
+          is an optional self-hosted audit viewer.
         </p>
 
         <div className="mt-8">

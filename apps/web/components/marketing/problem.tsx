@@ -11,16 +11,16 @@ const steps = [
   },
   {
     number: "02",
-    title: "Intercept",
+    title: "Verify",
     description:
-      "Rulebound analyzes code at the AST level and intercepts LLM responses through a gateway proxy — before violations reach your repo.",
+      "Rulebound runs deterministic AST, regex, diff-evidence, import-boundary, command, and analyzer checks through the CLI/MCP/CI loop.",
     icon: Zap,
   },
   {
     number: "03",
     title: "Enforce",
     description:
-      "Pre-commit hooks, CI checks, and real-time IDE diagnostics. Choose advisory, moderate, or strict — block or warn, your call.",
+      "Deterministic checks block; advisory review warns. Existing analyzers are orchestrated rather than replaced.",
     icon: ShieldCheck,
   },
 ];

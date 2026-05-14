@@ -13,7 +13,7 @@ export default async function ProjectsPage() {
     return (
       <BackendErrorState
         heading="Projects"
-        subheading="Repositories connected to your rule sets"
+        subheading="Self-hosted view of repositories connected to your rule sets"
         title={description.title}
         description={description.description}
       />

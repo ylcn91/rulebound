@@ -3,31 +3,31 @@ import { Radar, MonitorDot, Eye, ShieldCheck } from "lucide-react";
 const layers = [
   {
     icon: Radar,
-    title: "Gateway Proxy",
-    tag: "LLM LAYER",
+    title: "CLI Check",
+    tag: "AUTHORITATIVE",
     description:
-      "Intercepts every LLM API call. Buffers streaming responses, scans completed code blocks with AST analysis. Strict mode blocks violations before they reach your editor.",
+      "rulebound check is the deterministic gate for local work and CI. It blocks only on machine-checkable findings.",
   },
   {
     icon: MonitorDot,
-    title: "LSP Diagnostics",
-    tag: "IDE LAYER",
+    title: "MCP Feedback",
+    tag: "AGENT LAYER",
     description:
-      "Real-time inline warnings as you type. 300ms debounced AST + semantic analysis. Violations appear as underlines in your editor — same as TypeScript errors.",
+      "Agents can discover rules, validate plans as advisory feedback, check diffs, and request repair instructions before they claim completion.",
   },
   {
     icon: Eye,
-    title: "Watch CLI",
-    tag: "FILE LAYER",
+    title: "CI Evidence",
+    tag: "PR LAYER",
     description:
-      "Monitors your working directory for file changes. Every save triggers validation against your rules. Pretty terminal output or JSON for CI pipelines.",
+      "GitHub annotations, SARIF, and PR markdown expose deterministic blockers, warnings, waivers, and analyzer evidence.",
   },
   {
     icon: ShieldCheck,
-    title: "MCP Pre-Write Gate",
-    tag: "AGENT LAYER",
+    title: "Optional Surfaces",
+    tag: "ADVANCED",
     description:
-      "AI agents must pass validate_before_write before creating any file. Unapproved code is blocked at the source — before it touches your repo.",
+      "The dashboard, gateway, server, and LSP are secondary surfaces with explicit readiness caveats, not the first-run path.",
   },
 ];
 
@@ -40,9 +40,9 @@ export function RealTime() {
           Enforcement That Never Sleeps
         </h2>
         <p className="mt-4 max-w-2xl text-(--color-text-secondary) leading-relaxed">
-          Rulebound doesn&apos;t wait for commit time. It actively monitors,
-          intercepts, and enforces at every stage of your AI-assisted workflow
-          &mdash; from the LLM response stream to your IDE gutter.
+          Rulebound gives agents fast feedback, but keeps the authority simple:
+          deterministic evidence blocks, advisory review warns, and CI can rerun
+          the same checks without trusting an LLM explanation.
         </p>
 
         <div className="mt-12 grid gap-px bg-(--color-text-primary)/10 border-2 border-(--color-text-primary)/10 sm:grid-cols-2">

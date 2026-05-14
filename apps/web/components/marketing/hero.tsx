@@ -58,9 +58,14 @@ export function Hero() {
           Follows the Blueprint.
         </h1>
         <p className="mt-6 max-w-2xl text-lg text-(--color-text-secondary) leading-relaxed">
-          AI agents write code fast &mdash; but speed without structure creates
-          debt. Rulebound enforces your engineering standards at every layer:
-          AST, gateway, and commit.
+          AI agents write code fast &mdash; you need deterministic findings and
+          compliance evidence before you ship it. Rulebound runs your rules
+          against agent output in the CLI, MCP, and CI &mdash; not after the fact.
+        </p>
+        <p className="mt-3 max-w-2xl text-sm text-(--color-text-secondary) leading-relaxed">
+          CLI, MCP, and CI are the primary path. The dashboard is an optional,
+          self-hosted audit viewer for deterministic runs and compliance
+          evidence &mdash; not a hosted SaaS.
         </p>
 
         <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">

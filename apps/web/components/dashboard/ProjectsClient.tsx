@@ -187,7 +187,7 @@ export function ProjectsClient({ projects }: ProjectsClientProps) {
             Projects
           </h1>
           <p className="mt-1 text-sm text-(--color-text-secondary)">
-            Repositories connected to your rule sets
+            Self-hosted view of repositories connected to your rule sets
           </p>
         </div>
 

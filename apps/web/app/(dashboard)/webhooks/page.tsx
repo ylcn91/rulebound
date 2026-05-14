@@ -16,7 +16,7 @@ export default async function WebhooksPage() {
     return (
       <BackendErrorState
         heading="Webhooks"
-        subheading="Configure outbound webhook endpoints for real-time notifications"
+        subheading="Self-hosted preview — configure outbound webhook endpoints for deterministic run notifications"
         title={description.title}
         description={description.description}
       />

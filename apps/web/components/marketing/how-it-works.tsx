@@ -14,15 +14,13 @@ const steps = [
   },
   {
     number: 2,
-    title: "Connect Your Stack",
-    description: "One install — CLI, MCP server, or gateway proxy. Works with Claude Code, Cursor, Copilot, and any OpenAI-compatible API.",
+    title: "Install Curated Packs",
+    description: "Start with the CLI. MCP and CI use the same rules; gateway and dashboard surfaces are optional and secondary.",
     code: `$ npm install -g @rulebound/cli
 
-$ rulebound init
-Initializing Rulebound...
+$ rulebound init --pack typescript --pack security --pack agent-workflow
 Created .rulebound/config.json
-Created .rulebound/rules/
-Installed pre-commit hook.
+Installed curated deterministic rules.
 
 Rulebound initialized. Ready.`,
   },
@@ -41,16 +39,13 @@ Matching rules to task context...
   },
   {
     number: 4,
-    title: "Enforce at Every Layer",
-    description: "AST analysis catches structural anti-patterns. The gateway scans LLM responses. Pre-commit hooks gate your repo. CI annotations flag PRs.",
-    code: `$ rulebound validate --plan task-plan.json
+    title: "Gate on Deterministic Evidence",
+    description: "Use rulebound check locally and in CI. Advisory plan/diff review can help, but deterministic checks decide pass or fail.",
+    code: `$ rulebound check --format github --base main
 
-Checking 3 rules against plan...
-  rest-conventions     PASS
-  input-validation     PASS
-  api-integration      PASS
+::notice::rulebound PASSED (5 pass, 0 blocking)
 
-All rules passed. Ready to ship.`,
+Deterministic checks passed.`,
   },
 ];
 

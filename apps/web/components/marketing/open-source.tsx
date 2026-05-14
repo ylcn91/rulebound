@@ -12,6 +12,8 @@ export function OpenSource() {
         <p className="mx-auto mt-4 max-w-xl text-(--color-text-secondary)">
           Rulebound is MIT-licensed and self-hostable. Run it on your
           infrastructure, audit every line, and own your enforcement pipeline.
+          The dashboard is optional &mdash; the CLI, MCP server, and CI
+          integration work standalone.
         </p>
 
         <div className="mt-6">

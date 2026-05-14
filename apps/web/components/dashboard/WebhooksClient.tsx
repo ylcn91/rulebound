@@ -182,7 +182,8 @@ export function WebhooksClient({ endpoints, deliveries }: WebhooksClientProps) {
             Webhooks
           </h1>
           <p className="mt-1 text-sm text-(--color-text-secondary)">
-            Configure outbound webhook endpoints for real-time notifications
+            Self-hosted preview &mdash; configure outbound webhook endpoints
+            for deterministic run notifications
           </p>
         </div>
         <Button

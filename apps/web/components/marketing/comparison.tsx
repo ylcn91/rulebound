@@ -11,12 +11,12 @@ const without = [
 ];
 
 const withRulebound = [
-  "One rule hub, inherited per project and stack",
-  "AST + semantic analysis catches violations at write-time",
-  "Enforcement modes from advisory to strict blocking",
-  "Rules are code — versioned, reviewed, auditable",
-  "Real-time IDE diagnostics via LSP",
-  "Compliance scores and audit trail per project",
+  "Policy-as-code rules versioned with each repo",
+  "Deterministic AST, regex, diff, import, command, and analyzer checks",
+  "Advisory matching helps agents, but deterministic evidence blocks",
+  "GitHub annotations, SARIF, and PR markdown reports",
+  "MCP feedback during the agent loop",
+  "Optional self-hosted dashboard for audit evidence",
 ];
 
 export function Comparison() {

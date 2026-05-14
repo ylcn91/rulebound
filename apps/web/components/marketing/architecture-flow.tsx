@@ -23,7 +23,7 @@ const topRow: readonly NodeDef[] = [
   {
     id: "developer",
     label: "Developer",
-    description: "Writes task prompt for AI agent",
+    description: "Starts an AI-assisted task",
     icon: Code2,
   },
   {
@@ -34,20 +34,20 @@ const topRow: readonly NodeDef[] = [
   },
   {
     id: "gateway",
-    label: "Gateway",
-    description: "Intercepts request, injects rules into system prompt",
+    label: "MCP",
+    description: "Agent discovers rules and gets advisory plan feedback",
     icon: Shield,
   },
   {
     id: "llm",
-    label: "LLM API",
-    description: "OpenAI, Anthropic, Google — generates code",
+    label: "Diff",
+    description: "Agent changes code in the workspace",
     icon: Cloud,
   },
   {
     id: "engine",
-    label: "Validation",
-    description: "Keyword, Semantic, LLM, and AST analysis pipeline",
+    label: "Check",
+    description: "Deterministic CLI/CI gate verifies evidence",
     icon: ScanSearch,
   },
 ];
@@ -56,13 +56,13 @@ const bottomRow: readonly NodeDef[] = [
   {
     id: "dashboard",
     label: "Dashboard",
-    description: "Compliance scores, audit log, trend charts",
+    description: "Optional self-hosted audit viewer",
     icon: BarChart3,
   },
   {
     id: "notify",
-    label: "Notify",
-    description: "Slack, Teams, Discord, PagerDuty alerts",
+    label: "Reports",
+    description: "GitHub annotations, SARIF, PR markdown, repair JSON",
     icon: Bell,
   },
 ];
@@ -107,11 +107,11 @@ export function ArchitectureFlow() {
       <div className="mx-auto max-w-6xl px-6">
         <p className="section-label">Architecture</p>
         <h2 className="mt-3 font-mono text-3xl font-bold tracking-tight sm:text-4xl">
-          End-to-End Rule Enforcement
+          Deterministic Evidence Flow
         </h2>
         <p className="mt-4 max-w-2xl text-(--color-text-secondary) leading-relaxed">
-          From the moment a developer prompts an AI agent to the final
-          compliance report — every step is governed by your rules.
+          Agents get guidance through MCP, but the merge decision comes from
+          deterministic checks that can run locally and in CI.
         </p>
 
         {/* ── Desktop: grid layout ── */}

@@ -13,19 +13,19 @@ const highlightedFeatures = [
   {
     title: "AST Code Analysis",
     description:
-      "Tree-sitter WASM parser detects structural anti-patterns across 10 languages. Built-in structural queries — no regex, real AST matching.",
+      "Tree-sitter-backed structural checks for supported languages. Use focused built-ins or custom queries where deterministic AST evidence fits.",
     icon: TreePine,
   },
   {
-    title: "LLM Gateway",
+    title: "Analyzer Orchestration",
     description:
-      "Transparent proxy between AI tools and LLM APIs. Injects rules into prompts, scans responses for violations in real-time.",
+      "Normalize PMD, Checkstyle, SpotBugs, JUnit, ESLint, Semgrep, gitleaks, SARIF, and command results into one deterministic report.",
     icon: Radar,
   },
   {
-    title: "Semantic Rule Matching",
+    title: "Advisory Rule Matching",
     description:
-      "Rulebound analyzes each task and selects only the relevant rules. No context window bloat — just the rules that matter.",
+      "Keyword and semantic matching help agents find relevant rules, but advisory signals never decide final pass/fail by default.",
     icon: Crosshair,
   },
   {
@@ -35,37 +35,34 @@ const highlightedFeatures = [
     icon: Plug,
   },
   {
-    title: "Enforcement Modes",
+    title: "Deterministic CI Gate",
     description:
-      "Choose advisory, moderate, or strict enforcement. Control when violations block commits and CI pipelines with configurable score thresholds.",
+      "Use rulebound check as the authoritative gate. Deterministic blockers fail CI; advisory review stays visible but non-blocking.",
     icon: Shield,
   },
   {
-    title: "Rule Registry",
+    title: "Policy-as-Code Rules",
     description:
-      "Store all your engineering rules in one place. Organize by domain, team, or project. Version-controlled and always in sync.",
+      "Markdown rules stay version-controlled with the repo and can carry machine-checkable AST, regex, diff, import, command, and analyzer checks.",
     icon: Database,
   },
 ];
 
 const moreFeatures = [
   "Generate Agent Configs",
-  "Plan-Before-Code Gating",
-  "Diff Validation",
+  "Advisory Plan Feedback",
+  "Deterministic Diff Evidence",
   "Behavior-Preserving Bugfix Workflow",
-  "Compliance Score",
-  "Pre-Commit Hook",
-  "Quality Attributes",
-  "Multi-Agent Support",
-  "Rule Versioning",
-  "Rule Inheritance",
+  "Waivers With Owner + Expiry",
+  "Repair JSON",
+  "Rule Packs",
   "CLI-First Workflow",
   "CI/CD Pipeline",
-  "Multi-Agent Review",
-  "Enterprise Server API",
-  "Notification Integrations",
-  "Multi-Language SDK",
-  "Compliance Dashboard",
+  "SARIF Output",
+  "PR Evidence Reports",
+  "MCP Tools",
+  "Optional Gateway",
+  "Audit Viewer (Self-Hosted, Optional)",
 ];
 
 export function Features() {

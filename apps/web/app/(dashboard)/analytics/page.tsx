@@ -27,7 +27,7 @@ export default async function AnalyticsPage() {
             Analytics
           </h1>
           <p className="mt-1 text-sm text-(--color-text-secondary)">
-            Validation insights and violation trends
+            Blocker and advisory finding trends from deterministic runs
           </p>
         </div>
 
@@ -54,7 +54,7 @@ export default async function AnalyticsPage() {
                 <AlertTriangle className="h-5 w-5 text-(--color-text-primary)" />
                 <div>
                   <p className="font-mono text-xs font-semibold uppercase tracking-widest text-(--color-muted)">
-                    Total Violations
+                    Total Blockers
                   </p>
                   <p className="text-2xl font-bold text-(--color-text-primary)">
                     {totalViolations}
@@ -101,7 +101,7 @@ export default async function AnalyticsPage() {
           <Card>
             <CardContent className="pt-6">
               <h2 className="mb-4 font-mono text-xs font-semibold uppercase tracking-widest text-(--color-muted)">
-                Top Violated Rules
+                Top Blockers
               </h2>
               {data.topViolations.length > 0 ? (
                 <div className="space-y-3">
@@ -131,7 +131,7 @@ export default async function AnalyticsPage() {
                 </div>
               ) : (
                 <p className="text-sm text-(--color-text-secondary)">
-                  No violations recorded yet.
+                  No blockers recorded yet.
                 </p>
               )}
             </CardContent>
@@ -140,7 +140,7 @@ export default async function AnalyticsPage() {
           <Card>
             <CardContent className="pt-6">
               <h2 className="mb-4 font-mono text-xs font-semibold uppercase tracking-widest text-(--color-muted)">
-                Violations by Action
+                Findings by Action
               </h2>
               {data.categories.length > 0 ? (
                 <div className="space-y-3">
@@ -219,7 +219,7 @@ export default async function AnalyticsPage() {
     return (
       <BackendErrorState
         heading="Analytics"
-        subheading="Validation insights and violation trends"
+        subheading="Blocker and advisory finding trends from deterministic runs"
         title={description.title}
         description={description.description}
       />

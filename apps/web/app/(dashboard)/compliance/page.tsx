@@ -90,7 +90,7 @@ export default async function CompliancePage() {
             Compliance
           </h1>
           <p className="mt-1 text-sm text-(--color-text-secondary)">
-            Track compliance scores and trends across all projects
+            Evidence and trend view from deterministic runs — self-hosted, read-only
           </p>
         </div>
 
@@ -101,7 +101,7 @@ export default async function CompliancePage() {
                 {averageScore}
               </p>
               <p className="mt-1 font-mono text-xs uppercase tracking-widest text-(--color-muted)">
-                Org Average
+                Avg Score
               </p>
             </CardContent>
           </Card>
@@ -121,7 +121,7 @@ export default async function CompliancePage() {
                 {rows.reduce((sum, row) => sum + row.violatedCount, 0)}
               </p>
               <p className="mt-1 font-mono text-xs uppercase tracking-widest text-(--color-muted)">
-                Violations
+                Blockers
               </p>
             </CardContent>
           </Card>
@@ -153,7 +153,7 @@ export default async function CompliancePage() {
                   Pass
                 </th>
                 <th className="hidden px-4 py-3 text-center font-mono text-xs font-semibold uppercase tracking-widest text-(--color-muted) sm:table-cell">
-                  Violated
+                  Blockers
                 </th>
                 <th className="hidden px-4 py-3 text-center font-mono text-xs font-semibold uppercase tracking-widest text-(--color-muted) lg:table-cell">
                   Not Covered
@@ -227,7 +227,7 @@ export default async function CompliancePage() {
     return (
       <BackendErrorState
         heading="Compliance"
-        subheading="Track compliance scores and trends across all projects"
+        subheading="Evidence and trend view from deterministic runs — self-hosted, read-only"
         title={description.title}
         description={description.description}
       />
