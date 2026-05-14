@@ -54,6 +54,8 @@ describe("StreamScanner", () => {
         semanticScore: 100,
         astErrorCount: 0,
         astWarningCount: 0,
+        hasAdvisoryMustViolation: false,
+        hasAdvisoryShouldViolation: false,
       },
     })
   })
@@ -163,6 +165,8 @@ describe("StreamScanner", () => {
           semanticScore: 0,
           astErrorCount: 0,
           astWarningCount: 0,
+          hasAdvisoryMustViolation: true,
+          hasAdvisoryShouldViolation: false,
         },
       })
 
@@ -198,6 +202,8 @@ describe("StreamScanner", () => {
           semanticScore: 80,
           astErrorCount: 0,
           astWarningCount: 0,
+          hasAdvisoryMustViolation: false,
+          hasAdvisoryShouldViolation: true,
         },
       })
 
@@ -223,6 +229,8 @@ describe("StreamScanner", () => {
           semanticScore: 100,
           astErrorCount: 0,
           astWarningCount: 0,
+          hasAdvisoryMustViolation: false,
+          hasAdvisoryShouldViolation: false,
         },
       })
 

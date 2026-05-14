@@ -35,7 +35,7 @@ describe("gateway enforcement", () => {
     vi.clearAllMocks()
   })
 
-  it("distinguishes advisory, moderate, and strict for should-only violations", () => {
+  it("never blocks gateway requests on semantic/advisory-only violations", () => {
     const summary = buildEnforcementSummary(makeReport({
       results: [
         {
@@ -51,12 +51,15 @@ describe("gateway enforcement", () => {
       status: "PASSED_WITH_WARNINGS",
     }), [])
 
+    // Semantic findings are advisory: they affect the score but must never
+    // trigger a block decision in the gateway.
     expect(summary.hasMustViolation).toBe(false)
-    expect(summary.hasShouldViolation).toBe(true)
+    expect(summary.hasShouldViolation).toBe(false)
+    expect(summary.hasAdvisoryShouldViolation).toBe(true)
     expect(summary.score).toBe(0)
     expect(shouldBlockForMode("advisory", summary)).toBe(false)
-    expect(shouldBlockForMode("moderate", summary)).toBe(true)
-    expect(shouldBlockForMode("strict", summary)).toBe(true)
+    expect(shouldBlockForMode("moderate", summary)).toBe(false)
+    expect(shouldBlockForMode("strict", summary)).toBe(false)
   })
 
   it("treats AST errors as MUST-level and warnings as SHOULD-level with penalties", () => {

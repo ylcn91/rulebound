@@ -74,6 +74,12 @@ function extractUserPrompt(provider: Provider, body: Record<string, unknown>): s
   return ""
 }
 
+const DEBUG_FULL_BODIES = process.env.DEBUG_FULL_BODIES === "1"
+
+function bodyDebug<T extends Record<string, unknown>>(fields: T): T | Record<string, never> {
+  return DEBUG_FULL_BODIES ? fields : {}
+}
+
 export function createProxy(config: GatewayConfig) {
   const app = new Hono()
   let requestCounter = 0
@@ -123,7 +129,7 @@ export function createProxy(config: GatewayConfig) {
       provider,
       model: model ?? "unknown",
       streaming: isStreaming,
-      userPrompt: extractUserPrompt(provider, body),
+      ...bodyDebug({ userPrompt: extractUserPrompt(provider, body) }),
     })
 
     // Pre-request: inject rules
@@ -136,7 +142,7 @@ export function createProxy(config: GatewayConfig) {
           reqId,
           rulesCount: rules.length,
           ruleTextLength: ruleText.length,
-          systemPromptPreview: extractSystemPrompt(provider, body),
+          ...bodyDebug({ systemPromptPreview: extractSystemPrompt(provider, body) }),
         })
       }
     }
@@ -169,7 +175,12 @@ export function createProxy(config: GatewayConfig) {
       model: model ?? "unknown",
       status: targetResponse.status,
       contentLength: responseBody.length,
-      responseBody: responseBody.length <= 10000 ? responseBody : responseBody.slice(0, 10000) + "... [truncated]",
+      ...bodyDebug({
+        responseBody:
+          responseBody.length <= 10000
+            ? responseBody
+            : responseBody.slice(0, 10000) + "... [truncated]",
+      }),
     })
 
     if (config.scanResponses) {
@@ -181,8 +192,8 @@ export function createProxy(config: GatewayConfig) {
         if (content) {
           logger.info("Response content extracted", {
             reqId,
-            contentPreview: content.slice(0, 500),
             contentLength: content.length,
+            ...bodyDebug({ contentPreview: content.slice(0, 500) }),
           })
 
           const scanResult = await scanResponse(content, rules)
@@ -221,7 +232,7 @@ export function createProxy(config: GatewayConfig) {
                 model: model ?? "unknown",
                 enforcement: config.enforcement,
                 violationCount: scanResult.violations.length,
-                violations: scanResult.violations,
+                ...bodyDebug({ violations: scanResult.violations }),
               })
               return c.json({
                 error: {
@@ -294,7 +305,12 @@ async function handleStreamingResponse(
           model: model ?? "unknown",
           totalChunks: streamChunkCount,
           accumulatedContentLength: fullBuffer.length,
-          responseContent: fullBuffer.length <= 10000 ? fullBuffer : fullBuffer.slice(0, 10000) + "... [truncated]",
+          ...bodyDebug({
+            responseContent:
+              fullBuffer.length <= 10000
+                ? fullBuffer
+                : fullBuffer.slice(0, 10000) + "... [truncated]",
+          }),
         })
         controller.close()
         return
@@ -366,7 +382,7 @@ async function handleStreamingResponse(
           model: model ?? "unknown",
           enforcement: config.enforcement,
           violationCount: result.scanResult.violations.length,
-          violations: result.scanResult.violations,
+          ...bodyDebug({ violations: result.scanResult.violations }),
         })
         scanner.consumePendingRawChunks()
         const blockingMode = config.enforcement === "moderate" ? "moderate" : "strict"

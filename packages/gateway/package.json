@@ -2,8 +2,21 @@
   "name": "@rulebound/gateway",
   "version": "0.1.0",
   "description": "LLM proxy gateway for Rulebound — transparent rule injection and response validation for any AI coding tool",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rulebound/rulebound.git",
+    "directory": "packages/gateway"
+  },
+  "homepage": "https://github.com/rulebound/rulebound#readme",
+  "bugs": {
+    "url": "https://github.com/rulebound/rulebound/issues"
+  },
+  "keywords": ["rulebound", "gateway", "llm", "proxy", "ai"],
   "type": "module",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist", "README.md", "LICENSE"],
   "bin": {
     "rulebound-gateway": "./dist/index.js"
   },

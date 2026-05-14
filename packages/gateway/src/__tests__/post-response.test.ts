@@ -148,7 +148,9 @@ describe("scanResponse", () => {
     expect(result.violations[0].source).toBe("semantic")
     expect(result.violations[0].modality).toBe("must")
     expect(result.report).toBeDefined()
-    expect(result.enforcement.hasMustViolation).toBe(true)
+    // Semantic violations are advisory in the gateway: they should never block.
+    expect(result.enforcement.hasMustViolation).toBe(false)
+    expect(result.enforcement.hasAdvisoryMustViolation).toBe(true)
   })
 
   it("returns clean result when no violations found", async () => {
