@@ -1,7 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DASHBOARD_SESSION_COOKIE, getDashboardPasscode } from "@/lib/dashboard-auth";
 
+const isProduction = process.env.NODE_ENV === "production";
+
+function isSameOriginRequest(request: NextRequest): boolean {
+  const origin = request.headers.get("origin");
+  const referer = request.headers.get("referer");
+  const host = request.headers.get("host");
+  if (!host) return false;
+
+  const expected = new Set<string>([
+    `https://${host}`,
+    `http://${host}`,
+  ]);
+
+  if (origin && expected.has(origin)) return true;
+  if (!origin && referer) {
+    try {
+      const refererOrigin = new URL(referer).origin;
+      if (expected.has(refererOrigin)) return true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
 export async function POST(request: NextRequest) {
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json({ error: "Cross-origin request rejected." }, { status: 403 });
+  }
+
   const form = await request.formData();
   const submitted = String(form.get("passcode") ?? "");
   const nextPath = String(form.get("next") ?? "/dashboard");
@@ -22,7 +51,7 @@ export async function POST(request: NextRequest) {
     value: passcode,
     httpOnly: true,
     sameSite: "lax",
-    secure: false,
+    secure: isProduction,
     path: "/",
     maxAge: 60 * 60 * 8,
   });
@@ -30,13 +59,17 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json({ error: "Cross-origin request rejected." }, { status: 403 });
+  }
+
   const response = NextResponse.json({ ok: true });
   response.cookies.set({
     name: DASHBOARD_SESSION_COOKIE,
     value: "",
     httpOnly: true,
     sameSite: "lax",
-    secure: false,
+    secure: isProduction,
     path: "/",
     maxAge: 0,
   });

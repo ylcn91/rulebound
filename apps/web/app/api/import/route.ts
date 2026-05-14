@@ -1,5 +1,25 @@
 import { NextResponse } from "next/server"
 
+function isSameOriginRequest(request: Request): boolean {
+  const origin = request.headers.get("origin")
+  const referer = request.headers.get("referer")
+  const host = request.headers.get("host")
+  if (!host) return false
+
+  const expected = new Set<string>([`https://${host}`, `http://${host}`])
+
+  if (origin && expected.has(origin)) return true
+  if (!origin && referer) {
+    try {
+      const refererOrigin = new URL(referer).origin
+      if (expected.has(refererOrigin)) return true
+    } catch {
+      return false
+    }
+  }
+  return false
+}
+
 interface ParsedRule {
   title: string
   content: string
@@ -84,6 +104,10 @@ function parseMarkdown(markdown: string): ParsedRule[] {
 }
 
 export async function POST(request: Request) {
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json({ error: "Cross-origin request rejected." }, { status: 403 })
+  }
+
   try {
     const body = await request.json()
     const { content, source, repoUrl, branch } = body as { content?: string; source?: string; repoUrl?: string; branch?: string }
