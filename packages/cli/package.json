@@ -1,21 +1,52 @@
 {
   "name": "@rulebound/cli",
   "version": "0.1.0",
+  "description": "Rulebound CLI — deterministic guardrails for AI coding agents (init, check, doctor, heal, validate, diff, ci)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rulebound/rulebound.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/rulebound/rulebound#readme",
+  "bugs": {
+    "url": "https://github.com/rulebound/rulebound/issues"
+  },
+  "keywords": [
+    "rulebound",
+    "ai",
+    "agent",
+    "cli",
+    "rules",
+    "guardrails",
+    "deterministic",
+    "policy-as-code"
+  ],
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "bin": {
     "rulebound": "./dist/index.js"
   },
+  "files": [
+    "dist",
+    "rules",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && node scripts/copy-examples.mjs",
     "dev": "tsup --watch",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepack": "node scripts/copy-examples.mjs"
   },
   "dependencies": {
     "@rulebound/engine": "workspace:*",
     "@rulebound/shared": "workspace:*",
     "chalk": "^5",
-    "commander": "^13",
+    "commander": "^14",
     "zod": "^4.3.6"
   },
   "optionalDependencies": {

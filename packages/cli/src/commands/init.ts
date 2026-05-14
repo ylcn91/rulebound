@@ -1,12 +1,15 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs"
-import { resolve, join } from "node:path"
+import { existsSync, mkdirSync, writeFileSync, cpSync } from "node:fs"
+import { resolve, join, basename } from "node:path"
 import chalk from "chalk"
 import { PRE_COMMIT_HOOK_CONTENT } from "../lib/pre-commit-hook.js"
+import { findPack, findExamplesRoot, packNames, resolvePackEntries } from "../lib/packs.js"
+import type { PackDefinition } from "../lib/packs.js"
 
 interface InitOptions {
   examples?: boolean
   hook?: boolean
   migrate?: boolean
+  pack?: string[] | string
 }
 
 const CONFIG_TEMPLATE = `{
@@ -21,49 +24,138 @@ const CONFIG_TEMPLATE = `{
 }
 `
 
+function normalizePacks(input: InitOptions["pack"]): string[] {
+  if (!input) return []
+  const list = Array.isArray(input) ? input : [input]
+  return list.map((p) => p.trim()).filter(Boolean)
+}
+
+interface PackInstallResult {
+  readonly name: string
+  readonly description: string
+  readonly created: readonly string[]
+  readonly skipped: readonly string[]
+  readonly missing: boolean
+}
+
+function installPack(
+  pack: PackDefinition,
+  examplesRoot: string,
+  rulesDir: string,
+): PackInstallResult {
+  const resolved = resolvePackEntries(pack, examplesRoot)
+  const created: string[] = []
+  const skipped: string[] = []
+  if (resolved.entries.length === 0) {
+    return { name: pack.name, description: pack.description, created, skipped, missing: true }
+  }
+  for (const entry of resolved.entries) {
+    if (entry.isDirectory) {
+      const dest = join(rulesDir, entry.destSubdir)
+      if (existsSync(dest)) {
+        skipped.push(dest)
+        continue
+      }
+      mkdirSync(dest, { recursive: true })
+      cpSync(entry.source, dest, { recursive: true })
+      created.push(dest)
+    } else {
+      const dest = join(rulesDir, entry.destSubdir, basename(entry.source))
+      if (existsSync(dest)) {
+        skipped.push(dest)
+        continue
+      }
+      mkdirSync(join(rulesDir, entry.destSubdir), { recursive: true })
+      cpSync(entry.source, dest)
+      created.push(dest)
+    }
+  }
+  return { name: pack.name, description: pack.description, created, skipped, missing: false }
+}
+
 export async function initCommand(options: InitOptions): Promise<void> {
   const cwd = process.cwd()
   const rulesDir = resolve(cwd, ".rulebound", "rules")
   const configPath = resolve(cwd, ".rulebound", "config.json")
 
-  if (existsSync(rulesDir)) {
+  const packs = normalizePacks(options.pack)
+  const unknown = packs.filter((p) => !findPack(p))
+  if (unknown.length > 0) {
+    console.error(chalk.red(`Unknown pack(s): ${unknown.join(", ")}`))
+    console.error(chalk.gray(`Valid packs: ${packNames().join(", ")}`))
+    process.exit(2)
+  }
+
+  const rulesDirExisted = existsSync(rulesDir)
+  if (rulesDirExisted && packs.length === 0) {
     console.log(chalk.yellow(`Rules directory already exists: ${rulesDir}`))
     console.log(chalk.dim("Use 'rulebound rules list' to see your rules."))
     return
   }
 
-  mkdirSync(rulesDir, { recursive: true })
-  console.log(chalk.white(`Created ${rulesDir}`))
+  if (!rulesDirExisted) {
+    mkdirSync(rulesDir, { recursive: true })
+    console.log(chalk.white(`Created ${rulesDir}`))
+  }
 
-  // Create config.json
   if (!existsSync(configPath)) {
     writeFileSync(configPath, CONFIG_TEMPLATE)
     console.log(chalk.white(`Created ${configPath}`))
   }
 
-  if (options.examples) {
-    const examplesDir = findExamplesDir()
-    if (examplesDir) {
-      const { cpSync } = await import("node:fs")
-      cpSync(examplesDir, rulesDir, { recursive: true })
+  if (packs.length > 0) {
+    const examplesRoot = findExamplesRoot(cwd)
+    if (!examplesRoot) {
+      console.error(chalk.red("No bundled examples found. Reinstall the CLI or run from the monorepo."))
+      process.exit(2)
+    }
+    const results: PackInstallResult[] = []
+    for (const name of packs) {
+      const def = findPack(name)
+      if (!def) continue
+      results.push(installPack(def, examplesRoot.path, rulesDir))
+    }
+    printPackSummary(results)
+  } else if (options.examples) {
+    const examplesRoot = findExamplesRoot(cwd)
+    if (examplesRoot) {
+      cpSync(examplesRoot.path, rulesDir, { recursive: true })
       console.log(chalk.white("Copied example rules."))
+      console.log()
+      console.log(
+        chalk.yellow(
+          "Note: --examples installs the full showcase, including analyzer-oriented rules",
+        ),
+      )
+      console.log(
+        chalk.yellow(
+          "      (PMD/Checkstyle/SpotBugs/Semgrep/gitleaks/ESLint/tsc) that warn unless the",
+        ),
+      )
+      console.log(
+        chalk.yellow(
+          "      corresponding tools are installed and reports are available.",
+        ),
+      )
+      console.log(
+        chalk.dim(
+          "      For a low-noise first run, try: rulebound init --pack starter --no-hook",
+        ),
+      )
     } else {
       createStarterRule(rulesDir)
     }
-  } else {
+  } else if (!rulesDirExisted) {
     createStarterRule(rulesDir)
   }
 
-  // Auto-install pre-commit hook unless explicitly skipped
   const gitDir = resolve(cwd, ".git")
   if (existsSync(gitDir) && options.hook !== false) {
     const hooksDir = resolve(gitDir, "hooks")
     const hookPath = resolve(hooksDir, "pre-commit")
-
     if (!existsSync(hookPath)) {
       const { chmodSync } = await import("node:fs")
       if (!existsSync(hooksDir)) mkdirSync(hooksDir, { recursive: true })
-
       writeFileSync(hookPath, PRE_COMMIT_HOOK_CONTENT)
       chmodSync(hookPath, 0o755)
       console.log(chalk.white("Installed pre-commit hook."))
@@ -73,7 +165,6 @@ export async function initCommand(options: InitOptions): Promise<void> {
   console.log()
   console.log(chalk.white("Rulebound initialized."))
 
-  // Auto-migrate if --migrate flag is set
   if (options.migrate) {
     console.log()
     const { migrateCommand } = await import("./migrate.js")
@@ -82,25 +173,30 @@ export async function initCommand(options: InitOptions): Promise<void> {
     console.log()
     console.log(chalk.dim("  Next steps:"))
     console.log(chalk.dim("  1. Edit .rulebound/config.json with your project info (stack, scope, team)"))
-    console.log(chalk.dim("  2. Add rules as markdown files in .rulebound/rules/"))
+    console.log(chalk.dim("  2. Add or trim rules under .rulebound/rules/"))
     console.log(chalk.dim("  3. Run: rulebound rules list"))
-    console.log(chalk.dim("  4. Run: rulebound generate --agent claude-code"))
-    console.log(chalk.dim("  5. Run: rulebound validate --plan \"your plan\""))
+    console.log(chalk.dim("  4. Run: rulebound check"))
+    console.log(chalk.dim("  5. Run: rulebound generate --agent claude-code"))
     console.log(chalk.dim(""))
-    console.log(chalk.dim("  Tip: Run 'rulebound init --migrate' to import from existing CLAUDE.md/.cursorrules"))
+    console.log(chalk.dim("  Tip: rulebound init --pack starter for a low-noise first run, or"))
+    console.log(chalk.dim("       rulebound init --pack typescript --pack security --pack agent-workflow."))
+    console.log(chalk.dim("       Analyzer packs (analyzer-typescript, analyzer-java, analyzer-security) are opt-in."))
   }
 }
 
-function findExamplesDir(): string | null {
-  let dir = process.cwd()
-  for (let i = 0; i < 10; i++) {
-    const candidate = join(dir, "examples", "rules")
-    if (existsSync(candidate)) return candidate
-    const parent = resolve(dir, "..")
-    if (parent === dir) break
-    dir = parent
+function printPackSummary(results: readonly PackInstallResult[]): void {
+  console.log()
+  console.log(chalk.bold("Packs:"))
+  for (const r of results) {
+    if (r.missing) {
+      console.log(`  ${chalk.red("✗")} ${chalk.bold(r.name)} ${chalk.gray("(pack source not found in bundle)")}`)
+      continue
+    }
+    const status = r.created.length > 0 ? chalk.green("✓") : chalk.yellow("!")
+    console.log(`  ${status} ${chalk.bold(r.name)} ${chalk.gray(`— ${r.description}`)}`)
+    for (const path of r.created) console.log(chalk.gray(`    + ${path}`))
+    for (const path of r.skipped) console.log(chalk.gray(`    skipped (already exists): ${path}`))
   }
-  return null
 }
 
 function createStarterRule(rulesDir: string): void {
@@ -123,16 +219,7 @@ This is a starter rule. Replace it with your team's standards.
 - Write clear, descriptive function names
 - Keep functions under 50 lines
 - Add comments for non-obvious logic
-
-## Good Example
-
-\`\`\`typescript
-function calculateOrderTotal(items: OrderItem[]): number {
-  return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-}
-\`\`\`
 `
-
   const globalDir = join(rulesDir, "global")
   mkdirSync(globalDir, { recursive: true })
   writeFileSync(join(globalDir, "example-rule.md"), starterContent)
