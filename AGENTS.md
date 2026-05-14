@@ -4,7 +4,21 @@ Dogfooding: this project uses its own product concept.
 
 ## Project
 
-Open-source AI coding agent rule enforcement platform.
+Rulebound is a deterministic guardrail layer for AI coding agents (policy-as-code).
+The product surface is CLI + MCP + CI. The server, gateway, dashboard, and LSP
+packages are secondary.
+
+Core positioning: deterministic checks block, advisory (keyword/semantic/LLM) findings warn.
+Existing analyzers (PMD, Checkstyle, SpotBugs, ArchUnit, ESLint, Semgrep, gitleaks, ...)
+are orchestrated through `type: analyzer` and `type: command` — not reimplemented.
+
+Before implementing any task here:
+
+1. Run `rulebound check` and read deterministic results.
+2. For bugfixes on `fix/**`, create a bugfix spec with `rulebound bugfix start`.
+3. Do not declare success while `rulebound check` reports `FAILED`.
+4. See `docs/deterministic-rule-schema.md`, `docs/self-healing.md`, and `docs/bugfix-workflow.md`.
+
 Monorepo: Turborepo + pnpm workspaces.
 
 ## Stack
