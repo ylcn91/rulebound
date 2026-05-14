@@ -10,6 +10,9 @@
     "lint": "turbo lint",
     "test": "turbo test && pnpm run test:sdks:native",
     "test:sdks:native": "bash ./scripts/test-sdks.sh",
+    "smoke:cli": "bash ./scripts/smoke-test-cli.sh",
+    "release:gate": "bash ./scripts/release-gate.sh",
+    "check:rulebound": "turbo run build --filter=@rulebound/cli && node packages/cli/dist/index.js check",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
     "claude": "bash ./scripts/claude-rb.sh"
   },

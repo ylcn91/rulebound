@@ -1,0 +1,51 @@
+# Example: Rulebound orchestrating PMD/Checkstyle/SpotBugs on a Maven project.
+#
+# Copy this to .github/workflows/rulebound-java.yml in your repo and replace
+# the workflow_dispatch trigger with pull_request / push.
+
+name: Example - Rulebound Java
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  rulebound:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      # Rulebound itself does not invoke Maven. The `command`/`analyzer`
+      # checks declared in your rules do (e.g. `mvn pmd:check`,
+      # `mvn checkstyle:check`, `mvn spotbugs:check`). Pre-fetching
+      # dependencies makes those calls deterministic and fast.
+      - name: Prime Maven cache
+        run: mvn -B -ntp dependency:go-offline
+        if: ${{ hashFiles('pom.xml') != '' }}
+
+      - name: Run Rulebound deterministic checks
+        uses: ./.github/actions/rulebound
+        with:
+          base: main
+          format: github
+          # PMD/Checkstyle/SpotBugs are external analyzers — Rulebound must be
+          # allowed to execute them through `type: command` / `type: analyzer`
+          # checks declared in your rules.
+          allow-commands: "true"
+          # With `allow-commands: true` the pr-markdown step summary is skipped
+          # by default to avoid re-running the analyzers a second time. Set
+          # `rerun-command-checks-for-summary: "true"` if you want the full
+          # evidence report appended to $GITHUB_STEP_SUMMARY at the cost of a
+          # second analyzer pass.

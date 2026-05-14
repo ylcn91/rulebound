@@ -1,0 +1,77 @@
+# Example: gitleaks + semgrep + Rulebound, treating their outputs as analyzer
+# reports.
+#
+# Copy this to .github/workflows/rulebound-security.yml in your repo and
+# replace the workflow_dispatch trigger with pull_request / push.
+
+name: Example - Rulebound Security
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+  security-events: write
+
+jobs:
+  rulebound:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        id: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        continue-on-error: true
+        with:
+          config-path: .gitleaks.toml
+          # Rulebound reads the SARIF report below via a `type: analyzer` check
+          # (`analyzer: gitleaks`, `report_format: sarif`).
+          args: "--redact --report-format sarif --report-path gitleaks.sarif"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run semgrep
+        id: semgrep
+        uses: semgrep/semgrep-action@v1
+        continue-on-error: true
+        with:
+          config: "p/ci"
+          # Emit SARIF so Rulebound can normalize findings through
+          # `analyzer: semgrep`, `report_format: sarif`.
+          generateSarif: "true"
+
+      # Surface deterministic Rulebound findings as GitHub annotations.
+      - name: Run Rulebound deterministic checks (annotations)
+        uses: ./.github/actions/rulebound
+        with:
+          base: main
+          format: github
+          allow-commands: "true"
+          fail-on-advisory: "false"
+          # `allow-commands: true` plus the default `pr-markdown-summary: true`
+          # would otherwise re-run the analyzer checks (semgrep, gitleaks
+          # parsing, etc.). The action skips that second pass by default; the
+          # SARIF re-run below is a deliberate, separate invocation.
+
+      # Re-run Rulebound to produce a SARIF file for GitHub code scanning.
+      # The action prints SARIF to stdout, so capture it via the CLI directly.
+      - name: Emit Rulebound SARIF
+        if: ${{ always() }}
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          if ! command -v rulebound >/dev/null 2>&1; then
+            npm install -g @rulebound/cli@latest
+          fi
+          rulebound check --format sarif --base main > rulebound.sarif || true
+
+      - name: Upload Rulebound SARIF to code scanning
+        if: ${{ always() && hashFiles('rulebound.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: rulebound.sarif
+        continue-on-error: true

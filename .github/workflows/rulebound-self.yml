@@ -1,0 +1,41 @@
+name: Rulebound (self-dogfood)
+
+# Runs the Rulebound CLI built from this workspace against the repo's own
+# `.rulebound/rules/`. This proves the core product on its own codebase.
+#
+# This is intentionally blocking: deterministic Rulebound failures should stop
+# the PR just like any other production quality gate.
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  rulebound-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install workspace
+        run: pnpm install --frozen-lockfile
+
+      - name: Build CLI (with workspace deps)
+        run: pnpm --filter @rulebound/cli... build
+
+      - name: Run rulebound check
+        run: node packages/cli/dist/index.js check --format github

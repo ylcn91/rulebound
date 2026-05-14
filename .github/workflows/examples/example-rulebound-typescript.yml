@@ -1,0 +1,52 @@
+# Example: Rulebound deterministic checks for a TypeScript project.
+#
+# Copy this to .github/workflows/rulebound-typescript.yml in your repo and
+# replace the workflow_dispatch trigger with pull_request / push.
+
+name: Example - Rulebound TypeScript
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  rulebound:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+        if: ${{ hashFiles('pnpm-lock.yaml') != '' }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: ${{ hashFiles('pnpm-lock.yaml') != '' && 'pnpm' || 'npm' }}
+
+      - name: Install project dependencies
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            pnpm install --frozen-lockfile
+          else
+            npm ci
+          fi
+
+      - name: Run Rulebound deterministic checks
+        uses: ./.github/actions/rulebound
+        with:
+          base: main
+          format: github
+          # TS deterministic rules typically rely on ast/regex/diff-evidence
+          # checks; command checks like `tsc --noEmit` or `eslint` require
+          # --allow-commands.
+          allow-commands: "true"
+          # With `allow-commands: true` the pr-markdown step summary is skipped
+          # by default so `tsc`/`eslint` do not run twice. Set
+          # `rerun-command-checks-for-summary: "true"` to opt back in.

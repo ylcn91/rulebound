@@ -1,0 +1,32 @@
+# Example: minimal Rulebound check on pull requests.
+#
+# This file is a template intended to live under .github/workflows in a
+# downstream repository. It is kept under .github/workflows/examples here so it
+# never runs in this repo. Copy it and remove the `examples/` segment to enable.
+
+name: Example - Rulebound Basic
+
+on:
+  workflow_dispatch:
+  # When you copy this into a real repo, replace the trigger with:
+  # pull_request:
+  # push:
+  #   branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  rulebound:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Rulebound deterministic checks
+        uses: ./.github/actions/rulebound
+        with:
+          base: main
+          format: github

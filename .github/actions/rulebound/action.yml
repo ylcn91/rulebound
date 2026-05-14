@@ -1,0 +1,178 @@
+name: Rulebound
+description: |
+  Run Rulebound deterministic rule checks in CI and surface violations as GitHub
+  annotations. Optionally appends a pr-markdown evidence report to the step
+  summary. The summary requires a second `rulebound check` invocation, which is
+  skipped by default when `allow-commands=true` to avoid re-executing side-
+  effectful command/analyzer checks; opt back in with
+  `rerun-command-checks-for-summary`.
+author: Rulebound
+
+inputs:
+  rules-dir:
+    description: Path to the rules directory. Leave empty to auto-detect (.rulebound/rules or similar).
+    required: false
+    default: ""
+  base:
+    description: Base branch used to derive the diff context for diff-evidence checks.
+    required: false
+    default: main
+  format:
+    description: "Output format passed to rulebound check. One of: pretty, json, github, repair-json, sarif, pr-markdown."
+    required: false
+    default: github
+  pr-markdown-summary:
+    description: |
+      If true, also produce a pr-markdown report and append it to
+      $GITHUB_STEP_SUMMARY. This runs `rulebound check` a second time. Safe for
+      pure file/regex/diff/ast checks; with `allow-commands=true` the second run
+      is skipped by default (see `rerun-command-checks-for-summary`).
+    required: false
+    default: "true"
+  rerun-command-checks-for-summary:
+    description: |
+      When `pr-markdown-summary=true` AND `allow-commands=true`, opt in to a
+      second `rulebound check` invocation that re-executes command/analyzer
+      checks (PMD, Checkstyle, SpotBugs, ESLint, etc.) to render the pr-markdown
+      summary. Off by default because re-running analyzers is expensive and may
+      have side effects.
+    required: false
+    default: "false"
+  allow-commands:
+    description: |
+      Allow rulebound to execute command/analyzer checks (e.g. PMD, Checkstyle,
+      SpotBugs, ESLint). Note: when combined with `pr-markdown-summary=true`,
+      the second check run that produces the summary is skipped unless
+      `rerun-command-checks-for-summary=true`.
+    required: false
+    default: "false"
+  fail-on-advisory:
+    description: Exit non-zero (code 3) when only advisory violations are present.
+    required: false
+    default: "false"
+  version:
+    description: Version of @rulebound/cli to install. Use "latest" or a specific version.
+    required: false
+    default: latest
+  node-version:
+    description: Node.js version to install before running rulebound.
+    required: false
+    default: "20"
+  working-directory:
+    description: Working directory used to invoke rulebound. Defaults to the repository root.
+    required: false
+    default: "."
+
+outputs:
+  exit-code:
+    description: Exit code returned by rulebound check (0 pass, 1 deterministic violation, 2 config error, 3 advisory-as-fail).
+    value: ${{ steps.run.outputs.exit-code }}
+  status:
+    description: One of "passed", "failed", or "error".
+    value: ${{ steps.run.outputs.status }}
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Install rulebound CLI
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        set -euo pipefail
+        VERSION="${{ inputs.version }}"
+        echo "Installing @rulebound/cli@${VERSION} with npm"
+        npm install -g "@rulebound/cli@${VERSION}"
+        rulebound --version
+
+    - name: Fetch base ref
+      if: ${{ inputs.base != '' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        set -euo pipefail
+        if [ -d .git ]; then
+          git fetch --no-tags --depth=50 origin "${{ inputs.base }}" || true
+        fi
+
+    - name: Run rulebound check
+      id: run
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        set -uo pipefail
+        ARGS=(check --format "${{ inputs.format }}")
+        if [ -n "${{ inputs.rules-dir }}" ]; then
+          ARGS+=(--dir "${{ inputs.rules-dir }}")
+        fi
+        if [ -n "${{ inputs.base }}" ]; then
+          ARGS+=(--base "${{ inputs.base }}")
+        fi
+        if [ "${{ inputs.allow-commands }}" = "true" ]; then
+          ARGS+=(--allow-commands)
+        fi
+        if [ "${{ inputs.fail-on-advisory }}" = "true" ]; then
+          ARGS+=(--fail-on-advisory)
+        fi
+
+        echo "+ rulebound ${ARGS[*]}"
+        set +e
+        rulebound "${ARGS[@]}"
+        EXIT_CODE=$?
+        set -e
+
+        echo "exit-code=${EXIT_CODE}" >> "$GITHUB_OUTPUT"
+        case "$EXIT_CODE" in
+          0) STATUS=passed ;;
+          1|3) STATUS=failed ;;
+          *) STATUS=error ;;
+        esac
+        echo "status=${STATUS}" >> "$GITHUB_OUTPUT"
+
+        {
+          echo "### Rulebound"
+          echo ""
+          echo "- status: \`${STATUS}\`"
+          echo "- exit code: \`${EXIT_CODE}\`"
+          echo "- format: \`${{ inputs.format }}\`"
+          echo "- base: \`${{ inputs.base }}\`"
+          echo "- allow-commands: \`${{ inputs.allow-commands }}\`"
+          echo "- fail-on-advisory: \`${{ inputs.fail-on-advisory }}\`"
+          echo ""
+          case "$EXIT_CODE" in
+            0) echo "All deterministic checks passed." ;;
+            1) echo "Deterministic violation. See annotations above." ;;
+            2) echo "Rulebound configuration or runtime error. Check logs." ;;
+            3) echo "Advisory findings present and fail-on-advisory is enabled." ;;
+            *) echo "Unexpected exit code from rulebound." ;;
+          esac
+        } >> "$GITHUB_STEP_SUMMARY"
+
+        if [ "${{ inputs.pr-markdown-summary }}" = "true" ] && [ "${{ inputs.format }}" != "pr-markdown" ]; then
+          if [ "${{ inputs.allow-commands }}" = "true" ] && [ "${{ inputs.rerun-command-checks-for-summary }}" != "true" ]; then
+            {
+              echo ""
+              echo "_pr-markdown summary skipped: \`allow-commands=true\` would re-execute command/analyzer checks. Set \`rerun-command-checks-for-summary: 'true'\` to opt in._"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            PR_ARGS=(check --format pr-markdown)
+            if [ -n "${{ inputs.rules-dir }}" ]; then
+              PR_ARGS+=(--dir "${{ inputs.rules-dir }}")
+            fi
+            if [ -n "${{ inputs.base }}" ]; then
+              PR_ARGS+=(--base "${{ inputs.base }}")
+            fi
+            if [ "${{ inputs.allow-commands }}" = "true" ]; then
+              PR_ARGS+=(--allow-commands)
+            fi
+            set +e
+            rulebound "${PR_ARGS[@]}" >> "$GITHUB_STEP_SUMMARY" 2>/dev/null
+            set -e
+          fi
+        fi
+
+        exit $EXIT_CODE
