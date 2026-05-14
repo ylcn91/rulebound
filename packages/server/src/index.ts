@@ -12,6 +12,7 @@ import { tokensApi } from "./api/tokens.js"
 import { analyticsApi } from "./api/analytics.js"
 import { projectsApi } from "./api/projects.js"
 import { authMiddleware, optionalAuth } from "./middleware/auth.js"
+import { validateServerEnv } from "./startup-checks.js"
 
 export function createApp() {
   const app = new Hono()
@@ -49,6 +50,12 @@ export type AppType = ReturnType<typeof createApp>
 const isDirectRun = process.argv[1]?.endsWith("index.js") || process.argv[1]?.endsWith("index.ts")
 
 if (isDirectRun) {
+  try {
+    validateServerEnv()
+  } catch (error) {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`)
+    process.exit(1)
+  }
   const port = parseInt(process.env.PORT ?? "3001", 10)
   const app = createApp()
 
@@ -69,6 +76,8 @@ export { tokensApi } from "./api/tokens.js"
 export { analyticsApi } from "./api/analytics.js"
 export { projectsApi } from "./api/projects.js"
 export { authMiddleware, optionalAuth } from "./middleware/auth.js"
+export { validateServerEnv } from "./startup-checks.js"
+export type { ServerEnv } from "./startup-checks.js"
 export { getDb, schema } from "./db/index.js"
 export { signPayload, deliverWebhook } from "./webhooks/dispatcher.js"
 export { verifyGitHubSignature, parseGitHubEvent } from "./webhooks/receivers.js"
