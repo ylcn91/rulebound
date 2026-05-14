@@ -1,10 +1,10 @@
 import type { DocPage } from "../registry"
 
 const doc: DocPage = {
-  slug: "enforcement/pre-commit-hooks",
+  slug: "ci/pre-commit-hooks",
   title: "Pre-Commit Hooks",
   description:
-    "Automatically validate staged changes against your rules on every git commit with Rulebound pre-commit hooks.",
+    "Automatically validate staged changes on every git commit. Installed by default by rulebound init; manageable with rulebound hook.",
   content: `## Pre-Commit Hooks
 
 Rulebound can install a git pre-commit hook that validates your staged changes against project rules before every commit. If violations are found, the commit is blocked.
@@ -29,10 +29,12 @@ rulebound hook --remove
 
 The pre-commit hook runs this sequence:
 
-1. Gets the staged diff with \`git diff --cached\`
-2. If the diff is empty, exits with success (nothing to validate)
-3. Runs \`npx rulebound diff --ref HEAD\` on the staged changes
-4. If violations are found (exit code non-zero), blocks the commit
+1. Gets the staged diff with \`git diff --cached\`.
+2. If the diff is empty, exits with success (nothing to validate).
+3. Runs \`npx rulebound diff --ref HEAD\` on the staged changes.
+4. If violations are found (exit code non-zero), blocks the commit.
+
+> Note: the installed hook still uses the advisory \`rulebound diff\` command for backwards compatibility. The deterministic gate is \`rulebound check\` — see [\`rulebound check --staged\`](/docs/cli/check) for the deterministic local-verification path you can call from CI or your own pre-push hook.
 
 ### Hook Content
 
@@ -82,16 +84,21 @@ In \`moderate\` or \`strict\` mode, MUST violations (and SHOULD violations in st
 ### Troubleshooting
 
 **Hook not running?**
-- Check that \`.git/hooks/pre-commit\` exists and is executable (\`chmod +x\`)
-- Verify \`rulebound\` is installed (\`npx rulebound --version\`)
+- Check that \`.git/hooks/pre-commit\` exists and is executable (\`chmod +x\`).
+- Verify \`rulebound\` is installed (\`npx rulebound --version\`).
 
 **Hook is slow?**
-- The hook runs the full validation pipeline. Consider using advisory mode locally and strict mode in CI for faster commits.
-- Avoid \`--llm\` in the hook (it requires API calls)
+- The hook runs the advisory validation pipeline. Consider using advisory mode locally and the deterministic gate (\`rulebound check\`) in CI for faster commits.
+- Avoid \`--llm\` in the hook (it requires API calls).
 
 **Want to use with other hooks?**
-- Rulebound only creates the hook if \`.git/hooks/pre-commit\` does not already exist
-- If you have an existing hook manager (husky, lefthook), add \`npx rulebound diff --ref HEAD\` as a step in your existing setup
+- Rulebound only creates the hook if \`.git/hooks/pre-commit\` does not already exist.
+- If you have an existing hook manager (husky, lefthook), add \`npx rulebound diff --ref HEAD\` or \`npx rulebound check --staged\` as a step in your existing setup.
+
+## Related
+
+- [Fail Modes](/docs/ci/fail-modes) — how violations turn into blocks.
+- [GitHub Action](/docs/ci/github-action) — the deterministic gate in CI.
 `,
 }
 

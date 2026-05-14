@@ -4,10 +4,10 @@ const doc: DocPage = {
   slug: "cli/init",
   title: "rulebound init",
   description:
-    "Initialize Rulebound in your project with rules directory, config file, and optional pre-commit hook.",
+    "Initialize .rulebound/ in your project — rules directory, config, optional curated rule packs, and a pre-commit hook.",
   content: `## rulebound init
 
-Initialize \`.rulebound/\` in your project with a rules directory, config file, starter rule, and pre-commit hook.
+Initialize \`.rulebound/\` in your project: rules directory, config file, optional curated rule packs, and (by default) a pre-commit hook.
 
 ### Usage
 
@@ -19,18 +19,22 @@ rulebound init [options]
 
 | Flag | Description |
 |------|-------------|
-| \`--examples\` | Copy example rules to get started |
-| \`--no-hook\` | Skip pre-commit hook installation |
+| \`--examples\` | Copy example rules to get started. |
+| \`--pack <name>\` | Install a curated rule pack (repeatable). |
+| \`--no-hook\` | Skip pre-commit hook installation. |
+| \`--migrate\` | Auto-import rules from existing agent configs (\`CLAUDE.md\`, \`.cursorrules\`, \`AGENTS.md\`, etc.). |
 
-### What It Creates
+\`--pack\` accepts \`starter\`, \`typescript\`, \`security\`, \`react\`, \`java-spring\`, \`go\`, \`infra\`, \`global\`, \`agent-workflow\`, \`monorepo\`, \`deterministic\`, plus the opt-in analyzer packs \`analyzer-typescript\`, \`analyzer-java\`, and \`analyzer-security\`. Run \`rulebound packs list\` for the canonical, up-to-date list with descriptions.
+
+### What it creates
 
 | Path | Description |
 |------|-------------|
-| \`.rulebound/config.json\` | Project configuration template |
-| \`.rulebound/rules/global/example-rule.md\` | Starter rule |
-| \`.git/hooks/pre-commit\` | Pre-commit hook (if git repo exists) |
+| \`.rulebound/config.json\` | Project configuration template. |
+| \`.rulebound/rules/\` | Rules directory (populated by \`--examples\` or \`--pack\`). |
+| \`.git/hooks/pre-commit\` | Pre-commit hook (unless \`--no-hook\`). |
 
-### Config Template
+### Config template
 
 \`\`\`json
 {
@@ -45,7 +49,7 @@ rulebound init [options]
 }
 \`\`\`
 
-### Pre-Commit Hook
+### Pre-commit hook
 
 The auto-installed hook runs \`rulebound diff --ref HEAD\` on every commit. If violations are found, the commit is blocked.
 
@@ -53,7 +57,7 @@ The auto-installed hook runs \`rulebound diff --ref HEAD\` on every commit. If v
 # Skip the hook during init
 rulebound init --no-hook
 
-# Install/remove the hook separately
+# Install or remove the hook separately later
 rulebound hook
 rulebound hook --remove
 \`\`\`
@@ -61,27 +65,36 @@ rulebound hook --remove
 ### Examples
 
 \`\`\`bash
-# Basic initialization
-rulebound init
+# Minimum viable init — just the directory + config
+rulebound init --no-hook
 
-# With example rules
+# Recommended first run: deterministic-only baseline, no analyzers required
+rulebound init --pack starter --no-hook
+
+# Layer in stack-specific packs
+rulebound init --pack typescript --pack security --pack agent-workflow
+
+# Opt-in analyzer packs (need external tools + --allow-commands at check time)
+rulebound init --pack analyzer-typescript
+rulebound init --pack analyzer-java
+rulebound init --pack analyzer-security
+
+# Backwards-compatible example rules
 rulebound init --examples
 
-# Without pre-commit hook
-rulebound init --no-hook
+# Examples + auto-import from existing agent configs
+rulebound init --examples --migrate
 \`\`\`
 
-### Next Steps
+### Next steps
 
-After initialization:
+1. Edit \`.rulebound/config.json\` with your project info (stack, scope, team).
+2. Add or tune rules as markdown files in \`.rulebound/rules/\`.
+3. Run [\`rulebound doctor\`](/docs/cli/doctor) to confirm the environment looks right.
+4. Run [\`rulebound check\`](/docs/cli/check) — that is the canonical gate.
+5. Generate agent configs with \`rulebound generate\`.
 
-1. Edit \`.rulebound/config.json\` with your project info (stack, scope, team)
-2. Add rules as markdown files in \`.rulebound/rules/\`
-3. Run \`rulebound rules list\` to verify
-4. Run \`rulebound generate --agent claude-code\` to create agent configs
-5. Run \`rulebound validate --plan "your plan"\` to test validation
-
-> If the rules directory already exists, \`init\` will exit without overwriting.
+> If the rules directory already exists, \`init\` exits without overwriting.
 `,
 }
 

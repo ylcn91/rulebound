@@ -6,6 +6,8 @@ const doc: DocPage = {
   description: "Rulebound Server — centralized API for rule management, validation, audit logging, compliance tracking, and webhook delivery.",
   content: `## Server Overview
 
+> **Preview / advanced.** The Rulebound Server is not part of the day-one happy path. Start with the CLI (\`rulebound check\`) and the MCP server. The hosted server, dashboard, and webhook surface are optional advanced infrastructure.
+
 The Rulebound Server is a centralized API service for managing rules, validating code, tracking compliance, and dispatching notifications. It provides a REST API that the gateway, CLI, and other tools connect to.
 
 ### Architecture
