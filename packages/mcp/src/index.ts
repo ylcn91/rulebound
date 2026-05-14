@@ -24,6 +24,11 @@ import {
   startBugfixWorkflow,
   validateBugfixPlanRequest,
 } from "./bugfix.js"
+import {
+  runDeterministicChecks,
+  checkDiff,
+  getRepairInstructions,
+} from "./deterministic-tools.js"
 
 const server = new McpServer({
   name: "rulebound",
@@ -136,7 +141,7 @@ server.tool(
 
 server.tool(
   "validate_plan",
-  `Validate an implementation plan against project rules. MUST be called before writing any code. If violations are found, adjust your plan before proceeding.`,
+  `ADVISORY plan check against project rules using keyword/semantic matchers. This is NOT authoritative unless the matched rules carry deterministic 'checks:' blocks — for an authoritative pass/fail, call 'run_deterministic_checks' or 'check_diff' after writing code. Use this early to spot likely violations in a plan before coding.`,
   {
     plan: z.string().describe("The implementation plan text to validate"),
     task: z.string().optional().describe("Task context for better rule matching"),
@@ -329,6 +334,73 @@ server.tool(
       }],
     }
   }
+)
+
+server.tool(
+  "run_deterministic_checks",
+  `Run authoritative deterministic checks (file-exists, regex, diff-evidence, forbidden-import, ast, command, analyzer, agent-process) defined in rules' 'checks:' blocks against the working tree. This is the source of truth for rule compliance — unlike 'validate_plan' which is advisory. Returns rule statuses, blocking count, and the first 5 violations with file/line evidence. Use this after writing code, before committing, and inside a repair loop.`,
+  {
+    changed_files: z.array(z.string()).optional().describe("Files changed in this work unit (for diff-evidence checks). If omitted, file globs are applied to the entire repo."),
+    branch: z.string().optional().describe("Current branch name (used by diff-evidence 'branch_matches' rules)."),
+    allow_commands: z.boolean().optional().describe("Allow running 'command' and 'analyzer' checks that execute subprocesses (default: false). Only enable in trusted local contexts."),
+  },
+  async ({ changed_files, branch, allow_commands }) => {
+    const result = await runDeterministicChecks({
+      cwd: process.cwd(),
+      ...(changed_files !== undefined ? { changedFiles: changed_files } : {}),
+      ...(branch !== undefined ? { branch } : {}),
+      ...(allow_commands !== undefined ? { allowCommands: allow_commands } : {}),
+    })
+    return {
+      content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+    }
+  },
+)
+
+server.tool(
+  "check_diff",
+  `Run deterministic checks against only the files changed vs a base ref (default 'HEAD'). Auto-populates the changed file list via 'git diff --name-only base...HEAD'. Returns a no-op PASSED summary when the diff is empty. Use this in CI-style flows or after a series of edits to verify nothing regressed.`,
+  {
+    base: z.string().optional().describe("Base ref to diff against (default: HEAD). Use the merge-base of the feature branch for PR-style checks."),
+    branch: z.string().optional().describe("Current branch name (for diff-evidence 'branch_matches' rules)."),
+    staged: z.boolean().optional().describe("Use 'git diff --cached' (staged changes) instead of a ref-based diff."),
+    allow_commands: z.boolean().optional().describe("Allow command/analyzer checks (default: false)."),
+  },
+  async ({ base, branch, staged, allow_commands }) => {
+    const result = await checkDiff({
+      cwd: process.cwd(),
+      ...(base !== undefined ? { base } : {}),
+      ...(branch !== undefined ? { branch } : {}),
+      ...(staged !== undefined ? { staged } : {}),
+      ...(allow_commands !== undefined ? { allowCommands: allow_commands } : {}),
+    })
+    return {
+      content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+    }
+  },
+)
+
+server.tool(
+  "get_repair_instructions",
+  `Run deterministic checks and return a structured repair-loop payload: one entry per VIOLATED/ERROR result with rule_id, file, line, reason, suggested_fix, source, and a rerun_command the agent can run after applying the fix. Designed for an agent's automated repair loop.`,
+  {
+    changed_files: z.array(z.string()).optional().describe("Files changed in this work unit."),
+    branch: z.string().optional().describe("Current branch name."),
+    allow_commands: z.boolean().optional().describe("Allow command/analyzer checks (default: false)."),
+    limit: z.number().int().positive().optional().describe("Maximum number of instructions to return (default: 20)."),
+  },
+  async ({ changed_files, branch, allow_commands, limit }) => {
+    const result = await getRepairInstructions({
+      cwd: process.cwd(),
+      ...(changed_files !== undefined ? { changedFiles: changed_files } : {}),
+      ...(branch !== undefined ? { branch } : {}),
+      ...(allow_commands !== undefined ? { allowCommands: allow_commands } : {}),
+      ...(limit !== undefined ? { limit } : {}),
+    })
+    return {
+      content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+    }
+  },
 )
 
 async function runAstAnalysis(

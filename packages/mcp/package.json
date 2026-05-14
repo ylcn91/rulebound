@@ -2,8 +2,27 @@
   "name": "@rulebound/mcp",
   "version": "0.1.0",
   "description": "MCP server for Rulebound rule enforcement — enables AI agents to query and validate against project rules in real-time",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rulebound/rulebound.git",
+    "directory": "packages/mcp"
+  },
+  "homepage": "https://github.com/rulebound/rulebound#readme",
+  "bugs": {
+    "url": "https://github.com/rulebound/rulebound/issues"
+  },
+  "keywords": ["rulebound", "mcp", "model-context-protocol", "ai", "agent"],
   "type": "module",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
   "bin": {
     "rulebound-mcp": "./dist/index.js"
   },
