@@ -1,0 +1,22 @@
+# Example .rulebound/waivers.yaml — copy into your repo as .rulebound/waivers.yaml
+#
+# Every waiver MUST carry `rule`, `reason`, `owner`, and `expires`. There is
+# no "permanent" waiver — if a rule cannot ever be satisfied, fix the rule.
+#
+# A waiver becomes inert after `expires` (UTC date). An unparseable date is
+# also treated as expired (fail-closed).
+
+waivers:
+  - rule: deterministic.bugfix-needs-regression-test
+    reason: "Docs-only fix; no behavior change."
+    owner: "@alice"
+    expires: "2026-06-01"
+    path:
+      - "docs/**"
+
+  - rule: deterministic.no-debugger
+    check: no-debugger
+    reason: "Vendor file imported as-is for a one-off migration."
+    owner: "@bob"
+    expires: "2026-05-30"
+    path: "scripts/migrations/legacy-import.ts"
