@@ -4,7 +4,16 @@
   "description": "React rules for Rulebound — modern React patterns and best practices",
   "keywords": ["rulebound", "rules", "react", "nextjs", "server-components"],
   "license": "MIT",
-  "files": ["rules/**/*.md"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rulebound/rulebound.git",
+    "directory": "packages/rules-react"
+  },
+  "homepage": "https://github.com/rulebound/rulebound#readme",
+  "bugs": {
+    "url": "https://github.com/rulebound/rulebound/issues"
+  },
+  "files": ["rules/**/*.md", "README.md", "LICENSE"],
   "rulebound": {
     "rulesDir": "rules"
   }
