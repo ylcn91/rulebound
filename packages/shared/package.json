@@ -1,6 +1,18 @@
 {
   "name": "@rulebound/shared",
   "version": "0.1.0",
+  "description": "Shared utilities (logger, types) used across Rulebound packages",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rulebound/rulebound.git",
+    "directory": "packages/shared"
+  },
+  "homepage": "https://github.com/rulebound/rulebound#readme",
+  "bugs": {
+    "url": "https://github.com/rulebound/rulebound/issues"
+  },
+  "keywords": ["rulebound", "shared", "utils"],
   "type": "module",
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
