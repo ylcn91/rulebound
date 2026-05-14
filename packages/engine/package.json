@@ -2,15 +2,32 @@
   "name": "@rulebound/engine",
   "version": "0.1.0",
   "description": "Core validation engine for Rulebound — rule loading, matching, and enforcement",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rulebound/rulebound.git",
+    "directory": "packages/engine"
+  },
+  "homepage": "https://github.com/rulebound/rulebound#readme",
+  "bugs": {
+    "url": "https://github.com/rulebound/rulebound/issues"
+  },
+  "keywords": ["rulebound", "engine", "rules", "deterministic", "validation"],
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    }
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./internal": {
+      "types": "./dist/internal.d.ts",
+      "import": "./dist/internal.js"
+    },
+    "./package.json": "./package.json"
   },
+  "files": ["dist", "README.md", "LICENSE"],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",

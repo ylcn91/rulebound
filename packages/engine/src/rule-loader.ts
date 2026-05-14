@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs"
 import { join, relative, resolve } from "node:path"
 import type { Rule, ProjectConfig, RuleboundConfig } from "./types.js"
+import { parseRuleChecks } from "./checks/parse.js"
 import { logger } from "@rulebound/shared/logger"
 
 interface FrontMatter {
@@ -23,9 +24,9 @@ function parseArrayValue(value: string): string[] {
   return value.split(",").map((t) => t.trim()).filter(Boolean)
 }
 
-function parseFrontMatter(raw: string): { meta: FrontMatter; body: string } {
+function parseFrontMatter(raw: string): { meta: FrontMatter; body: string; frontmatterRaw: string } {
   const match = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/)
-  if (!match) return { meta: {}, body: raw }
+  if (!match) return { meta: {}, body: raw, frontmatterRaw: "" }
 
   const meta: FrontMatter = {}
   const lines = match[1].split("\n")
@@ -43,7 +44,7 @@ function parseFrontMatter(raw: string): { meta: FrontMatter; body: string } {
     }
   }
 
-  return { meta, body: match[2].trim() }
+  return { meta, body: match[2].trim(), frontmatterRaw: match[1] }
 }
 
 function collectMarkdownFiles(dir: string): string[] {
@@ -79,9 +80,11 @@ export function loadLocalRules(rulesDir: string): Rule[] {
 
   for (const file of files) {
     const raw = readFileSync(file, "utf-8")
-    const { meta, body } = parseFrontMatter(raw)
+    const { meta, body, frontmatterRaw } = parseFrontMatter(raw)
     const relPath = relative(rulesDir, file)
     const category = meta.category ?? relPath.split("/")[0] ?? "general"
+
+    const parsedChecks = parseRuleChecks(frontmatterRaw, body)
 
     rules.push({
       id: relPath.replace(/\.md$/, "").replace(/[/\\]/g, "."),
@@ -96,6 +99,8 @@ export function loadLocalRules(rulesDir: string): Rule[] {
       changeTypes: meta["change-types"] ?? [],
       team: meta.team ?? [],
       filePath: relPath,
+      ...(parsedChecks.checks.length > 0 ? { checks: parsedChecks.checks } : {}),
+      ...(parsedChecks.errors.length > 0 ? { checkParseErrors: parsedChecks.errors } : {}),
     })
   }
 

@@ -43,3 +43,15 @@ const VALID_MODES: readonly EnforcementMode[] = ["advisory", "moderate", "strict
 export function isValidMode(value: string): value is EnforcementMode {
   return VALID_MODES.includes(value as EnforcementMode)
 }
+
+export interface DeterministicBlockInput {
+  readonly hasDeterministicBlocker: boolean
+  readonly hasAdvisoryViolation?: boolean
+  readonly failOnAdvisory?: boolean
+}
+
+export function shouldBlockDeterministic(input: DeterministicBlockInput): boolean {
+  if (input.hasDeterministicBlocker) return true
+  if (input.failOnAdvisory && (input.hasAdvisoryViolation ?? false)) return true
+  return false
+}

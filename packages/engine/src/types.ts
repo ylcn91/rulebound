@@ -25,6 +25,8 @@ export interface Rule {
   readonly changeTypes: readonly string[]
   readonly team: readonly string[]
   readonly filePath: string
+  readonly checks?: readonly import("./checks/types.js").RuleCheck[]
+  readonly checkParseErrors?: readonly string[]
 }
 
 export type MatchStatus = "PASS" | "VIOLATED" | "NOT_COVERED"
