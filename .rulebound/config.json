@@ -1,0 +1,10 @@
+{
+  "project": {
+    "name": "rulebound",
+    "stack": ["typescript", "javascript"],
+    "scope": [],
+    "team": ""
+  },
+  "extends": [],
+  "rulesDir": ".rulebound/rules"
+}

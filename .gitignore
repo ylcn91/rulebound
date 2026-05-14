@@ -5,6 +5,9 @@ dist/
 .turbo/
 .playwright-cli/
 .rulebound/
+# Allow the self-dogfood rules at the repo root to be tracked.
+!/.rulebound/
+!/.rulebound/**
 .env
 .env.local
 *.tsbuildinfo
@@ -18,4 +21,7 @@ sdks/python/build/
 sdks/python/dist/
 packages/**/.rulebound/
 sdks/rust/target/
+sdks/java/target/
+sdks/dotnet/**/bin/
+sdks/dotnet/**/obj/
 plans/
