@@ -24,7 +24,7 @@ Works with **Claude Code**, **Cursor**, **Amp**, and any MCP-compatible coding a
 - **Not a SonarQube replacement.** SonarQube does general static code quality. Rulebound does agent workflow + repo-specific policy evidence. Run both side by side. See [docs/rulebound-vs-sonarqube.md](docs/rulebound-vs-sonarqube.md).
 - **Not a generic code-smell platform.** Built-in checks are intentionally narrow; bring your own analyzer for breadth.
 - **Not an LLM-as-judge product.** LLM/keyword/semantic findings are advisory by default and never the final blocker.
-- **Not a hosted SaaS dashboard.** The CLI/MCP/CI workflow is the product. Server and dashboard packages exist at lower maturity tiers — see [Maturity tiers](#maturity-tiers).
+- **Not a hosted SaaS dashboard.** The stable core is CLI + engine + MCP + CI deterministic gate. The server, dashboard, gateway, LSP and SDKs are secondary preview / experimental surfaces — see [Maturity tiers](#maturity-tiers).
 
 ---
 
@@ -290,6 +290,9 @@ Per-agent setup snippets (Claude Code, Cursor, Amp, generic MCP): [docs/mcp-setu
 
 ## Maturity tiers
 
+> **Stable core for v0.1 = CLI + engine + MCP + CI deterministic gate.**
+> The server, dashboard, gateway, LSP and native SDKs are preview / beta / experimental — they are secondary surfaces and are not production core. See [`docs/amp-91-new.md`](docs/amp-91-new.md) §3 for the maturity targets.
+
 - **Stable** — Supported public surface; breaking changes only on major versions; production-ready.
 - **Beta** — Usable in production with caveats; minor breaking changes possible between minors; release-noted.
 - **Preview** — Wired up but evolving; expect breaking changes without deprecation; not production-ready.
@@ -297,15 +300,16 @@ Per-agent setup snippets (Claude Code, Cursor, Amp, generic MCP): [docs/mcp-setu
 
 | Surface | Package | Tier | Notes |
 | --- | --- | --- | --- |
-| CLI | `@rulebound/cli` | Stable | Primary product surface; authoritative gate. |
-| Engine | `@rulebound/engine` | Stable | Public API; see `docs/report-schema.md`. |
-| MCP server | `@rulebound/mcp` | Beta | Agent integration; tool contract stabilizing. |
-| GitHub Action / CI templates | — | Beta | See `.github/workflows/examples/` and `docs/ci-github-action.md`. |
-| Rule packs | `@rulebound/rules-*` | Preview | typescript, react, security, java-spring, go, infra, agent-workflow, monorepo, deterministic, starter. |
-| Gateway | `@rulebound/gateway` | Preview | LLM proxy; body logging off by default. |
-| Server + Dashboard | `@rulebound/server`, `apps/web` | Preview | Requires explicit env + Postgres 17; schema-only (no migrations yet). |
-| LSP | `@rulebound/lsp` | Experimental | Minimal IDE integration tests. |
-| SDKs | `sdks/*` | Experimental | ts/py/go/rust/java/dotnet; TS canonical, others mirror. |
+| Engine | `@rulebound/engine` | Stable | Stable core. Public API and `DeterministicReport` schema; see `docs/report-schema.md`. |
+| CLI | `@rulebound/cli` | Stable | Stable core. `rulebound check` is the authoritative deterministic gate. |
+| GitHub Action / CI templates | — | Stable | Stable core. PR gate blocks on deterministic failures; see `.github/workflows/examples/` and `docs/ci-github-action.md`. |
+| MCP server | `@rulebound/mcp` | Beta | Core-adjacent. Deterministic MCP tools return the same report shape as the CLI; advisory tools are not the final gate. |
+| Rule packs | `@rulebound/rules-*` | Beta | typescript, react, security, java-spring, go, infra, agent-workflow, monorepo, deterministic, starter. |
+| Server | `@rulebound/server` | Preview | Self-hosted HTTP API. Requires explicit env + Postgres 17; no SaaS, no migrations yet. |
+| Dashboard | `apps/web` | Preview | Self-hosted audit viewer; no SaaS, no SSO, no org/RBAC. |
+| Gateway | `@rulebound/gateway` | Preview | Self-hosted LLM proxy; body logging off by default; privacy / streaming hardening still in flight. |
+| LSP | `@rulebound/lsp` | Experimental | Editor diagnostics only; not part of any release gate. |
+| SDKs | `sdks/*` | Preview | ts/py/go/rust/java/dotnet; TypeScript canonical, others mirror via separate parity matrix. |
 
 ---
 

@@ -5,20 +5,22 @@ tarball, and how to verify a release locally before publishing to npm.
 
 ## Layout
 
-All publishable packages live under `packages/*` in this monorepo. The CLI is
-the primary production surface; everything else either supports it or is
-opt-in.
+All publishable packages live under `packages/*` in this monorepo. The CLI,
+engine, MCP server and the GitHub Action / CI templates are the **stable
+core** for v0.1. Server, gateway, LSP and SDKs are secondary surfaces at
+lower maturity tiers — see the
+[Maturity tiers](../README.md#maturity-tiers) table in the root README.
 
-| Package | Purpose | Has `bin` |
-| --- | --- | --- |
-| `@rulebound/cli` | End-user CLI (`rulebound`) | yes |
-| `@rulebound/engine` | Rule loading, deterministic validation engine | no |
-| `@rulebound/shared` | Logger, shared utilities | no |
-| `@rulebound/mcp` | MCP server for AI agents | yes |
-| `@rulebound/gateway` | LLM proxy gateway (advanced) | yes |
-| `@rulebound/lsp` | LSP server (advanced) | yes |
-| `@rulebound/server` | Optional HTTP API server (advanced) | yes |
-| `@rulebound/rules-*` | Rule packs (typescript, react, security) | no |
+| Package | Tier | Purpose | Has `bin` |
+| --- | --- | --- | --- |
+| `@rulebound/cli` | Stable | End-user CLI (`rulebound`) — authoritative deterministic gate. | yes |
+| `@rulebound/engine` | Stable | Rule loading, deterministic validation engine. | no |
+| `@rulebound/shared` | Stable | Logger, shared utilities. | no |
+| `@rulebound/mcp` | Beta | MCP server for AI agents. | yes |
+| `@rulebound/rules-*` | Beta | Rule packs (typescript, react, security, …). | no |
+| `@rulebound/server` | Preview | Optional self-hosted HTTP API. | yes |
+| `@rulebound/gateway` | Preview | Optional self-hosted LLM proxy gateway. | yes |
+| `@rulebound/lsp` | Experimental | Optional LSP server for editor diagnostics. | yes |
 
 Each `package.json` carries the same baseline metadata fields: `name`,
 `version`, `description`, `license`, `repository`, `homepage`, `bugs`,

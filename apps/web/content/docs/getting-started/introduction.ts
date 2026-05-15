@@ -24,17 +24,21 @@ Deterministic first. Advisory second. \`rulebound check\` answers narrow, checka
 
 ## Architecture Overview
 
-Rulebound is a monorepo. The production surface is the CLI plus the MCP server. The other packages are either supporting libraries or optional/advanced surfaces.
+Rulebound is a monorepo. **Stable core for v0.1 = CLI + engine + MCP + CI deterministic gate.** The server, dashboard, gateway, LSP and SDKs are secondary surfaces at lower maturity tiers — they are not production core.
 
-| Package | Purpose |
-|---------|---------|
-| \`@rulebound/cli\` | End-user CLI (\`rulebound\`). The canonical deterministic gate. |
-| \`@rulebound/engine\` | Rule loader, deterministic check runners, report schema. |
-| \`@rulebound/shared\` | Shared types and utilities. |
-| \`@rulebound/mcp\` | MCP server exposing deterministic + advisory tools to agents. |
-| \`@rulebound/gateway\` | Optional HTTP proxy for LLM providers (advanced). |
-| \`@rulebound/lsp\` | Optional LSP server (experimental). |
-| \`@rulebound/server\` | Optional HTTP API (preview). |
+| Package | Tier | Purpose |
+|---------|------|---------|
+| \`@rulebound/cli\` | Stable | End-user CLI (\`rulebound\`). \`rulebound check\` is the authoritative deterministic gate. |
+| \`@rulebound/engine\` | Stable | Rule loader, deterministic check runners, report schema. |
+| \`@rulebound/shared\` | Stable | Shared types and utilities. |
+| GitHub Action / CI templates | Stable | PR gate that blocks on deterministic failures. |
+| \`@rulebound/mcp\` | Beta | MCP server. Deterministic tools mirror the CLI report; advisory tools are not the final gate. |
+| \`@rulebound/rules-*\` | Beta | Curated rule packs (starter, typescript, security, agent-workflow, …). |
+| \`@rulebound/server\` | Preview | Self-hosted HTTP API (no SaaS, no managed multi-tenant). |
+| \`apps/web\` | Preview | Self-hosted dashboard / audit viewer (no SaaS, no SSO, no org/RBAC). |
+| \`@rulebound/gateway\` | Preview | Self-hosted LLM proxy; privacy / streaming hardening in flight. |
+| \`@rulebound/lsp\` | Experimental | Editor diagnostics only; not part of any release gate. |
+| \`sdks/*\` | Preview | ts/py/go/rust/java/dotnet; TypeScript canonical, others mirror. |
 
 ### How It Works
 

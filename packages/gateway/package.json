@@ -1,7 +1,7 @@
 {
   "name": "@rulebound/gateway",
   "version": "0.1.0",
-  "description": "LLM proxy gateway for Rulebound — transparent rule injection and response validation for any AI coding tool",
+  "description": "preview: self-hosted LLM proxy gateway for Rulebound — transparent rule injection and response validation. Not a hosted proxy; not part of the stable core.",
   "license": "MIT",
   "repository": {
     "type": "git",

@@ -1,7 +1,7 @@
 {
   "name": "@rulebound/server",
   "version": "0.1.0",
-  "description": "Enterprise API server for Rulebound — centralized rule management, validation, webhooks, audit (preview)",
+  "description": "preview: self-hosted HTTP API server for Rulebound — centralized rule management, validation, webhooks, audit. Not a hosted SaaS; not part of the stable core.",
   "license": "MIT",
   "repository": {
     "type": "git",

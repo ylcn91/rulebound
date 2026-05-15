@@ -6,6 +6,8 @@ const doc: DocPage = {
   description: "Deploy the Rulebound Server and Gateway on your own infrastructure using Docker or bare Node.js.",
   content: `## Self-Hosted Deployment
 
+> **Preview surfaces.** The Rulebound Server, Dashboard and Gateway are **preview / self-hosted only** — they are not part of the stable core (CLI + engine + MCP + CI deterministic gate) and Rulebound does not offer them as a hosted SaaS. Use this guide only if you have an operator need to run those preview surfaces yourself. \`rulebound check\` from the CLI and CI remains the authoritative deterministic gate regardless of whether the server is deployed.
+
 Rulebound can be self-hosted on your own infrastructure. This guide covers deploying the server and gateway components.
 
 ### Components
