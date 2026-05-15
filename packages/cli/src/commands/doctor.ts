@@ -56,6 +56,26 @@ const ANALYZER_TO_CMD: Record<string, readonly string[]> = {
   generic: [],
 }
 
+/**
+ * Per-analyzer "next action" hint shown when the tool IS on PATH but the
+ * expected report file is not yet present. The hint is a concrete command
+ * the user can paste — generic enough to work without project knowledge,
+ * specific enough to point at the right ecosystem (Maven plugin vs npm
+ * script, etc.).
+ */
+const ANALYZER_TO_RUN_HINT: Record<string, string> = {
+  pmd: "mvn pmd:check",
+  checkstyle: "mvn checkstyle:check",
+  spotbugs: "mvn spotbugs:check",
+  junit: "mvn test",
+  eslint:
+    "pnpm eslint . --format json --output-file eslint-report.json",
+  tsc: "pnpm tsc --noEmit",
+  semgrep: "semgrep --config auto --json --output semgrep.json",
+  gitleaks: "gitleaks detect --no-banner --report-format json --report-path gitleaks.json",
+  "dependency-cruiser": "pnpm depcruise --output-type json src > depcruise.json",
+}
+
 function commandRequiringAllowFlag(rules: readonly Rule[]): number {
   let n = 0
   for (const rule of rules) {
@@ -140,6 +160,7 @@ export async function doctorCommand(): Promise<void> {
       const cmdHit = cmds.length === 0 || cmds.some((c) => which(c))
       const missingReports = expectation.reports.filter((p) => !existsSync(resolve(cwd, p)))
       const haveReports = expectation.reports.length - missingReports.length
+      const runHint = ANALYZER_TO_RUN_HINT[expectation.tool]
       let status: CheckItem["status"] = "ok"
       let detail: string
       if (!cmdHit) {
@@ -148,9 +169,11 @@ export async function doctorCommand(): Promise<void> {
       } else if (missingReports.length === expectation.reports.length) {
         status = "warn"
         detail = `${expectation.tool}: tool present, but report file(s) not found yet: ${expectation.reports.join(", ")} — run the analyzer first or pass --allow-commands`
+        if (runHint) detail += ` (next: ${runHint})`
       } else if (missingReports.length > 0) {
         status = "warn"
         detail = `${expectation.tool}: ${haveReports}/${expectation.reports.length} report(s) present. Missing: ${missingReports.join(", ")}`
+        if (runHint) detail += ` (next: ${runHint})`
       } else {
         detail = `${expectation.tool}: ${haveReports} report(s) ready`
       }

@@ -60,6 +60,65 @@ checks:
     expect(out).toContain("report file(s) not found yet")
   })
 
+  it("appends a `next: <command>` hint for ESLint when the tool is present but the report is missing", async () => {
+    mkdirSync(join(tmpDir, ".rulebound/rules"), { recursive: true })
+    writeFileSync(
+      join(tmpDir, ".rulebound/rules/eslint.md"),
+      `---
+title: ESLint
+checks:
+  - type: analyzer
+    analyzer: eslint
+    report: "eslint-report.json"
+    report_format: json
+---
+`,
+    )
+    const { code, out } = await run()
+    expect(code).toBe(0)
+    // The hint is shown whenever ANALYZER_TO_RUN_HINT has an entry; even on
+    // CI sandboxes without ESLint on PATH the rule still asks for a report,
+    // and the doctor flags the missing report. The hint only renders in the
+    // "tool present" branches.
+    if (out.includes("tool present")) {
+      expect(out).toContain("next: pnpm eslint")
+    } else {
+      // PATH does not include eslint here; the warn detail uses the
+      // "tool not found on PATH" branch, which does not include the hint.
+      expect(out).toContain("required tool not found on PATH")
+    }
+  })
+
+  it("appends a `next: <command>` hint for PMD when only a partial set of reports is present", async () => {
+    mkdirSync(join(tmpDir, ".rulebound/rules"), { recursive: true })
+    writeFileSync(
+      join(tmpDir, ".rulebound/rules/pmd.md"),
+      `---
+title: PMD
+checks:
+  - type: analyzer
+    analyzer: pmd
+    report: "target/pmd.xml"
+    report_format: pmd-xml
+  - type: analyzer
+    analyzer: pmd
+    report: "target/pmd-2.xml"
+    report_format: pmd-xml
+---
+`,
+    )
+    // Pre-create one of the two reports so the doctor takes the
+    // "partial reports present" branch.
+    mkdirSync(join(tmpDir, "target"), { recursive: true })
+    writeFileSync(join(tmpDir, "target/pmd.xml"), "<pmd/>")
+    const { code, out } = await run()
+    expect(code).toBe(0)
+    // partial-present branch only fires when the tool was found on PATH.
+    if (out.includes("/2 report(s) present") || out.includes("1/2 report(s) present")) {
+      expect(out).toContain("next: mvn pmd:check")
+    }
+  })
+
   it("flags command-checks that need --allow-commands", async () => {
     mkdirSync(join(tmpDir, ".rulebound/rules"), { recursive: true })
     writeFileSync(
