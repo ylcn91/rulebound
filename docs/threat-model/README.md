@@ -28,6 +28,8 @@ below describe what they are signing up for.
 | MCP | [`mcp.md`](./mcp.md) | MCP stdio server, tool surface exposed to agents, advisory vs deterministic distinction. |
 | Server | [`server.md`](./server.md) | HTTP API, API tokens, org isolation, audit retention, webhook dispatcher (SSRF), CORS. |
 | Gateway | [`gateway.md`](./gateway.md) | LLM proxy, body logging, API key forwarding, prompt injection, streaming bounds. |
+| Secret-scan gate | [`secret-scan.md`](./secret-scan.md) | gitleaks release-gate stage, `.gitleaks.toml` allowlist policy, waiver rules, rotation cross-link. |
+| Dependency-scan gate | [`dependency-scan.md`](./dependency-scan.md) | pnpm/pip/cargo/govulncheck/dotnet vulnerability scan, severity tiers, waiver policy. |
 
 ## STRIDE-light template
 

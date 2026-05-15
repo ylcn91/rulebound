@@ -1,0 +1,153 @@
+# Rulebound gitleaks configuration
+#
+# Owner: Team C — Platform Release Hardening (AMP91-SEC-001).
+# Tool: gitleaks >= 8.18 (`brew install gitleaks` or `apt install gitleaks`).
+#
+# This config extends the upstream default ruleset (see `[extend]` below).
+# Repository-specific overrides are limited to:
+#
+#   - excluding generated build output and per-developer scratch directories
+#     (these are also gitignored at the repo level; the exclusion here guards
+#     `--no-git` working-tree scans against accidental noise),
+#   - allowlisting a small set of documented false positives where the matched
+#     literal is either a placeholder token in API docs (`Bearer <token>`,
+#     `Bearer YOUR_TOKEN`, etc.) or an in-rule example showing the pattern the
+#     rule itself forbids (`apiKey = "sk_live_..."` inside `examples/rules/`
+#     and the bundled CLI rule pack).
+#
+# Waiver policy: see `docs/threat-model/secret-scan.md`.
+# Every allowlist entry below carries an inline comment and an
+# `AMP91-SEC-001-FP-NN` reference. A real leaked secret is **never** waived —
+# it is rotated. New allowlist entries require two-reviewer approval and a
+# linked rotation runbook step if the candidate matched a live secret pattern.
+
+title = "Rulebound gitleaks config"
+
+[extend]
+# Pull in gitleaks' upstream rule pack so we keep getting new detectors for
+# free as the gitleaks team adds them. Repository-specific tweaks live below
+# in `[[allowlists]]`.
+useDefault = true
+
+# Path / regex / commit exclusions. gitleaks v8 expects allowlists as an
+# array of tables (`[[allowlists]]`). Each entry is independent — the file
+# is leak-free only when *no* upstream rule fires that is not covered by at
+# least one allowlist entry's paths-or-regex match.
+
+[[allowlists]]
+description = "Generated build artefacts and per-developer scratch directories — AMP91-SEC-001-FP-01..05."
+# Next.js build cache and prerender output. These files embed encryption /
+# signing keys generated at build time; the keys are scoped to the build
+# and the directory is gitignored. AMP91-SEC-001-FP-01.
+#
+# Per-developer Claude Code worktree scratch directories. Gitignored at the
+# repo level; tolerated here so `--no-git` scans from a dirty tree do not
+# flood the report. AMP91-SEC-001-FP-02.
+#
+# Workspace dependency installs. Never tracked, but `--no-git` scans walk
+# them by default. AMP91-SEC-001-FP-03.
+#
+# Native SDK build outputs (Cargo `target`, Maven `target`, .NET `bin`/`obj`,
+# Python `__pycache__` / `.venv`, Go `dist`). All gitignored.
+# AMP91-SEC-001-FP-04.
+#
+# TypeScript incremental build info and package dist outputs.
+# AMP91-SEC-001-FP-05.
+paths = [
+  '''(^|/)apps/web/\.next/''',
+  '''(^|/)\.claude/''',
+  '''(^|/)node_modules/''',
+  '''(^|/)sdks/[^/]+/(target|bin|obj|dist|build|\.venv|__pycache__)/''',
+  '''\.tsbuildinfo$''',
+  '''(^|/)packages/[^/]+/dist/''',
+]
+
+[[allowlists]]
+description = "API doc placeholder tokens (`Bearer YOUR_TOKEN`, `Bearer <token>`, etc.) — AMP91-SEC-001-FP-06."
+# Generic literal placeholder tokens used throughout the API docs to show
+# consumers what a `curl -H "Authorization: Bearer …"` invocation looks
+# like. `YOUR_TOKEN`, `<token>`, the redaction sentinel `REDACTED`, and the
+# rotation runbook's example prefixes never carry real entropy.
+regexes = [
+  '''Bearer (YOUR_TOKEN|<token>|REDACTED|rb_<new-hex>|rb_xxxxxxxx)''',
+]
+
+[[allowlists]]
+description = "In-rule example payloads in `examples/rules/**` and the bundled CLI rule pack — AMP91-SEC-001-FP-07."
+# These markdown files document the *forbidden* pattern the rule body
+# enforces (`apiKey = "sk_live_..."`). The literal is intentionally
+# present as documentation of what the rule catches.
+paths = [
+  '''(^|/)examples/rules/''',
+  '''(^|/)packages/cli/rules/examples/''',
+  '''(^|/)packages/cli/src/__tests__/fixtures/rules/''',
+  '''(^|/)packages/rules-security/rules/''',
+]
+regexes = [
+  '''apiKey\s*=\s*"[^"]+"''',
+]
+
+[[allowlists]]
+description = "README quickstart example of the forbidden hardcoded-secret pattern — AMP91-SEC-001-FP-08."
+# README.md surfaces the same `apiKey = "sk_live_..."` literal inside a
+# fenced code block under the "Block hardcoded secrets" feature card. The
+# literal demonstrates what `rulebound check` blocks; it is not a real key.
+paths = [
+  '''^README\.md$''',
+]
+regexes = [
+  '''apiKey\s*=\s*"[^"]+"''',
+]
+
+[[allowlists]]
+description = "Server logger-redaction sentinel values — AMP91-SEC-001-FP-09."
+# `must-not-leak-NNN` sentinels are used by
+# `packages/server/src/__tests__/logger-redaction.test.ts` to assert the
+# redactor scrubs the value before it hits stdout/stderr. The sentinel is
+# not a credential and only exists in test source.
+paths = [
+  '''(^|/)packages/server/src/__tests__/''',
+]
+regexes = [
+  '''must-not-leak-[a-z0-9-]+''',
+]
+
+[[allowlists]]
+description = "Webhook integration-test signing secret literals — AMP91-SEC-001-FP-10."
+# `secret: "<test-fixture>"` in the webhook integration tests is exercised
+# against the encryption-at-rest path; the literal is generated per-test
+# and never deployed.
+paths = [
+  '''(^|/)packages/server/src/__tests__/integration/webhooks\.test\.ts$''',
+]
+regexes = [
+  '''secret:\s*"[^"]+"''',
+]
+
+[[allowlists]]
+description = "Docs pages showing the API authentication curl example — AMP91-SEC-001-FP-11."
+# `apps/web/content/docs/server/{authentication,overview}.ts` render the
+# `curl -H "Authorization: Bearer <token>"` example for the docs site.
+# `<token>` is a placeholder, not a literal credential.
+paths = [
+  '''(^|/)apps/web/content/docs/server/''',
+]
+regexes = [
+  '''Bearer [^"]+''',
+]
+
+[[allowlists]]
+description = "Historic docs files (now deleted) with placeholder curl/apiKey examples — AMP91-SEC-001-FP-12."
+# `docs/RUNBOOK.md` and `docs/plans/2026-02-27-implementation-plan.md` were
+# removed in the master-plan consolidation. Git history scans still touch
+# them; the bodies were the same `Bearer <token>` / `apiKey = "..."`
+# placeholder content as the current docs. No real credential was committed.
+paths = [
+  '''^docs/RUNBOOK\.md$''',
+  '''^docs/plans/''',
+]
+regexes = [
+  '''Bearer [^"]+''',
+  '''curl -[XH] [A-Z]+ http''',
+  '''apiKey\s*=\s*"[^"]+"''',
+]

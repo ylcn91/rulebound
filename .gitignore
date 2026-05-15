@@ -26,6 +26,12 @@ sdks/java/target/
 sdks/dotnet/**/bin/
 sdks/dotnet/**/obj/
 plans/
+# Secret-scan report output (scripts/secret-scan.sh, AMP91-SEC-001).
+gitleaks-report.json
+# Playwright dashboard e2e output (apps/web/test:e2e, AMP91-WEB-001).
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/.playwright-cache/
 examples/**/target/
 examples/**/.classpath
 examples/**/.project
