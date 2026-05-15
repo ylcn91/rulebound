@@ -72,6 +72,35 @@ Three acceptable options:
 3. Run with `bash scripts/release-gate.sh --skip-sdks` — all native SDKs
    skipped. Use only when the release explicitly scopes SDK parity out.
 
+## Server Postgres integration suite (Docker required)
+
+Beyond the core release gate, the server ships a real-Postgres integration
+test suite at `packages/server/src/__tests__/integration/**` that boots
+Postgres 17 inside a testcontainer per run. This is **not** part of the
+default `pnpm test` invocation — opt in explicitly:
+
+```bash
+pnpm --filter @rulebound/server test:integration
+```
+
+Requirements:
+
+- A running Docker daemon (the test bootstraps `postgres:17` from
+  `@testcontainers/postgresql`).
+- The migrations under `packages/server/migrations/` (they are applied to
+  the ephemeral database before suites run).
+
+CI environments wire this as a separate job (the Docker-out-of-Docker or
+sidecar container model) so a missing Docker daemon never silently skips
+real-DB coverage. The job is required for the **full platform** release
+checklist; it is not required for the core (CLI + engine + MCP + CI) gate.
+
+If Docker is not available locally, `pnpm --filter @rulebound/server test`
+(without `:integration`) runs only the unit suite and still exercises every
+business-logic path through dependency injection. Use the integration suite
+to catch SQL / Drizzle / migration drift, not as the primary correctness
+proof.
+
 ## What this gate is NOT
 
 - It is not the substitute for code review.

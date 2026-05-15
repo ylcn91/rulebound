@@ -12,11 +12,21 @@
   "bugs": {
     "url": "https://github.com/rulebound/rulebound/issues"
   },
-  "keywords": ["rulebound", "server", "api", "drizzle", "postgres"],
+  "keywords": [
+    "rulebound",
+    "server",
+    "api",
+    "drizzle",
+    "postgres"
+  ],
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "bin": {
     "rulebound-server": "./dist/index.js"
   },
@@ -25,6 +35,8 @@
     "dev": "tsup --watch",
     "start": "node dist/index.js",
     "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node --experimental-strip-types --no-warnings ./src/db/migrate.ts",
@@ -39,6 +51,7 @@
   },
   "devDependencies": {
     "@hono/node-server": "^1.14.0",
+    "@testcontainers/postgresql": "^11.14.0",
     "@types/node": "^22",
     "drizzle-kit": "^0.31.9",
     "hono": "^4.7.0",
