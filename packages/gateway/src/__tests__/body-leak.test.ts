@@ -103,6 +103,111 @@ describe("gateway body-leak prevention (default DEBUG_FULL_BODIES off)", () => {
     expect(logs).not.toContain(SECRET_RESPONSE)
   })
 
+  it("does not emit tool-call argument bodies to logs without DEBUG_FULL_BODIES", async () => {
+    const SECRET_TOOL_ARG = "TOOL_CALL_ARG_TOKEN_d8e2f10b"
+    expect(process.env.DEBUG_FULL_BODIES).not.toBe("1")
+
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                role: "assistant",
+                content: null,
+                tool_calls: [
+                  {
+                    id: "call_1",
+                    type: "function",
+                    function: {
+                      name: "search",
+                      arguments: JSON.stringify({ query: SECRET_TOOL_ARG }),
+                    },
+                  },
+                ],
+              },
+              finish_reason: "tool_calls",
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    )
+    vi.stubGlobal("fetch", mockFetch)
+
+    const app = createProxy(makeConfig({ scanResponses: true }))
+
+    const capture = captureLogs()
+    let logs: string
+    try {
+      const res = await app.request("/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [
+            {
+              role: "user",
+              content: "find something",
+            },
+          ],
+          tools: [
+            {
+              type: "function",
+              function: { name: "search", description: "search docs" },
+            },
+          ],
+        }),
+      })
+      expect(res.status).toBe(200)
+    } finally {
+      logs = capture.stop()
+    }
+
+    expect(logs).not.toContain(SECRET_TOOL_ARG)
+  })
+
+  it("does not emit structured-error payload bodies to logs", async () => {
+    const SECRET_ERROR_DETAIL = "ERROR_PAYLOAD_DETAIL_TOKEN_e5f4a9b1"
+    expect(process.env.DEBUG_FULL_BODIES).not.toBe("1")
+
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: {
+            message: SECRET_ERROR_DETAIL,
+            type: "invalid_request_error",
+            param: "messages",
+            code: "missing_required_param",
+          },
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      ),
+    )
+    vi.stubGlobal("fetch", mockFetch)
+
+    const app = createProxy(makeConfig({ scanResponses: true }))
+
+    const capture = captureLogs()
+    let logs: string
+    try {
+      // Non-OK upstream response goes through the passthrough path which
+      // returns the body directly. Logs should not contain the body either
+      // way; this test pins that contract.
+      const res = await app.request("/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "trigger" }],
+        }),
+      })
+      expect(res.status).toBe(400)
+    } finally {
+      logs = capture.stop()
+    }
+
+    expect(logs).not.toContain(SECRET_ERROR_DETAIL)
+  })
+
   it("does not emit system prompt content when injecting rules", async () => {
     const SECRET_SYSTEM = "USER_SYSTEM_PROMPT_TOKEN_a1b2c3d4"
 

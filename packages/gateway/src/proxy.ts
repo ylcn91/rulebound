@@ -58,7 +58,7 @@ function extractSystemPrompt(provider: Provider, body: Record<string, unknown>):
   return ""
 }
 
-function extractUserPrompt(provider: Provider, body: Record<string, unknown>): string {
+function extractUserPrompt(_provider: Provider, body: Record<string, unknown>): string {
   const messages = body.messages as Array<{ role: string; content: unknown }> | undefined
   if (!messages) return ""
   const last = [...messages].reverse().find((m) => m.role === "user")
@@ -74,13 +74,25 @@ function extractUserPrompt(provider: Provider, body: Record<string, unknown>): s
   return ""
 }
 
-const DEBUG_FULL_BODIES = process.env.DEBUG_FULL_BODIES === "1"
+function isFullBodyLoggingEnabled(): boolean {
+  return process.env.DEBUG_FULL_BODIES === "1"
+}
 
 function bodyDebug<T extends Record<string, unknown>>(fields: T): T | Record<string, never> {
-  return DEBUG_FULL_BODIES ? fields : {}
+  return isFullBodyLoggingEnabled() ? fields : {}
 }
 
 export function createProxy(config: GatewayConfig) {
+  // One-shot privacy guardrail at proxy construction: full-body logging is a
+  // production foot-gun (prompts + completions hit stdout). Fire the warning
+  // exactly once per proxy creation so operators see it on startup but the
+  // log is not spammed per-request. Default-off — see body-leak.test.ts.
+  if (isFullBodyLoggingEnabled()) {
+    logger.warn(
+      "DEBUG_FULL_BODIES enabled — prompt/response bodies will appear in logs. Disable in production.",
+    )
+  }
+
   const app = new Hono()
   let requestCounter = 0
 
