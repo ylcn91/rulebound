@@ -152,18 +152,18 @@ if find .rulebound/rules/starter -name '*-pack.md' | grep -q .; then
 fi
 log "pack install green: starter=${starter_files}, typescript=${ts_files}, security=${sec_files}"
 
-log "rulebound check on starter-only project (should succeed without analyzer warnings)"
+log "rulebound check on starter-only project (must exit 0 — starter pack is pure deterministic)"
 set +e
 STARTER_CHECK="$("${RULEBOUND_BIN}" check --format json 2>/dev/null)"
 STARTER_CODE=$?
 set -e
-case "${STARTER_CODE}" in
-  0|1)
-    ;;
-  *)
-    fail "rulebound check exited with unexpected code ${STARTER_CODE} on starter project"
-    ;;
-esac
+# PACK-001 strict: starter pack has no analyzers, no command checks, and no
+# waivable failures on a fresh repo. Exit 1 here would indicate either a
+# regression in the starter rule set or a leak of analyzer-* content into
+# the starter sources.
+if [[ "${STARTER_CODE}" -ne 0 ]]; then
+  fail "rulebound check on starter-only project must exit 0 (got ${STARTER_CODE})"
+fi
 if ! node -e "const r = JSON.parse(process.argv[1]); if (!r.summary || typeof r.summary.pass !== 'number') process.exit(1)" "${STARTER_CHECK}"; then
   fail "starter check JSON did not include a valid summary"
 fi
@@ -194,5 +194,57 @@ fi
 log "invalid waivers fail-closed: exit ${WAIVER_CODE}"
 popd >/dev/null
 rm -rf "${WAIVER_TMP}"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# README quickstart smoke (CLI-001)
+#
+# Hard-coded commands that mirror docs/quickstart.md sections 2 → 4. Drift
+# between README and the actual CLI is covered by the docs drift checker in
+# Wave 4 (DOC-002); this stage only proves the documented commands run.
+# ─────────────────────────────────────────────────────────────────────────────
+log "quickstart smoke: rulebound init --pack starter --no-hook + doctor + check"
+QS_TMP="$(mktemp -d -t rulebound-smoke-quickstart.XXXXXX)"
+pushd "${QS_TMP}" >/dev/null
+git init -q
+git config user.email "smoke@rulebound.local"
+git config user.name "smoke"
+
+# Step 1: init with the starter pack and no hook (quickstart section 2).
+"${RULEBOUND_BIN}" init --pack starter --no-hook >/dev/null
+if [[ ! -d ".rulebound/rules/starter" ]]; then
+  fail "quickstart: init --pack starter did not create .rulebound/rules/starter"
+fi
+qs_rule_count="$(find .rulebound/rules/starter -name '*.md' | wc -l | tr -d ' ')"
+if [[ "${qs_rule_count}" -lt 1 ]]; then
+  fail "quickstart: starter pack copied 0 .md files"
+fi
+log "quickstart: starter rules copied: ${qs_rule_count}"
+
+# Step 2: doctor (quickstart section 3). Doctor exits 0 on a freshly
+# initialized repo (rules dir found, config present, no analyzer rules).
+set +e
+"${RULEBOUND_BIN}" doctor >/dev/null 2>&1
+QS_DOCTOR_CODE=$?
+set -e
+if [[ "${QS_DOCTOR_CODE}" -ne 0 ]]; then
+  fail "quickstart: doctor exited ${QS_DOCTOR_CODE} on a fresh repo (expected 0)"
+fi
+log "quickstart: doctor exit ${QS_DOCTOR_CODE}"
+
+# Step 3: check (quickstart section 4). On a fresh starter repo this is exit 0.
+set +e
+QS_CHECK_OUT="$("${RULEBOUND_BIN}" check --format json 2>/dev/null)"
+QS_CHECK_CODE=$?
+set -e
+if [[ "${QS_CHECK_CODE}" -ne 0 ]]; then
+  fail "quickstart: rulebound check on a fresh starter repo must exit 0 (got ${QS_CHECK_CODE})"
+fi
+if ! node -e "const r = JSON.parse(process.argv[1]); if (!r.summary || typeof r.summary.pass !== 'number') process.exit(1)" "${QS_CHECK_OUT}"; then
+  fail "quickstart: rulebound check JSON did not include a valid summary"
+fi
+log "quickstart: check exit ${QS_CHECK_CODE} with valid JSON summary"
+
+popd >/dev/null
+rm -rf "${QS_TMP}"
 
 log "PASS — packaging smoke test green"
