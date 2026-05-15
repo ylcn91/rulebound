@@ -1,3 +1,4 @@
+import { PreviewBanner } from "@/components/dashboard/PreviewBanner";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { requireDashboardAccess } from "@/lib/dashboard-auth";
@@ -15,6 +16,7 @@ export default async function DashboardLayout({
     <div className="min-h-screen bg-(--color-background) flex">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
+        <PreviewBanner />
         <TopBar />
         <main className="flex-1 p-6">{children}</main>
       </div>
