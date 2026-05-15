@@ -4,7 +4,7 @@
 # before declaring a release ready. Records pass/fail per stage and exits
 # non-zero if any required stage fails.
 #
-# Usage: bash scripts/release-gate.sh [--skip-install] [--skip-sdks]
+# Usage: bash scripts/release-gate.sh [--skip-install] [--skip-sdks] [--skip-dotnet]
 
 set -uo pipefail
 
@@ -12,13 +12,16 @@ cd "$(dirname "$0")/.."
 
 SKIP_INSTALL=0
 SKIP_SDKS=0
+SKIP_DOTNET=0
 for arg in "$@"; do
   case "$arg" in
     --skip-install) SKIP_INSTALL=1 ;;
     --skip-sdks)    SKIP_SDKS=1 ;;
+    --skip-dotnet)  SKIP_DOTNET=1 ;;
     *) echo "Unknown flag: $arg" >&2; exit 2 ;;
   esac
 done
+export SKIP_DOTNET
 
 declare -a STAGE_NAMES STAGE_RESULTS STAGE_NOTES
 overall_status=0
@@ -70,19 +73,11 @@ fi
 # Stage 2: lint
 run_stage "lint" pnpm lint
 
-# Stage 3: test (TS workspaces only — skip the rust/python/dotnet SDKs unless explicitly wanted)
-if [ "$SKIP_SDKS" -eq 1 ]; then
-  run_stage "test (ts)" pnpm -r --filter "./packages/**" test
-else
-  run_stage "test" pnpm test
-fi
+# Stage 3: test (TS workspaces and apps — native SDKs gated via separate stage)
+run_stage "test" pnpm test
 
-# Stage 4: build (TS workspaces, skip native SDK build by default)
-if [ "$SKIP_SDKS" -eq 1 ]; then
-  run_stage "build (ts)" pnpm -r --filter "./packages/**" build
-else
-  run_stage "build" pnpm build
-fi
+# Stage 4: build (TS workspaces and apps — native SDKs gated via separate stage)
+run_stage "build" pnpm build
 
 # Stage 5: smoke:cli (packed CLI installability)
 if pnpm run | grep -q "^  smoke:cli"; then
@@ -94,11 +89,11 @@ fi
 # Stage 6: deterministic self-gate
 run_stage "self-check" node packages/cli/dist/index.js check --format github --base main
 
-# Stage 7: artefact hygiene — fail if SDK build outputs leaked past .gitignore.
+# Stage 7: artefact hygiene — fail if build outputs / agent caches leaked past .gitignore.
 artefact_hygiene() {
   local stray
   stray=$(git ls-files --others --exclude-standard \
-    | grep -E '^(sdks/.+/(target|bin|obj|dist|build)/|.*\.tsbuildinfo$)' || true)
+    | grep -E '(^sdks/.+/(target|bin|obj|dist|build)/|\.tsbuildinfo$|(^|/)\.claude/|(^|/)\.next/|(^|/)\.venv/|(^|/)__pycache__/|\.egg-info(/|$))' || true)
   if [ -n "$stray" ]; then
     echo "Stray build artefacts present (extend .gitignore or clean before release):" >&2
     echo "$stray" >&2
@@ -107,6 +102,27 @@ artefact_hygiene() {
   return 0
 }
 run_stage "artefact-hygiene" artefact_hygiene
+
+# Stage 8: tracked-artefact-check — fail if generated files are tracked in git.
+tracked_artefact_check() {
+  local tracked
+  tracked=$(git ls-files \
+    | grep -E '(\.tsbuildinfo$|\.pyc$|(^|/)node_modules/|(^|/)\.next/|(^|/)__pycache__/|\.egg-info(/|$)|^sdks/.+/(target|bin|obj|dist|build)/)' || true)
+  if [ -n "$tracked" ]; then
+    echo 'Generated artefacts tracked in git (move to .gitignore and `git rm --cached`):' >&2
+    echo "$tracked" >&2
+    return 1
+  fi
+  return 0
+}
+run_stage "tracked-artefact-check" tracked_artefact_check
+
+# Stage 9: SDK parity (opt-in)
+if [ "$SKIP_SDKS" -eq 1 ]; then
+  skip_stage "sdk-parity" "--skip-sdks"
+else
+  run_stage "sdk-parity" bash scripts/test-sdks.sh
+fi
 
 # Summary
 echo

@@ -4,6 +4,7 @@ out/
 dist/
 .turbo/
 .playwright-cli/
+.claude/
 .rulebound/
 # Allow the self-dogfood rules at the repo root to be tracked.
 !/.rulebound/
@@ -16,7 +17,7 @@ __pycache__/
 *.pyc
 *.pyo
 *.egg-info/
-sdks/python/.venv/
+.venv/
 sdks/python/build/
 sdks/python/dist/
 packages/**/.rulebound/
