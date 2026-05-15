@@ -1,10 +1,17 @@
-type LogLevel = "error" | "warn" | "info" | "debug"
+export type LogLevel = "error" | "warn" | "info" | "debug"
 
-interface LogEntry {
+export interface LogEntry {
   readonly timestamp: string
   readonly level: LogLevel
   readonly message: string
   readonly [key: string]: unknown
+}
+
+export interface Logger {
+  error(message: string, context?: Record<string, unknown>): void
+  warn(message: string, context?: Record<string, unknown>): void
+  info(message: string, context?: Record<string, unknown>): void
+  debug(message: string, context?: Record<string, unknown>): void
 }
 
 const REDACTED = "[REDACTED]"
@@ -41,7 +48,7 @@ function redact(value: unknown, depth: number): unknown {
     const out: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
       if (isSensitiveKey(k)) {
-        out[k] = typeof v === "string" || typeof v === "number" || typeof v === "boolean" ? REDACTED : REDACTED
+        out[k] = REDACTED
       } else {
         out[k] = redact(v, depth + 1)
       }
@@ -51,8 +58,14 @@ function redact(value: unknown, depth: number): unknown {
   return value
 }
 
-function createEntry(level: LogLevel, message: string, context?: Record<string, unknown>): LogEntry {
-  const safeContext = context ? (redact(context, 0) as Record<string, unknown>) : undefined
+function createEntry(
+  level: LogLevel,
+  message: string,
+  context?: Record<string, unknown>,
+): LogEntry {
+  const safeContext = context
+    ? (redact(context, 0) as Record<string, unknown>)
+    : undefined
   return {
     timestamp: new Date().toISOString(),
     level,
@@ -70,17 +83,26 @@ function write(entry: LogEntry): void {
   }
 }
 
-export const logger = {
-  error(message: string, context?: Record<string, unknown>): void {
+export const logger: Logger = {
+  error(message, context) {
     write(createEntry("error", message, context))
   },
-  warn(message: string, context?: Record<string, unknown>): void {
+  warn(message, context) {
     write(createEntry("warn", message, context))
   },
-  info(message: string, context?: Record<string, unknown>): void {
+  info(message, context) {
     write(createEntry("info", message, context))
   },
-  debug(message: string, context?: Record<string, unknown>): void {
+  debug(message, context) {
     write(createEntry("debug", message, context))
   },
-} as const
+}
+
+/**
+ * Redact sensitive keys from an arbitrary value. Intended for callers that
+ * persist or serialize externally-sourced payloads (e.g. analyzer output,
+ * upstream proxy responses) outside of the structured logger.
+ */
+export function redactSensitive<T>(value: T): T {
+  return redact(value, 0) as T
+}

@@ -1,4 +1,5 @@
-export { logger } from "./logger.js"
+export { logger, redactSensitive } from "./logger.js"
+export type { Logger, LogLevel, LogEntry } from "./logger.js"
 export type {
   AgentType,
   ApiResponse,
@@ -14,4 +15,4 @@ export type {
   ValidateResponse,
   ValidationResult,
   ValidationStatus,
-} from "./types"
+} from "./types.js"

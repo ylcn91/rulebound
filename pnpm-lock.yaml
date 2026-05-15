@@ -311,18 +311,30 @@ importers:
 
   packages/shared:
     devDependencies:
-      typescript:
-        specifier: ^5.7
-        version: 5.9.3
-
-  sdks/typescript:
-    devDependencies:
+      '@types/node':
+        specifier: ^22
+        version: 22.19.11
       typescript:
         specifier: ^5.7
         version: 5.9.3
       vitest:
         specifier: ^4.0.18
         version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)
+
+  sdks/typescript:
+    devDependencies:
+      '@rulebound/server':
+        specifier: workspace:*
+        version: link:../../packages/server
+      typescript:
+        specifier: ^5.7
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.18
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
 
 packages:
 
