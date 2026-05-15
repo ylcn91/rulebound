@@ -24,6 +24,15 @@ vi.mock("../lib/crypto.js", () => ({
   decrypt: vi.fn((s: string) => s.replace("encrypted:", "")),
 }))
 
+vi.mock("../lib/url-policy.js", () => ({
+  assertSafeOutboundUrl: vi.fn(async () => undefined),
+  UnsafeOutboundUrlError: class extends Error {
+    code = "unsafe_outbound_url"
+    reason = ""
+    target = ""
+  },
+}))
+
 import { getDb } from "../db/index.js"
 import { deliverWebhook } from "../webhooks/dispatcher.js"
 import { verifyGitHubSignature, parseGitHubEvent } from "../webhooks/receivers.js"

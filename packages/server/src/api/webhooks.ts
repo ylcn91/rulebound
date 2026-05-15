@@ -7,6 +7,10 @@ import { webhookEndpointCreateSchema } from "../schemas.js"
 import { encrypt, decrypt } from "../lib/crypto.js"
 import { requireMatchingOrg, requireRequestIdentity } from "../lib/request-context.js"
 import { requireScope } from "../middleware/require-scope.js"
+import {
+  assertSafeOutboundUrl,
+  UnsafeOutboundUrlError,
+} from "../lib/url-policy.js"
 
 const app = new Hono()
 
@@ -46,6 +50,18 @@ app.post("/endpoints", requireScope("webhooks:write"), async (c) => {
   const parsed = webhookEndpointCreateSchema.safeParse(raw)
   if (!parsed.success) {
     return c.json({ error: "Validation failed", details: parsed.error.issues }, 400)
+  }
+
+  try {
+    await assertSafeOutboundUrl(parsed.data.url)
+  } catch (err) {
+    if (err instanceof UnsafeOutboundUrlError) {
+      return c.json(
+        { error: "Unsafe webhook URL", reason: err.reason },
+        400,
+      )
+    }
+    throw err
   }
 
   const encryptedSecret = encrypt(parsed.data.secret)
