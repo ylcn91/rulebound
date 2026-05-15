@@ -101,6 +101,74 @@ business-logic path through dependency injection. Use the integration suite
 to catch SQL / Drizzle / migration drift, not as the primary correctness
 proof.
 
+## AMP-91 production readiness checklist
+
+This runbook is the operational entry point. The canonical readiness
+checklist lives in [`docs/amp-91-new.md` §9](./amp-91-new.md#9-production-launch-checklist),
+and the per-gate scope (core vs full platform) is defined in
+[§8 verification matrix](./amp-91-new.md#8-verification-matrix). Do not
+duplicate that list — update §9 first, then mirror the deltas here.
+
+Release scope must be decided before tagging. Pick one:
+
+### Core release checklist (CLI + engine + MCP + CI)
+
+The release-gate stages below are **all mandatory** for a core release.
+A red stage blocks the tag.
+
+- [ ] `pnpm release:gate` PASS (covers install, lint, test, build,
+  smoke:cli, self-check, artefact-hygiene, tracked-artefact-check).
+- [ ] `pnpm run check:rulebound` PASS (self-dogfood; also runs as the
+  `self-check` stage above but record it explicitly in release notes).
+- [ ] MCP parity tests PASS.
+- [ ] Docs drift check PASS (`scripts/check-docs-drift.sh`).
+- [ ] Secret scan PASS (`scripts/secret-scan.sh`, gitleaks; release-gate
+  stage 9 — silent skip is not allowed).
+- [ ] Dependency scan reviewed (`.github/workflows/dependency-scan.yml`;
+  required-for-full, recommended-for-core per §8).
+- [ ] GitHub Action examples validated (`scripts/smoke-action.sh`).
+- [ ] README quickstart smoke PASS.
+- [ ] Release notes state stable vs preview surfaces (core stable;
+  server / gateway / dashboard / native SDKs preview unless promoted).
+- [ ] Known limitations documented.
+
+Stages explicitly **not required** for a core-only release:
+
+- `sdk-parity` may be skipped with `--skip-sdks` (or `--skip-dotnet`),
+  but every skipped SDK must be recorded in the release notes.
+- Server real-Postgres integration suite is full-platform-only.
+- Dashboard e2e and gateway provider contract tests are
+  full-platform-only.
+
+### Full platform release checklist (adds server / gateway / dashboard / SDKs)
+
+Run after the core checklist is green. These gates are
+**required for full** per §8; skipping any one of them downgrades the
+release to core scope.
+
+- [ ] Core release checklist complete.
+- [ ] Server migrations committed and tested (no drift —
+  `scripts/check-migration-drift.sh`).
+- [ ] Server auth scopes enforced.
+- [ ] CORS allowlist configured.
+- [ ] Rate limiting documented or implemented.
+- [ ] Server real-Postgres integration suite PASS
+  (`pnpm --filter @rulebound/server test:integration`, Docker required).
+- [ ] Web build PASS (`@rulebound/web build`).
+- [ ] Dashboard e2e PASS (Playwright or equivalent).
+- [ ] Gateway provider contract tests PASS.
+- [ ] Gateway privacy / logging tests PASS.
+- [ ] Native SDK parity PASS (`pnpm test:sdks` / `sdk-parity` stage
+  without `--skip-sdks`) — or explicitly scoped out in release notes
+  with each skipped SDK listed.
+- [ ] Threat model docs complete (`docs/threat-model/`).
+- [ ] Runbooks complete (`docs/runbooks/`).
+- [ ] Rollback plan complete (`docs/runbooks/rollback.md`).
+- [ ] Secret rotation procedure complete.
+
+When a stage's status differs between core and full scope, refer back
+to the §8 matrix as the source of truth.
+
 ## What this gate is NOT
 
 - It is not the substitute for code review.
