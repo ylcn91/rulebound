@@ -74,6 +74,10 @@ describe("runDeterministicChecks", () => {
     expect(result.status).toBe("PASSED")
     expect(result.rulesEvaluated).toBe(0)
     expect(result.note).toMatch(/No rules directory/i)
+    // MCP-002 envelope: structured notice alongside legacy `note`.
+    expect(result.notice?.code).toBe("NO_RULES_DIR")
+    expect(result.notice?.message).toMatch(/No rules directory/i)
+    expect(result.notice?.remedy).toMatch(/rulebound init/)
   })
 
   it("returns note when rules exist but none have checks", async () => {
@@ -83,6 +87,8 @@ describe("runDeterministicChecks", () => {
     expect(result.status).toBe("PASSED")
     expect(result.rulesEvaluated).toBe(0)
     expect(result.note).toMatch(/No deterministic checks/i)
+    expect(result.notice?.code).toBe("NO_DETERMINISTIC_CHECKS")
+    expect(result.notice?.remedy).toMatch(/checks:/)
   })
 
   it("flags missing required file as a blocking violation", async () => {
@@ -221,6 +227,7 @@ describe("checkDiff", () => {
     expect(result.summary.total).toBe(0)
     expect(result.summary.violated).toBe(0)
     expect(result.note).toMatch(/No changed files/i)
+    expect(result.notice?.code).toBe("NO_CHANGED_FILES")
     expect(result.topViolations).toEqual([])
   })
 

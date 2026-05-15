@@ -19,6 +19,23 @@ export interface DeterministicRunInput {
   readonly allowCommands?: boolean
 }
 
+/**
+ * Structured error envelope for MCP no-op / soft-failure responses.
+ *
+ * `code` is a stable machine-readable identifier. `message` is human text.
+ * `remedy` is an optional one-line actionable hint.
+ *
+ * Backwards compatibility: `note` (string) is still emitted alongside `notice`
+ * for now and mirrors `notice.message`. New consumers should read `notice.*`.
+ * `note` will be removed in a future major bump — see docs/mcp-error-envelope.md
+ * (forthcoming) and the broader CLN-003 envelope alignment work.
+ */
+export interface MCPNotice {
+  readonly code: string
+  readonly message: string
+  readonly remedy?: string
+}
+
 export interface DeterministicSummary {
   readonly status: DeterministicReport["status"]
   readonly summary: DeterministicReport["summary"]
@@ -26,7 +43,9 @@ export interface DeterministicSummary {
   readonly topViolations: readonly TopViolation[]
   readonly parseErrors: DeterministicReport["parseErrors"]
   readonly rulesEvaluated: number
+  /** @deprecated use `notice.message`. Retained for backwards compatibility. */
   readonly note?: string
+  readonly notice?: MCPNotice
 }
 
 export interface TopViolation {
@@ -53,8 +72,26 @@ export interface RepairInstruction {
 }
 
 const MAX_VIOLATIONS = 5
-const NO_RULES_NOTE = "No rules directory found. Run 'rulebound init' first."
-const NO_CHECKS_NOTE = "No deterministic checks defined in any rule."
+
+const NO_RULES_NOTICE: MCPNotice = {
+  code: "NO_RULES_DIR",
+  message: "No rules directory found.",
+  remedy: "Run 'rulebound init' to bootstrap a .rulebound/ directory.",
+}
+const NO_CHECKS_NOTICE: MCPNotice = {
+  code: "NO_DETERMINISTIC_CHECKS",
+  message: "No deterministic checks defined in any rule.",
+  remedy: "Add a `checks:` block to at least one rule to enforce it deterministically.",
+}
+const NO_CHANGED_FILES_NOTICE: MCPNotice = {
+  code: "NO_CHANGED_FILES",
+  message: "No changed files detected — nothing to check.",
+  remedy: "Pass a base ref via `base` or stage files for a --staged diff.",
+}
+
+// Backwards-compat strings kept as constants for legacy consumers reading `note`.
+const NO_RULES_NOTE = `${NO_RULES_NOTICE.message} Run 'rulebound init' first.`
+const NO_CHECKS_NOTE = NO_CHECKS_NOTICE.message
 
 function loadRulesWithChecks(cwd: string): readonly Rule[] {
   const dir = engineFindRulesDir(cwd)
@@ -99,25 +136,39 @@ export async function runDeterministicChecks(
       parseErrors: [],
       rulesEvaluated: 0,
       note: NO_RULES_NOTE,
+      notice: NO_RULES_NOTICE,
     }
   }
 
   const rulesWithChecks = rules.filter((r) => r.checks && r.checks.length > 0)
   if (rulesWithChecks.length === 0) {
+    // No deterministic checks defined at all. Surface advisory-only rule
+    // statuses so callers can still see what rules are loaded.
+    const advisoryStatuses: RuleStatus[] = rules.map((r) => ({
+      ruleId: r.id,
+      title: r.title,
+      checkCount: 0,
+      status: "ADVISORY",
+      blocking: false,
+    }))
     return {
       status: "PASSED",
       summary: { total: 0, pass: 0, violated: 0, notApplicable: 0, error: 0, blocking: 0, waived: 0 },
-      ruleStatuses: [],
+      ruleStatuses: advisoryStatuses,
       topViolations: [],
       parseErrors: [],
       rulesEvaluated: 0,
       note: NO_CHECKS_NOTE,
+      notice: NO_CHECKS_NOTICE,
     }
   }
 
+  // Pass the FULL rules list (advisory + with-checks). The engine skips
+  // rules without checks in the runner loop but still emits an ADVISORY
+  // status for them via aggregateRuleStatuses — matching CLI behaviour.
   const report = await validateDeterministic({
     cwd: input.cwd,
-    rules: rulesWithChecks,
+    rules,
     ...(input.changedFiles !== undefined ? { changedFiles: input.changedFiles } : {}),
     ...(input.branch !== undefined ? { branch: input.branch } : {}),
     allowCommandExecution: input.allowCommands ?? false,
@@ -203,7 +254,8 @@ export async function checkDiff(input: CheckDiffInput): Promise<DeterministicSum
       topViolations: [],
       parseErrors: [],
       rulesEvaluated: 0,
-      note: "No changed files detected — nothing to check.",
+      note: NO_CHANGED_FILES_NOTICE.message,
+      notice: NO_CHANGED_FILES_NOTICE,
     }
   }
 
@@ -227,7 +279,9 @@ export interface RepairInstructionsResult {
   readonly status: DeterministicReport["status"]
   readonly instructions: readonly RepairInstruction[]
   readonly totalViolations: number
+  /** @deprecated use `notice.message`. */
   readonly note?: string
+  readonly notice?: MCPNotice
 }
 
 export async function getRepairInstructions(
@@ -240,6 +294,7 @@ export async function getRepairInstructions(
       instructions: [],
       totalViolations: 0,
       note: NO_RULES_NOTE,
+      notice: NO_RULES_NOTICE,
     }
   }
 
@@ -250,12 +305,13 @@ export async function getRepairInstructions(
       instructions: [],
       totalViolations: 0,
       note: NO_CHECKS_NOTE,
+      notice: NO_CHECKS_NOTICE,
     }
   }
 
   const report = await validateDeterministic({
     cwd: input.cwd,
-    rules: rulesWithChecks,
+    rules,
     ...(input.changedFiles !== undefined ? { changedFiles: input.changedFiles } : {}),
     ...(input.branch !== undefined ? { branch: input.branch } : {}),
     allowCommandExecution: input.allowCommands ?? false,
