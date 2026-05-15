@@ -11,7 +11,8 @@ import { webhooksApi } from "./api/webhooks.js"
 import { tokensApi } from "./api/tokens.js"
 import { analyticsApi } from "./api/analytics.js"
 import { projectsApi } from "./api/projects.js"
-import { authMiddleware, optionalAuth } from "./middleware/auth.js"
+import { authMiddleware } from "./middleware/auth.js"
+import { rateLimit } from "./middleware/rate-limit.js"
 import { validateServerEnv } from "./startup-checks.js"
 import { originAllowedFor } from "./lib/cors-policy.js"
 
@@ -36,6 +37,10 @@ export function createApp() {
 
     return authMiddleware(c, next)
   })
+
+  // Rate limit runs after auth so we have an identity context for per-token
+  // buckets. Default-off — see middleware/rate-limit.ts and lead verdict B2.
+  app.use("/v1/*", rateLimit())
 
   app.route("/v1/validate", validateApi)
   app.route("/v1/rules", rulesApi)
@@ -85,6 +90,18 @@ export { authMiddleware, optionalAuth } from "./middleware/auth.js"
 export { validateServerEnv } from "./startup-checks.js"
 export type { ServerEnv } from "./startup-checks.js"
 export { getDb, schema } from "./db/index.js"
+export {
+  listAuditEntries,
+  insertAuditEntry,
+  renderAuditCsv,
+  pruneAuditEntries,
+  redactAuditMetadata,
+  resolveRetentionDays,
+  DEFAULT_REDACTED_KEYS,
+} from "./lib/audit.js"
+export type { AuditFilters, PruneOptions, PruneResult } from "./lib/audit.js"
+export { rateLimit } from "./middleware/rate-limit.js"
+export type { RateLimitConfig } from "./middleware/rate-limit.js"
 export { signPayload, deliverWebhook } from "./webhooks/dispatcher.js"
 export { verifyGitHubSignature, parseGitHubEvent } from "./webhooks/receivers.js"
 export type { WebhookEvent, WebhookPayload, DeliveryResult } from "./webhooks/dispatcher.js"
