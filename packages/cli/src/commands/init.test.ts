@@ -8,14 +8,22 @@ import { PRE_COMMIT_HOOK_CONTENT } from "../lib/pre-commit-hook.js"
 describe("initCommand", () => {
   const originalCwd = process.cwd()
   let tempDir: string
+  let logCalls: unknown[][]
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "rulebound-init-"))
     mkdirSync(join(tempDir, ".git"), { recursive: true })
     process.chdir(tempDir)
-    vi.spyOn(console, "log").mockImplementation(() => {})
+    logCalls = []
+    vi.spyOn(console, "log").mockImplementation((...args: unknown[]) => {
+      logCalls.push(args)
+    })
     vi.spyOn(console, "error").mockImplementation(() => {})
   })
+
+  function loggedOutput(): string {
+    return logCalls.map((c) => c.map((a) => String(a)).join(" ")).join("\n")
+  }
 
   afterEach(() => {
     vi.restoreAllMocks()
@@ -153,5 +161,24 @@ describe("initCommand", () => {
     expect(existsSync(join(rulesDir, "typescript"))).toBe(true)
     expect(existsSync(join(rulesDir, "security"))).toBe(true)
     expect(existsSync(join(rulesDir, "java-spring"))).toBe(true)
+  })
+
+  it("prints a `rulebound doctor` cross-link when installing an analyzer pack", async () => {
+    await initCommand({ pack: ["analyzer-typescript"], hook: false })
+    const out = loggedOutput()
+    expect(out).toContain("Run `rulebound doctor`")
+    expect(out).toContain("required analyzers")
+  })
+
+  it("prints the doctor cross-link only when at least one analyzer pack is requested", async () => {
+    await initCommand({ pack: ["starter"], hook: false })
+    const out = loggedOutput()
+    expect(out).not.toContain("Run `rulebound doctor`")
+  })
+
+  it("prints the doctor cross-link when analyzer pack is combined with non-analyzer packs", async () => {
+    await initCommand({ pack: ["starter", "analyzer-security"], hook: false })
+    const out = loggedOutput()
+    expect(out).toContain("Run `rulebound doctor`")
   })
 })

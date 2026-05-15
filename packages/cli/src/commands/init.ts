@@ -116,6 +116,14 @@ export async function initCommand(options: InitOptions): Promise<void> {
       results.push(installPack(def, examplesRoot.path, rulesDir))
     }
     printPackSummary(results)
+    if (packs.some((p) => p.startsWith("analyzer-"))) {
+      console.log()
+      console.log(
+        chalk.dim(
+          "Run `rulebound doctor` to verify required analyzers (eslint, pmd, etc.) are available.",
+        ),
+      )
+    }
   } else if (options.examples) {
     const examplesRoot = findExamplesRoot(cwd)
     if (examplesRoot) {
