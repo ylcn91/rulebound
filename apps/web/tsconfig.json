@@ -38,6 +38,8 @@
   "exclude": [
     "node_modules",
     "__tests__/**/*.ts",
+    "e2e/**",
+    "playwright.config.ts",
     "vitest.config.mjs"
   ]
 }
