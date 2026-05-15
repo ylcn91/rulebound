@@ -81,25 +81,34 @@ Existing tokens issued before v0.2 carry the legacy strings `"read"` and / or
 "validate" -> ["validate:run"]
 ```
 
-Behaviour:
+### Deprecation timeline
 
-- v0.2.0 — middleware accepts both legacy and new scope strings. When a legacy
-  string is observed, the request handler logs once per token (`token_hash`
-  prefix only) with level `warn`:
-  `legacy_scope_observed token_prefix=<...> legacy=<...> mapped_to=<...>`.
-  This gives operators a window to re-issue tokens.
-- v0.2.0 — opt-in env `RULEBOUND_LEGACY_TOKEN_SCOPES=1` keeps the old behaviour
-  of "token authenticates ⇒ any route" for tokens whose scope list is empty.
-  Existing fixtures and integration tests rely on this; without it the middleware
-  treats an empty scope array as "no permissions" rather than "all permissions".
-- v0.3.0 — `RULEBOUND_LEGACY_TOKEN_SCOPES` becomes a no-op (always
-  treated as `0`). Legacy string mapping above is retained one more minor for
-  backward compatibility.
-- v0.4.0 — drop the legacy string mapping. Tokens carrying only `"read"` or
-  `"validate"` receive `401 { error, code: "scope_renamed", action: "rotate_token" }`.
+The legacy bypass is **explicitly time-bound**. Operators must migrate before
+v0.3.0; the bypass is not a permanent escape hatch.
 
-The matching test in `__tests__/scopes.test.ts` (Wave 2) covers each of these
-transitions. The schema (`api_tokens.scopes text[]`) does not change.
+| Release | Behaviour |
+| --- | --- |
+| v0.2.x (current) | Middleware accepts legacy + new strings. Per-request `warn` log on first sighting of a legacy string. `RULEBOUND_LEGACY_TOKEN_SCOPES=1` opt-in still treats an empty scope array as "all scopes". `warnLegacyTokenScopesEnv()` emits a **boot-time** `warn` line so the deprecation is visible even when no traffic hits a guarded route. |
+| v0.3.0 | `RULEBOUND_LEGACY_TOKEN_SCOPES` becomes a **no-op** (always treated as `0`). Tokens with an empty `scopes` array stop authenticating against guarded routes. Legacy string mapping above is retained one more minor for backward compatibility. |
+| v0.4.0 | Drop the legacy string mapping. Tokens carrying only `"read"` or `"validate"` receive `401 { error, code: "scope_renamed", action: "rotate_token" }`. Schema (`api_tokens.scopes text[]`) does not change; only the runtime treatment of the strings does. |
+
+The matching test in `__tests__/scopes.test.ts` (Wave 2) covers each
+transition. The boot-time deprecation log is verified in
+`__tests__/legacy-scopes-warn.test.ts`.
+
+### Operator migration checklist
+
+1. Run `node packages/server/dist/index.js` against your staging env. If the
+   boot-time `warn` line `RULEBOUND_LEGACY_TOKEN_SCOPES=1 is enabled` appears,
+   you are relying on the bypass.
+2. List tokens whose `scopes` column is empty (`SELECT id FROM api_tokens
+   WHERE scopes = '{}'`). These tokens authenticate today but will be
+   rejected in v0.3.0.
+3. Rotate or update each one with an explicit scope list. New default is
+   `["audit:read", "rules:read", "validate:run"]`; add write scopes only when
+   the caller needs them.
+4. Re-deploy without `RULEBOUND_LEGACY_TOKEN_SCOPES=1` set. The per-request
+   deprecation log should stop firing.
 
 ## Validation rules
 

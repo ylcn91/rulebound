@@ -13,7 +13,7 @@ import { analyticsApi } from "./api/analytics.js"
 import { projectsApi } from "./api/projects.js"
 import { authMiddleware } from "./middleware/auth.js"
 import { rateLimit } from "./middleware/rate-limit.js"
-import { validateServerEnv } from "./startup-checks.js"
+import { validateServerEnv, warnLegacyTokenScopesEnv } from "./startup-checks.js"
 import { originAllowedFor } from "./lib/cors-policy.js"
 
 export function createApp() {
@@ -67,6 +67,7 @@ if (isDirectRun) {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`)
     process.exit(1)
   }
+  warnLegacyTokenScopesEnv()
   const port = parseInt(process.env.PORT ?? "3001", 10)
   const app = createApp()
 
@@ -87,7 +88,7 @@ export { tokensApi } from "./api/tokens.js"
 export { analyticsApi } from "./api/analytics.js"
 export { projectsApi } from "./api/projects.js"
 export { authMiddleware, optionalAuth } from "./middleware/auth.js"
-export { validateServerEnv } from "./startup-checks.js"
+export { validateServerEnv, warnLegacyTokenScopesEnv } from "./startup-checks.js"
 export type { ServerEnv } from "./startup-checks.js"
 export { getDb, schema } from "./db/index.js"
 export {

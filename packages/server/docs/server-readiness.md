@@ -50,10 +50,15 @@ items in "Not hardened" are resolved.
 
 ## Not hardened (deferred — do not treat as production-ready)
 
-- **API scope enforcement**: tokens carry a `scopes` array but the per-endpoint
-  scope check is not implemented in middleware. Tokens currently grant access
-  to anything the bearer can authenticate to. Tighten before exposing the API
-  to untrusted clients.
+- **API scope enforcement**: scope check middleware is wired (Wave 2) but
+  `RULEBOUND_LEGACY_TOKEN_SCOPES=1` is still honoured during the v0.2
+  deprecation window so that tokens with an empty `scopes` array continue to
+  authenticate. The bypass is logged at boot
+  (`warnLegacyTokenScopesEnv()` in `src/startup-checks.ts`) and on every
+  request that lands on a guarded route. **Removal milestone:** v0.3.0 turns
+  the env into a no-op; v0.4.0 drops the legacy `"read"`/`"validate"` string
+  mapping. Operators must rotate tokens before the v0.3.0 upgrade. See
+  `docs/scope-taxonomy.md` for the migration checklist.
 - **Rate limiting**: not implemented in-process. Deploy behind a reverse proxy
   (nginx, Cloudflare, API gateway) that enforces request rate limits per token
   and per IP.
