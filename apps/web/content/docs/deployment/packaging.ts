@@ -20,7 +20,7 @@ All publishable packages live under \`packages/*\` in the monorepo. The CLI is t
 | \`@rulebound/shared\` | Logger, shared utilities | no |
 | \`@rulebound/mcp\` | MCP server for AI agents | yes |
 | \`@rulebound/gateway\` | LLM proxy gateway (advanced) | yes |
-| \`@rulebound/lsp\` | LSP server (advanced) | yes |
+| \`@rulebound/lsp\` | LSP server (experimental) | yes |
 | \`@rulebound/server\` | Optional HTTP API server (advanced) | yes |
 | \`@rulebound/rules-*\` | Rule packs (typescript, react, security) | no |
 

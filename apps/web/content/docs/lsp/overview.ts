@@ -6,6 +6,8 @@ const doc: DocPage = {
   description: "Rulebound LSP Server — real-time diagnostics for rule violations directly in your editor.",
   content: `## LSP Server Overview
 
+> **Experimental.** The Rulebound LSP is editor diagnostics only and is not part of the v0.1 release gate. See \`packages/lsp/docs/lsp-readiness.md\` for the supported diagnostics list and known limitations.
+
 The Rulebound LSP (Language Server Protocol) server provides real-time diagnostics in your code editor. As you type, the server analyzes your code against both built-in AST queries and your project's custom rules, surfacing violations as editor warnings and errors.
 
 ### How It Works

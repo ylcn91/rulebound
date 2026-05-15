@@ -1,7 +1,7 @@
 {
   "name": "@rulebound/lsp",
   "version": "0.1.0",
-  "description": "LSP server for Rulebound — inline diagnostics for rule violations in IDEs",
+  "description": "experimental: LSP server for Rulebound — inline diagnostics for rule violations in IDEs",
   "license": "MIT",
   "repository": {
     "type": "git",

@@ -33,7 +33,7 @@ Rulebound is a monorepo. The production surface is the CLI plus the MCP server. 
 | \`@rulebound/shared\` | Shared types and utilities. |
 | \`@rulebound/mcp\` | MCP server exposing deterministic + advisory tools to agents. |
 | \`@rulebound/gateway\` | Optional HTTP proxy for LLM providers (advanced). |
-| \`@rulebound/lsp\` | Optional LSP server (advanced). |
+| \`@rulebound/lsp\` | Optional LSP server (experimental). |
 | \`@rulebound/server\` | Optional HTTP API (preview). |
 
 ### How It Works
