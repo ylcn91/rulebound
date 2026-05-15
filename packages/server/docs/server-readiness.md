@@ -7,6 +7,15 @@ items in "Not hardened" are resolved.
 
 ## Hardened
 
+- **Versioned Drizzle migrations**. `packages/server/migrations/0000_initial.sql`
+  captures the schema in `src/db/schema.ts`. A fresh Postgres database can be
+  bootstrapped with `pnpm --filter @rulebound/server db:migrate` (sets
+  `DATABASE_URL`, applies all migrations in order via
+  `drizzle-orm/postgres-js/migrator`). `pnpm --filter @rulebound/server db:check`
+  runs the offline structural drift check; `scripts/check-migration-drift.sh`
+  wraps it for CI and additionally probes the working tree to catch
+  uncommitted schema changes. Future schema edits must land with a generated
+  migration file (`pnpm --filter @rulebound/server db:generate`).
 - **Env validation at boot**: `validateServerEnv()` (see `src/startup-checks.ts`)
   fails fast with a clear aggregated error when `DATABASE_URL` or
   `RULEBOUND_ENCRYPTION_KEY` are missing or malformed. Called inside the
@@ -41,18 +50,6 @@ items in "Not hardened" are resolved.
 
 ## Not hardened (deferred — do not treat as production-ready)
 
-- **Drizzle migrations are not generated**. The schema in `src/db/schema.ts` is
-  the source of truth, but there are no versioned migration files committed to
-  the repo. A fresh database cannot currently be bootstrapped from migrations
-  alone. To generate them, run from the package root:
-
-  ```bash
-  pnpm exec drizzle-kit generate --schema=src/db/schema.ts --dialect=postgresql --out=migrations
-  ```
-
-  This needs to be done with real schema review and committed. Until then,
-  treat the DB as developer-managed via `drizzle-kit push` and document that
-  fact in the deployment runbook.
 - **API scope enforcement**: tokens carry a `scopes` array but the per-endpoint
   scope check is not implemented in middleware. Tokens currently grant access
   to anything the bearer can authenticate to. Tighten before exposing the API
@@ -73,11 +70,12 @@ items in "Not hardened" are resolved.
 
 ## Required before "prod-ready" label
 
-1. Commit versioned Drizzle migrations and add a migration CI check.
-2. Implement scope enforcement in `authMiddleware` (validate scopes per route).
-3. Lock down CORS origins.
-4. Document rate-limiting expectations in the deployment runbook or implement
+1. Implement scope enforcement in `authMiddleware` (validate scopes per route).
+   See `packages/server/docs/scope-taxonomy.md` for the agreed scope set and the
+   legacy-token compatibility plan.
+2. Lock down CORS origins.
+3. Document rate-limiting expectations in the deployment runbook or implement
    it in-process.
-5. Add a real ephemeral-Postgres integration test.
-6. Run a secret scan and a dependency-vulnerability scan against the deployed
+4. Add a real ephemeral-Postgres integration test.
+5. Run a secret scan and a dependency-vulnerability scan against the deployed
    container before release.

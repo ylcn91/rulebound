@@ -25,7 +25,10 @@
     "dev": "tsup --watch",
     "start": "node dist/index.js",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node --experimental-strip-types --no-warnings ./src/db/migrate.ts",
+    "db:check": "drizzle-kit check"
   },
   "dependencies": {
     "@rulebound/engine": "workspace:*",
