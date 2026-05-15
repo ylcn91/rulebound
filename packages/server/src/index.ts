@@ -13,11 +13,17 @@ import { analyticsApi } from "./api/analytics.js"
 import { projectsApi } from "./api/projects.js"
 import { authMiddleware, optionalAuth } from "./middleware/auth.js"
 import { validateServerEnv } from "./startup-checks.js"
+import { originAllowedFor } from "./lib/cors-policy.js"
 
 export function createApp() {
   const app = new Hono()
 
-  app.use("*", cors())
+  app.use(
+    "*",
+    cors({
+      origin: (origin) => originAllowedFor(origin),
+    }),
+  )
   app.use("*", logger())
 
   app.get("/health", (c) => c.json({ status: "ok", version: "0.1.0" }))
