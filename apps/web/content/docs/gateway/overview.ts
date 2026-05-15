@@ -7,7 +7,7 @@ const doc: DocPage = {
     "Rulebound Gateway — optional, advanced HTTP proxy that intercepts AI agent LLM calls to inject rules and scan responses. Most users should start with the CLI and MCP server first.",
   content: `## Gateway Overview
 
-> **Optional, advanced.** The Rulebound Gateway is **not** part of the day-one happy path. Start with the CLI (\`rulebound check\`) and the MCP server. Add the gateway only if you need to intercept LLM provider calls outside your agent's own tool surface.
+> **Preview / advanced — self-hosted only.** The Rulebound Gateway is **not** part of the day-one happy path and is **not** offered as a Rulebound-hosted proxy. Start with the CLI (\`rulebound check\`) and the MCP server. Add the gateway only if you need to intercept LLM provider calls outside your agent's own tool surface. See \`packages/gateway/docs/gateway-readiness.md\` for the deployment topology, the "no hosted proxy" boundary, and the items still required before the gateway can be treated as production-ready.
 
 The Gateway is a transparent HTTP proxy that sits between AI coding agents and LLM providers (OpenAI, Anthropic, Google). It intercepts API calls to inject your project rules into prompts and scan responses for rule violations.
 

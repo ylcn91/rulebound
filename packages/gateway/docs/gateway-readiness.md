@@ -89,6 +89,67 @@ on a random localhost port — no external network is involved.
 5. Add an end-to-end privacy-mode test that asserts no prompt/response
    content appears in stdout/stderr when `DEBUG_FULL_BODIES` is unset.
 
+## Deployment topology
+
+The gateway is a self-hosted process. There is no Rulebound-operated proxy.
+The intended placement is a private subnet behind an authenticating reverse
+proxy, with outbound HTTPS to provider endpoints.
+
+```
++----------------+        +---------------------+        +---------------+
+|  Agent / IDE   |  --->  |  Reverse proxy      |  --->  |  Rulebound    |
+|  (your LAN)    |        |  (auth, rate limit) |        |  gateway      |
++----------------+        +---------------------+        +-------+-------+
+                                                                  |
+                                                                  | HTTPS
+                                                                  v
+                                                       +---------------------+
+                                                       |  LLM provider API   |
+                                                       |  (OpenAI/Anthropic/ |
+                                                       |   Google)           |
+                                                       +---------------------+
+```
+
+Operator responsibilities at each hop:
+
+- **Reverse proxy.** Terminates TLS, enforces per-token / per-IP rate limits,
+  and authenticates the caller (the gateway port itself does **not**
+  authenticate; see "Not hardened"). Cloudflare, nginx, an API gateway, or a
+  mesh sidecar are all acceptable.
+- **Gateway process.** Runs as a single-tenant workload. Do not co-locate
+  with low-trust services on the same host; prompt and response content
+  transits process memory even with body logging disabled.
+- **Provider egress.** The gateway forwards whichever bearer token the caller
+  supplied. Outbound network policy is the operator's responsibility — there
+  is no upstream allowlist baked into the binary.
+
+Operational requirements for any deployment that handles real LLM traffic:
+
+- Bind the gateway port to a private interface or a service-mesh socket;
+  never expose `:4000` (or whichever port) directly to the public internet.
+- Provision the reverse proxy with auth and rate limiting before sending the
+  first real request through the gateway.
+- Treat the gateway host as a secrets-bearing system; rotate provider keys
+  on host compromise.
+
+## No hosted proxy promise
+
+There is no Rulebound-operated gateway as a service. The `@rulebound/gateway`
+package is self-hosted only. Treat any commercial-sounding language about
+"Rulebound gateway" as referring to this self-hosted binary, never a managed
+SaaS.
+
+- The Rulebound team does not operate a shared proxy that forwards
+  customer LLM traffic.
+- Provider API keys are forwarded verbatim by the operator's own gateway
+  process. Rulebound never observes them.
+- The gateway is positioned as a controlled-beta surface (lead verdict B7);
+  the master plan section 10 explicitly lists "Gateway hosted proxy offering"
+  as out of scope until core readiness.
+- If a future Rulebound product offers managed-proxy capabilities, it will
+  be announced separately with its own privacy/audit posture; until then,
+  self-hosted is the only supported topology.
+
 ## Configuration reference
 
 | Env var | Effect |
