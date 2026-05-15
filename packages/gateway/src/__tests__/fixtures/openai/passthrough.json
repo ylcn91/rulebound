@@ -1,0 +1,8 @@
+{
+  "description": "OpenAI /models passthrough route — non-generation endpoint, gateway must not classify as generation request.",
+  "operations": ["passthrough"],
+  "path": "/v1/models",
+  "isGeneration": false,
+  "isStreaming": false,
+  "body": {}
+}

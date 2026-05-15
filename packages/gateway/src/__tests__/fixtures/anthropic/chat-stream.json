@@ -1,0 +1,18 @@
+{
+  "description": "Anthropic messages streaming SSE — content_block_delta events carry assistant text fragments.",
+  "operations": ["inject", "extractSSE"],
+  "ruleText": "RULES: refuse hardcoded secrets.",
+  "request": {
+    "model": "claude-3-5-sonnet-latest",
+    "stream": true,
+    "messages": [
+      { "role": "user", "content": "How do I store a token?" }
+    ]
+  },
+  "injectedExpect": {
+    "systemKind": "string",
+    "systemEqual": "RULES: refuse hardcoded secrets."
+  },
+  "sseChunk": "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"const x = \"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"1\"}}\n\n",
+  "expectedSseContent": "const x = 1"
+}

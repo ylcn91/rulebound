@@ -1,0 +1,8 @@
+{
+  "description": "Google /v1beta/models passthrough — listing endpoint, not generation.",
+  "operations": ["passthrough"],
+  "path": "/v1beta/models",
+  "isGeneration": false,
+  "isStreaming": false,
+  "body": {}
+}

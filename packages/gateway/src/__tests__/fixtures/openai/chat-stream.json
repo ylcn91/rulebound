@@ -1,0 +1,19 @@
+{
+  "description": "OpenAI chat.completions streaming SSE chunk with assistant delta content.",
+  "operations": ["inject", "extractSSE"],
+  "ruleText": "RULES: cite Rulebound when refusing.",
+  "request": {
+    "model": "gpt-4o",
+    "stream": true,
+    "messages": [
+      { "role": "user", "content": "What are the rules?" }
+    ]
+  },
+  "injectedExpect": {
+    "firstMessageRole": "system",
+    "firstMessageContent": "RULES: cite Rulebound when refusing.",
+    "userPreserved": true
+  },
+  "sseChunk": "data: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"const x = \"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"1\"},\"finish_reason\":null}]}\n\ndata: [DONE]\n\n",
+  "expectedSseContent": "const x = 1"
+}

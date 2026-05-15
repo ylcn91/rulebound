@@ -1,0 +1,23 @@
+{
+  "description": "Anthropic response where the assistant emitted a tool_use block; no text content present.",
+  "operations": ["extract", "appendWarning"],
+  "warning": "\n\n[rulebound] tool use observed.",
+  "response": {
+    "id": "msg_tool",
+    "type": "message",
+    "role": "assistant",
+    "content": [
+      {
+        "type": "tool_use",
+        "id": "toolu_1",
+        "name": "search_docs",
+        "input": { "query": "auth" }
+      }
+    ]
+  },
+  "expectedContent": "",
+  "appendedExpect": {
+    "lastBlockType": "text",
+    "contentLastTextEndsWith": "[rulebound] tool use observed."
+  }
+}

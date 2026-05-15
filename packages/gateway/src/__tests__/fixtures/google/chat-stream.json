@@ -1,0 +1,16 @@
+{
+  "description": "Google streamGenerateContent SSE — candidates carry partial text in parts array.",
+  "operations": ["inject", "extractSSE"],
+  "ruleText": "RULES: refuse hardcoded secrets.",
+  "path": "/v1beta/models/gemini-2.0-flash:streamGenerateContent",
+  "request": {
+    "contents": [
+      { "role": "user", "parts": [{ "text": "How do I store a token?" }] }
+    ]
+  },
+  "injectedExpect": {
+    "systemInstructionFirstText": "RULES: refuse hardcoded secrets."
+  },
+  "sseChunk": "data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"const x = \"}]}}]}\n\ndata: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"1\"}]}}]}\n\n",
+  "expectedSseContent": "const x = 1"
+}

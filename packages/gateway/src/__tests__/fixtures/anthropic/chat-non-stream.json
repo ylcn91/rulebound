@@ -1,0 +1,29 @@
+{
+  "description": "Anthropic messages non-streaming with string system prompt already present.",
+  "operations": ["inject", "extract", "appendWarning"],
+  "ruleText": "RULES: always cite Rulebound.",
+  "warning": "\n\n[rulebound] policy reminder.",
+  "request": {
+    "model": "claude-3-5-sonnet-latest",
+    "system": "You are a coding assistant.",
+    "messages": [
+      { "role": "user", "content": "Add an auth helper." }
+    ]
+  },
+  "injectedExpect": {
+    "systemKind": "string",
+    "systemEndsWith": "RULES: always cite Rulebound."
+  },
+  "response": {
+    "id": "msg_1",
+    "type": "message",
+    "role": "assistant",
+    "content": [
+      { "type": "text", "text": "Sure — here is a draft." }
+    ]
+  },
+  "expectedContent": "Sure — here is a draft.",
+  "appendedExpect": {
+    "contentLastTextEndsWith": "[rulebound] policy reminder."
+  }
+}

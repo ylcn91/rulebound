@@ -1,0 +1,33 @@
+{
+  "description": "OpenAI chat.completions response where the assistant invoked a tool and produced no text content.",
+  "operations": ["extract", "appendWarning"],
+  "warning": "\n\n[rulebound] tool call detected.",
+  "response": {
+    "id": "chatcmpl-tool",
+    "object": "chat.completion",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "tool_calls": [
+            {
+              "id": "call_1",
+              "type": "function",
+              "function": {
+                "name": "search_docs",
+                "arguments": "{\"query\":\"auth\"}"
+              }
+            }
+          ]
+        },
+        "finish_reason": "tool_calls"
+      }
+    ]
+  },
+  "expectedContent": null,
+  "appendedExpect": {
+    "unchanged": true
+  }
+}

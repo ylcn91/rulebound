@@ -1,0 +1,20 @@
+{
+  "description": "Google Gemini response with empty candidate parts.",
+  "operations": ["extract", "appendWarning"],
+  "warning": "\n\n[rulebound] empty completion.",
+  "response": {
+    "candidates": [
+      {
+        "content": {
+          "role": "model",
+          "parts": []
+        },
+        "finishReason": "STOP"
+      }
+    ]
+  },
+  "expectedContent": null,
+  "appendedExpect": {
+    "candidate0LastPartTextEndsWith": "[rulebound] empty completion."
+  }
+}

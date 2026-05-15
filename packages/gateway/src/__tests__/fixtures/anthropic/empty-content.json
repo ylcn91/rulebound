@@ -1,0 +1,16 @@
+{
+  "description": "Anthropic response with empty content array — refusal or safety stop.",
+  "operations": ["extract", "appendWarning"],
+  "warning": "\n\n[rulebound] empty completion.",
+  "response": {
+    "id": "msg_empty",
+    "type": "message",
+    "role": "assistant",
+    "content": []
+  },
+  "expectedContent": "",
+  "appendedExpect": {
+    "lastBlockType": "text",
+    "contentLastTextEndsWith": "[rulebound] empty completion."
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "description": "Google Gemini generateContent non-streaming — systemInstruction injected, candidate has plain text.",
+  "operations": ["inject", "extract", "appendWarning"],
+  "ruleText": "RULES: cite Rulebound.",
+  "warning": "\n\n[rulebound] policy reminder.",
+  "path": "/v1beta/models/gemini-2.0-flash:generateContent",
+  "request": {
+    "contents": [
+      { "role": "user", "parts": [{ "text": "Write some code." }] }
+    ]
+  },
+  "injectedExpect": {
+    "systemInstructionFirstText": "RULES: cite Rulebound."
+  },
+  "response": {
+    "candidates": [
+      {
+        "content": {
+          "role": "model",
+          "parts": [{ "text": "const x = 1" }]
+        },
+        "finishReason": "STOP"
+      }
+    ]
+  },
+  "expectedContent": "const x = 1",
+  "appendedExpect": {
+    "candidate0LastPartTextEndsWith": "[rulebound] policy reminder."
+  }
+}

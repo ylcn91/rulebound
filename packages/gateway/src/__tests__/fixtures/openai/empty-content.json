@@ -1,0 +1,20 @@
+{
+  "description": "OpenAI chat.completions response with empty assistant text — common for refusal / safety stops.",
+  "operations": ["extract", "appendWarning"],
+  "warning": "\n\n[rulebound] empty completion observed.",
+  "response": {
+    "id": "chatcmpl-empty",
+    "object": "chat.completion",
+    "choices": [
+      {
+        "index": 0,
+        "message": { "role": "assistant", "content": "" },
+        "finish_reason": "stop"
+      }
+    ]
+  },
+  "expectedContent": "",
+  "appendedExpect": {
+    "unchanged": true
+  }
+}

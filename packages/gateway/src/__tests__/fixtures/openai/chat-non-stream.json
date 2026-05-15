@@ -1,0 +1,33 @@
+{
+  "description": "OpenAI chat.completions non-streaming request/response with a system message already present.",
+  "operations": ["inject", "extract", "appendWarning"],
+  "ruleText": "RULES: do not hardcode secrets.",
+  "warning": "\n\n[rulebound] hardcoded secret detected.",
+  "request": {
+    "model": "gpt-4o",
+    "stream": false,
+    "messages": [
+      { "role": "system", "content": "You are a helpful coding assistant." },
+      { "role": "user", "content": "Write a quick auth helper." }
+    ]
+  },
+  "injectedExpect": {
+    "systemContentEndsWith": "RULES: do not hardcode secrets.",
+    "userPreserved": true
+  },
+  "response": {
+    "id": "chatcmpl-1",
+    "object": "chat.completion",
+    "choices": [
+      {
+        "index": 0,
+        "message": { "role": "assistant", "content": "const token = process.env.TOKEN" },
+        "finish_reason": "stop"
+      }
+    ]
+  },
+  "expectedContent": "const token = process.env.TOKEN",
+  "appendedExpect": {
+    "choice0ContentEndsWith": "[rulebound] hardcoded secret detected."
+  }
+}

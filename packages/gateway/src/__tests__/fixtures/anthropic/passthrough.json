@@ -1,0 +1,8 @@
+{
+  "description": "Anthropic /v1/models passthrough — non-generation endpoint.",
+  "operations": ["passthrough"],
+  "path": "/v1/models",
+  "isGeneration": false,
+  "isStreaming": false,
+  "body": {}
+}

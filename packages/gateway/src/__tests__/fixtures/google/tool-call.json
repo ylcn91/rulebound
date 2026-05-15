@@ -1,0 +1,27 @@
+{
+  "description": "Google Gemini response where candidate emitted a functionCall instead of text.",
+  "operations": ["extract", "appendWarning"],
+  "warning": "\n\n[rulebound] function call observed.",
+  "response": {
+    "candidates": [
+      {
+        "content": {
+          "role": "model",
+          "parts": [
+            {
+              "functionCall": {
+                "name": "search_docs",
+                "args": { "query": "auth" }
+              }
+            }
+          ]
+        },
+        "finishReason": "STOP"
+      }
+    ]
+  },
+  "expectedContent": null,
+  "appendedExpect": {
+    "candidate0LastPartTextEndsWith": "[rulebound] function call observed."
+  }
+}
