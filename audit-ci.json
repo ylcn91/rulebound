@@ -1,0 +1,32 @@
+{
+  "$comment": [
+    "audit-ci waiver config for pnpm-audit (AMP91-SEC-002).",
+    "",
+    "This file is the canonical waiver path for moderate-or-higher findings",
+    "in the pnpm workspace. Per lead verdict C6:",
+    "  - high / critical: BLOCK the gate; only `allowlist` entries below",
+    "    can downgrade them, and each entry has a 90-day TTL + 2-reviewer",
+    "    approval requirement (see docs/threat-model/dependency-scan.md).",
+    "  - moderate: WARN only; recorded in release notes but does not gate.",
+    "",
+    "The pnpm-audit job currently invokes `pnpm audit --audit-level=high`",
+    "directly; audit-ci itself is not yet wired into the workflow. This file",
+    "is the policy anchor so the future `npx audit-ci --config audit-ci.json`",
+    "invocation has a place to land, and so reviewers know which advisories",
+    "have been formally waived.",
+    "",
+    "Adding an entry to `allowlist` requires:",
+    "  1. CVE / GHSA / advisory ID,",
+    "  2. inline `reason` field naming the impact assessment,",
+    "  3. `expires` ISO-8601 date <= today + 90 days,",
+    "  4. PR approved by Team C + a security-tagged reviewer."
+  ],
+  "high": true,
+  "critical": true,
+  "moderate": false,
+  "low": false,
+  "report-type": "summary",
+  "package-manager": "pnpm",
+  "registry": "https://registry.npmjs.org/",
+  "allowlist": []
+}
