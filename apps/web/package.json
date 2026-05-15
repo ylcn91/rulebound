@@ -9,7 +9,9 @@
     "lint": "pnpm exec tsc --noEmit -p tsconfig.lint.json && pnpm run test:css",
     "test": "pnpm run test:css && vitest run",
     "test:css": "node --experimental-transform-types __tests__/css-variables.test.ts",
-    "test:focused": "vitest run __tests__/rulebound-api.test.ts __tests__/dashboard-data.test.ts"
+    "test:focused": "vitest run __tests__/rulebound-api.test.ts __tests__/dashboard-data.test.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install --with-deps chromium"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1",
@@ -31,6 +33,8 @@
     "tailwind-merge": "^3"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.0",
+    "@playwright/test": "^1.49.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^22",
     "@types/react": "^19",
