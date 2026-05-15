@@ -1,3 +1,9 @@
+/**
+ * API version this SDK targets. The Rulebound server exposes routes under
+ * `/v{RULEBOUND_API_VERSION}/...`. Bumping this is a breaking SDK change.
+ */
+export const RULEBOUND_API_VERSION = "1"
+
 export interface DataResponse<T> {
   data: T
 }
