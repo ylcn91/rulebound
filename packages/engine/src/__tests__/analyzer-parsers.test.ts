@@ -394,3 +394,262 @@ describe("Missing or malformed reports", () => {
     expect(result.status).toBe("PASS")
   })
 })
+
+/**
+ * ENG-002 — extended coverage:
+ *  1. Malformed XML must NOT throw; the parser is regex-tolerant by design.
+ *  2. Missing-report contract: today the runner returns `ERROR` for *all*
+ *     missing report cases (PASS path = report present + no findings).
+ *     A future `report_optional: true` mode could return NOT_APPLICABLE, but
+ *     it does not exist yet — this matrix pins that we treat absence as
+ *     ERROR until an explicit opt-in surface is added.
+ *  3. Severity-threshold transitions across info / warning / error.
+ *  4. Large reports must not blow the heap or evidence matcher.
+ */
+describe("ENG-002: malformed XML graceful behaviour", () => {
+  it("PMD parser does not throw on truncated/dangling tags", () => {
+    const report = writeReport(
+      "target/pmd.xml",
+      `<?xml version="1.0"?><pmd version="7.0.0"><file name="A.java"><violation beginline="1" rule="X"`,
+    )
+    expect(() =>
+      runCheck({
+        type: "analyzer",
+        analyzer: "pmd",
+        report,
+        report_format: "pmd-xml",
+      }),
+    ).not.toThrow()
+  })
+
+  it("Checkstyle parser tolerates mis-nested elements (treated as empty)", () => {
+    const report = writeReport(
+      "target/checkstyle-result.xml",
+      `<?xml version="1.0"?><checkstyle><file name="X.java"><error line="1" severity="error" message=""</file></checkstyle>`,
+    )
+    const result = runCheck({
+      type: "analyzer",
+      analyzer: "checkstyle",
+      report,
+      report_format: "checkstyle-xml",
+    })
+    expect(result.status).toBe("PASS")
+  })
+
+  it("SpotBugs parser ignores unclosed BugInstance entries", () => {
+    const report = writeReport(
+      "target/spotbugsXml.xml",
+      `<?xml version="1.0"?><BugCollection><BugInstance type="X" priority="1"><SourceLine sourcepath="A.java" start="1"/>`,
+    )
+    const result = runCheck({
+      type: "analyzer",
+      analyzer: "spotbugs",
+      report,
+      report_format: "spotbugs-xml",
+    })
+    // Unclosed tag → regex /<BugInstance>...<\/BugInstance>/ never matches → 0 findings → PASS.
+    expect(result.status).toBe("PASS")
+  })
+
+  it("SARIF parser falls back to empty findings on broken JSON (no throw)", () => {
+    const report = writeReport("target/scan.sarif", `{ "runs": [ { not valid json`)
+    const result = runCheck({
+      type: "analyzer",
+      analyzer: "semgrep",
+      report,
+      report_format: "sarif",
+    })
+    expect(result.status).toBe("PASS")
+  })
+
+  it("ESLint JSON object-shape (not array) is rejected without throwing", () => {
+    const report = writeReport(
+      "target/eslint-bad.json",
+      JSON.stringify({ filePath: "a.ts", messages: [] }),
+    )
+    const result = runCheck({
+      type: "analyzer",
+      analyzer: "eslint",
+      report,
+      report_format: "json",
+    })
+    // Non-array JSON → parseEslintJson returns null → findings=[] → PASS.
+    expect(result.status).toBe("PASS")
+  })
+
+  it("Non-JSON in ESLint report is tolerated", () => {
+    const report = writeReport("target/eslint-junk.json", `not json at all`)
+    const result = runCheck({
+      type: "analyzer",
+      analyzer: "eslint",
+      report,
+      report_format: "json",
+    })
+    expect(result.status).toBe("PASS")
+  })
+})
+
+describe("ENG-002: missing-report NOT_APPLICABLE vs ERROR matrix", () => {
+  // Documents the actual runner contract today: missing report is always ERROR
+  // (non-blocking) with an actionable hint. There is no `report_optional` mode
+  // yet — when one is added, this matrix should grow to include NOT_APPLICABLE.
+
+  it.each([
+    ["pmd", "pmd-xml"],
+    ["checkstyle", "checkstyle-xml"],
+    ["spotbugs", "spotbugs-xml"],
+    ["junit", "junit-xml"],
+    ["eslint", "json"],
+    ["semgrep", "sarif"],
+    ["gitleaks", "sarif"],
+  ] as const)("%s missing report → ERROR (non-blocking) with actionable hint", (analyzer, fmt) => {
+    const result = runCheck({
+      type: "analyzer",
+      analyzer,
+      report: `target/never-emitted-${analyzer}.xml`,
+      report_format: fmt,
+    })
+    expect(result.status).toBe("ERROR")
+    expect(result.blocking).toBe(false)
+    expect(result.reason).toMatch(/not found/i)
+    // Hint must tell the user how to get the report.
+    expect(result.reason).toMatch(/analyzer|build|run/i)
+    expect(result.evidence?.analyzerReport).toContain(analyzer)
+  })
+
+  it("missing report with run= and allowCommandExecution=false stays NOT_APPLICABLE", () => {
+    // When a `run` is declared but commands are not allowed, the runner
+    // short-circuits with NOT_APPLICABLE — *before* checking the report.
+    const result = runAnalyzerCheck({
+      cwd: tmpDir,
+      ruleId: "java.analyzer",
+      allowCommandExecution: false,
+      check: {
+        type: "analyzer",
+        analyzer: "pmd",
+        run: "mvn pmd:check",
+        report: "target/never-emitted.xml",
+        report_format: "pmd-xml",
+      },
+    })
+    expect(result.status).toBe("NOT_APPLICABLE")
+    expect(result.blocking).toBe(false)
+    expect(result.reason).toMatch(/--allow-commands/)
+  })
+})
+
+describe("ENG-002: severity threshold transitions", () => {
+  function pmdWith(priority: number): string {
+    return writeReport(
+      `target/pmd-p${priority}.xml`,
+      `<?xml version="1.0"?>
+<pmd version="7.0.0"><file name="A.java">
+  <violation beginline="1" rule="R" priority="${priority}">m</violation>
+</file></pmd>`,
+    )
+  }
+
+  it("priority=3 (warning) is filtered when fail_on_severity=error", () => {
+    const result = runCheck({
+      type: "analyzer",
+      analyzer: "pmd",
+      report: pmdWith(3),
+      report_format: "pmd-xml",
+      fail_on_severity: "error",
+    })
+    expect(result.status).toBe("PASS")
+  })
+
+  it("priority=3 (warning) is reported when fail_on_severity=warning (default)", () => {
+    const result = runCheck({
+      type: "analyzer",
+      analyzer: "pmd",
+      report: pmdWith(3),
+      report_format: "pmd-xml",
+      // Omit fail_on_severity → default is "warning"
+    })
+    expect(result.status).toBe("VIOLATED")
+  })
+
+  it("info-level Checkstyle is included only when fail_on_severity=info", () => {
+    const report = writeReport(
+      "target/info.xml",
+      `<?xml version="1.0"?>
+<checkstyle><file name="X.java">
+  <error line="1" severity="info" message="fyi"/>
+</file></checkstyle>`,
+    )
+    const pass = runCheck({
+      type: "analyzer",
+      analyzer: "checkstyle",
+      report,
+      report_format: "checkstyle-xml",
+      fail_on_severity: "warning",
+    })
+    expect(pass.status).toBe("PASS")
+
+    const violated = runCheck({
+      type: "analyzer",
+      analyzer: "checkstyle",
+      report,
+      report_format: "checkstyle-xml",
+      fail_on_severity: "info",
+    })
+    expect(violated.status).toBe("VIOLATED")
+  })
+
+  it("severity=warning at the check level keeps blocking=false even when finding is error-level", () => {
+    const report = writeReport(
+      "target/err.xml",
+      `<?xml version="1.0"?>
+<checkstyle><file name="X.java">
+  <error line="1" severity="error" message="bad"/>
+</file></checkstyle>`,
+    )
+    const result = runCheck({
+      type: "analyzer",
+      analyzer: "checkstyle",
+      report,
+      report_format: "checkstyle-xml",
+      severity: "warning",
+      fail_on_severity: "warning",
+    })
+    expect(result.status).toBe("VIOLATED")
+    expect(result.blocking).toBe(false)
+  })
+})
+
+describe("ENG-002: large report memory behaviour", () => {
+  it("processes a ~10MB Checkstyle report with thousands of entries without OOM", () => {
+    // Generate ~50_000 error rows (~200 bytes each → ~10MB).
+    const ROWS = 50_000
+    const head =
+      `<?xml version="1.0" encoding="UTF-8"?>\n<checkstyle version="10.0">\n  <file name="src/Big.java">\n`
+    const tail = `  </file>\n</checkstyle>\n`
+    const row = (i: number) =>
+      `    <error line="${i}" severity="error" message="repeated finding ${i} with some padding text to inflate the report" source="example.Check"/>\n`
+    const body: string[] = []
+    body.push(head)
+    for (let i = 1; i <= ROWS; i++) body.push(row(i))
+    body.push(tail)
+    const report = writeReport("target/big-checkstyle.xml", body.join(""))
+
+    const start = Date.now()
+    const result = runCheck({
+      type: "analyzer",
+      analyzer: "checkstyle",
+      report,
+      report_format: "checkstyle-xml",
+      fail_on_severity: "error",
+    })
+    const elapsedMs = Date.now() - start
+
+    expect(result.status).toBe("VIOLATED")
+    // The reason quotes only the first finding; matches[] caps at 20 entries.
+    expect(result.evidence?.matches?.length).toBeLessThanOrEqual(20)
+    expect(result.reason).toMatch(/finding\(s\) >= error/)
+    // Soft timing guardrail — a regression past 30s on a 10MB report would
+    // indicate quadratic behaviour. Loose bound to avoid CI flake.
+    expect(elapsedMs).toBeLessThan(30_000)
+  }, 60_000)
+})
