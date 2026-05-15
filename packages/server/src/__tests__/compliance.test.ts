@@ -27,7 +27,7 @@ async function createApp() {
   app.use("*", async (c, next) => {
     c.set("orgId" as never, "org-1" as never)
     c.set("userId" as never, "user-1" as never)
-    c.set("tokenScopes" as never, [] as never)
+    c.set("tokenScopes" as never, ["compliance:read", "validate:run"] as never)
     await next()
   })
   app.route("/compliance", complianceApi)

@@ -4,6 +4,8 @@ import { createHash, randomBytes } from "node:crypto"
 import { getDb, schema } from "../db/index.js"
 import { tokenCreateSchema } from "../schemas.js"
 import { requireMatchingOrg, requireRequestIdentity } from "../lib/request-context.js"
+import { requireScope } from "../middleware/require-scope.js"
+import { DEFAULT_TOKEN_SCOPES } from "../lib/scopes.js"
 
 const app = new Hono()
 
@@ -15,7 +17,7 @@ function generateToken(): { token: string; hash: string; prefix: string } {
   return { token, hash, prefix }
 }
 
-app.get("/", async (c) => {
+app.get("/", requireScope("tokens:write"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 
@@ -32,7 +34,7 @@ app.get("/", async (c) => {
   return c.json({ data: safe })
 })
 
-app.post("/", async (c) => {
+app.post("/", requireScope("tokens:write"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 
@@ -55,7 +57,7 @@ app.post("/", async (c) => {
       name: parsed.data.name,
       tokenHash: hash,
       tokenPrefix: prefix,
-      scopes: parsed.data.scopes ?? ["read", "validate"],
+      scopes: parsed.data.scopes ?? [...DEFAULT_TOKEN_SCOPES],
       expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null,
     })
     .returning()
@@ -73,7 +75,7 @@ app.post("/", async (c) => {
   }, 201)
 })
 
-app.delete("/:id", async (c) => {
+app.delete("/:id", requireScope("tokens:write"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 

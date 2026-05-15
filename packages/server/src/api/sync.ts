@@ -7,6 +7,7 @@ import { requireRequestIdentity } from "../lib/request-context.js"
 import { resolveProjectForOrg } from "../lib/projects.js"
 import { getEffectiveRuleSetIds, resolveRulesForRuleSetIds } from "../lib/rules.js"
 import { emitWebhookEvent, writeAuditEntry } from "../lib/activity.js"
+import { requireScope } from "../middleware/require-scope.js"
 
 const app = new Hono()
 
@@ -18,7 +19,7 @@ function computeRulesHash(rules: Array<{ id: string; content: string; version: n
   return hash.digest("hex").slice(0, 16)
 }
 
-app.get("/", async (c) => {
+app.get("/", requireScope("rules:read"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 
@@ -66,7 +67,7 @@ app.get("/", async (c) => {
   })
 })
 
-app.post("/ack", async (c) => {
+app.post("/ack", requireScope("sync:write"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 

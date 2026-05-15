@@ -12,10 +12,11 @@ import {
   getEffectiveRuleSetIds,
   resolveRulesForRuleSetIds,
 } from "../lib/rules.js"
+import { requireScope } from "../middleware/require-scope.js"
 
 const app = new Hono()
 
-app.post("/", async (c) => {
+app.post("/", requireScope("validate:run"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 

@@ -40,7 +40,7 @@ async function createApp() {
   app.use("*", async (c, next) => {
     c.set("orgId" as never, "org-1" as never)
     c.set("userId" as never, "user-1" as never)
-    c.set("tokenScopes" as never, [] as never)
+    c.set("tokenScopes" as never, ["rules:read", "sync:write"] as never)
     await next()
   })
   app.route("/sync", syncApi)

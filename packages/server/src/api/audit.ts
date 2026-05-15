@@ -5,10 +5,11 @@ import { requireMatchingOrg, requireRequestIdentity } from "../lib/request-conte
 import { listAuditEntries, renderAuditCsv } from "../lib/audit.js"
 import { resolveProjectForOrg } from "../lib/projects.js"
 import { writeAuditEntry } from "../lib/activity.js"
+import { requireScope } from "../middleware/require-scope.js"
 
 const app = new Hono()
 
-app.get("/", async (c) => {
+app.get("/", requireScope("audit:read"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 
@@ -28,7 +29,7 @@ app.get("/", async (c) => {
   return c.json({ data: entries, total: entries.length })
 })
 
-app.get("/export", async (c) => {
+app.get("/export", requireScope("audit:read"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 
@@ -53,7 +54,7 @@ app.get("/export", async (c) => {
   return c.body(csv)
 })
 
-app.post("/", async (c) => {
+app.post("/", requireScope("audit:write"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 

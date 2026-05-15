@@ -6,6 +6,7 @@ import { verifyGitHubSignature, parseGitHubEvent } from "../webhooks/receivers.j
 import { webhookEndpointCreateSchema } from "../schemas.js"
 import { encrypt, decrypt } from "../lib/crypto.js"
 import { requireMatchingOrg, requireRequestIdentity } from "../lib/request-context.js"
+import { requireScope } from "../middleware/require-scope.js"
 
 const app = new Hono()
 
@@ -13,7 +14,7 @@ function secretPrefix(secret: string): string {
   return secret.slice(0, 8) + "..."
 }
 
-app.get("/endpoints", async (c) => {
+app.get("/endpoints", requireScope("webhooks:write"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 
@@ -34,7 +35,7 @@ app.get("/endpoints", async (c) => {
   return c.json({ data: safe })
 })
 
-app.post("/endpoints", async (c) => {
+app.post("/endpoints", requireScope("webhooks:write"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 
@@ -66,7 +67,7 @@ app.post("/endpoints", async (c) => {
   return c.json({ data: { ...safe, secret: parsed.data.secret } }, 201)
 })
 
-app.delete("/endpoints/:id", async (c) => {
+app.delete("/endpoints/:id", requireScope("webhooks:write"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 
@@ -84,7 +85,7 @@ app.delete("/endpoints/:id", async (c) => {
   return c.json({ data: { deleted: true } })
 })
 
-app.post("/endpoints/:id/test", async (c) => {
+app.post("/endpoints/:id/test", requireScope("webhooks:write"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 
@@ -120,7 +121,7 @@ app.post("/endpoints/:id/test", async (c) => {
   return c.json({ data: result })
 })
 
-app.get("/deliveries", async (c) => {
+app.get("/deliveries", requireScope("webhooks:write"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 

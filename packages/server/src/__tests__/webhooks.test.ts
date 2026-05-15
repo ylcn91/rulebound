@@ -43,7 +43,7 @@ async function createApp() {
     }
     c.set("orgId" as never, "org-1" as never)
     c.set("userId" as never, "user-1" as never)
-    c.set("tokenScopes" as never, [] as never)
+    c.set("tokenScopes" as never, ["webhooks:write"] as never)
     await next()
   })
   app.route("/webhooks", webhooksApi)

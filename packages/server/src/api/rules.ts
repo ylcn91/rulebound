@@ -12,10 +12,11 @@ import {
 } from "../lib/rules.js"
 import { resolveProjectForOrg } from "../lib/projects.js"
 import { emitWebhookEvent, writeAuditEntry } from "../lib/activity.js"
+import { requireScope } from "../middleware/require-scope.js"
 
 const app = new Hono()
 
-app.get("/", async (c) => {
+app.get("/", requireScope("rules:read"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 
@@ -55,7 +56,7 @@ app.get("/", async (c) => {
   return c.json({ data: paged, total: result.length })
 })
 
-app.get("/:id", async (c) => {
+app.get("/:id", requireScope("rules:read"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 
@@ -67,7 +68,7 @@ app.get("/:id", async (c) => {
   return c.json({ data: rule })
 })
 
-app.post("/", async (c) => {
+app.post("/", requireScope("rules:write"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 
@@ -131,7 +132,7 @@ app.post("/", async (c) => {
   return c.json({ data: created }, 201)
 })
 
-app.put("/:id", async (c) => {
+app.put("/:id", requireScope("rules:write"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 
@@ -197,7 +198,7 @@ app.put("/:id", async (c) => {
   return c.json({ data: updated })
 })
 
-app.delete("/:id", async (c) => {
+app.delete("/:id", requireScope("rules:write"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 

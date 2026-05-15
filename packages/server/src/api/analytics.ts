@@ -3,10 +3,11 @@ import { and, eq, gte, sql } from "drizzle-orm"
 import { getDb, schema } from "../db/index.js"
 import { requireRequestIdentity } from "../lib/request-context.js"
 import { resolveProjectForOrg } from "../lib/projects.js"
+import { requireScope } from "../middleware/require-scope.js"
 
 const app = new Hono()
 
-app.get("/top-violations", async (c) => {
+app.get("/top-violations", requireScope("audit:read"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 
@@ -41,7 +42,7 @@ app.get("/top-violations", async (c) => {
   return c.json({ data: result })
 })
 
-app.get("/trend", async (c) => {
+app.get("/trend", requireScope("compliance:read"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 
@@ -77,7 +78,7 @@ app.get("/trend", async (c) => {
   })
 })
 
-app.get("/category-breakdown", async (c) => {
+app.get("/category-breakdown", requireScope("audit:read"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 
@@ -110,7 +111,7 @@ app.get("/category-breakdown", async (c) => {
   return c.json({ data: result })
 })
 
-app.get("/source-stats", async (c) => {
+app.get("/source-stats", requireScope("audit:read"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 
@@ -143,7 +144,7 @@ app.get("/source-stats", async (c) => {
   return c.json({ data: result })
 })
 
-app.post("/events", async (c) => {
+app.post("/events", requireScope("audit:write"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 

@@ -9,10 +9,11 @@ import {
   resolveProjectForOrg,
   slugifyProjectName,
 } from "../lib/projects.js"
+import { requireScope } from "../middleware/require-scope.js"
 
 const app = new Hono()
 
-app.get("/", async (c) => {
+app.get("/", requireScope("projects:read"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 
@@ -28,7 +29,7 @@ app.get("/", async (c) => {
   return c.json({ data: hydrated, total: hydrated.length })
 })
 
-app.post("/", async (c) => {
+app.post("/", requireScope("projects:write"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 
@@ -82,7 +83,7 @@ app.post("/", async (c) => {
   return c.json({ data: { ...created, ruleSetIds } }, 201)
 })
 
-app.get("/:id", async (c) => {
+app.get("/:id", requireScope("projects:read"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 
@@ -96,7 +97,7 @@ app.get("/:id", async (c) => {
   return c.json({ data: hydrated })
 })
 
-app.put("/:id", async (c) => {
+app.put("/:id", requireScope("projects:write"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 
@@ -165,7 +166,7 @@ app.put("/:id", async (c) => {
   })
 })
 
-app.delete("/:id", async (c) => {
+app.delete("/:id", requireScope("projects:write"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 

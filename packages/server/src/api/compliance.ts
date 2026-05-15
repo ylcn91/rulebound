@@ -5,10 +5,11 @@ import { complianceSnapshotSchema } from "../schemas.js"
 import { requireRequestIdentity } from "../lib/request-context.js"
 import { resolveProjectForOrg } from "../lib/projects.js"
 import { emitWebhookEvent, writeAuditEntry } from "../lib/activity.js"
+import { requireScope } from "../middleware/require-scope.js"
 
 const app = new Hono()
 
-app.get("/:projectId", async (c) => {
+app.get("/:projectId", requireScope("compliance:read"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 
@@ -49,7 +50,7 @@ app.get("/:projectId", async (c) => {
   })
 })
 
-app.post("/:projectId/snapshot", async (c) => {
+app.post("/:projectId/snapshot", requireScope("validate:run"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 
