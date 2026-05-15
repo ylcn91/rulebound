@@ -1479,7 +1479,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rulebound"
+name = "rulebound-sdk"
 version = "0.1.0"
 dependencies = [
  "httpmock",

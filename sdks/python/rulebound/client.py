@@ -60,7 +60,7 @@ class RuleboundClient:
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
-                "User-Agent": "rulebound-python/0.1.0",
+                "User-Agent": "rulebound-sdk-python/0.1.0",
             },
             timeout=timeout,
             transport=transport,

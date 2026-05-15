@@ -744,7 +744,7 @@ func (c *Client) doJSON(method, path string, query url.Values, body any, out any
 	}
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "rulebound-go/0.1.0")
+	req.Header.Set("User-Agent", "rulebound-sdk-go/0.1.0")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -783,7 +783,7 @@ func (c *Client) doText(method, path string, query url.Values, body any) (string
 	}
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "rulebound-go/0.1.0")
+	req.Header.Set("User-Agent", "rulebound-sdk-go/0.1.0")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

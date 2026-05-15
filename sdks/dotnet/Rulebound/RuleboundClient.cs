@@ -24,7 +24,7 @@ public sealed class RuleboundClient : IDisposable
         _ownsHttpClient = httpClient is null;
         _http = httpClient ?? new HttpClient();
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-        _http.DefaultRequestHeaders.Add("User-Agent", "rulebound-dotnet/0.1.0");
+        _http.DefaultRequestHeaders.Add("User-Agent", "rulebound-sdk-dotnet/0.1.0");
         _http.Timeout = TimeSpan.FromSeconds(30);
     }
 

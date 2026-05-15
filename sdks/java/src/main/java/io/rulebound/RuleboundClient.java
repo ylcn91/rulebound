@@ -233,7 +233,7 @@ public class RuleboundClient implements AutoCloseable {
                 .uri(URI.create(serverUrl + path + buildQuery(query)))
                 .header("Authorization", "Bearer " + apiKey)
                 .header("Content-Type", "application/json")
-                .header("User-Agent", "rulebound-java/0.1.0")
+                .header("User-Agent", "rulebound-sdk-java/0.1.0")
                 .timeout(Duration.ofSeconds(30));
 
         if (body == null) {

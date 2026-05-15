@@ -1,3 +1,3 @@
-module github.com/rulebound/rulebound-go
+module github.com/rulebound/rulebound/sdks/go
 
 go 1.21

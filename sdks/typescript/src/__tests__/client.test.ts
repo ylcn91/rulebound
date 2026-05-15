@@ -61,7 +61,7 @@ describe("RuleboundClient", () => {
         headers: expect.objectContaining({
           Authorization: "Bearer test-api-key",
           "Content-Type": "application/json",
-          "User-Agent": "rulebound-js/0.1.0",
+          "User-Agent": "rulebound-sdk-ts/0.1.0",
         }),
       })
     )
@@ -511,6 +511,60 @@ describe("RuleboundClient", () => {
       expect(ruleboundError.statusCode).toBe(403)
       expect(ruleboundError.body).toBe("Forbidden")
       expect(ruleboundError.message).toContain("403")
+      // Non-JSON body — structured fields stay undefined; falls back to status-only message.
+      expect(ruleboundError.code).toBeUndefined()
+      expect(ruleboundError.details).toBeUndefined()
+      expect(ruleboundError.retriable).toBeUndefined()
+    }
+  })
+
+  it("parses the canonical envelope into structured fields", async () => {
+    const body = JSON.stringify({
+      error: "error",
+      code: "forbidden",
+      message: "Token lacks required scope: rules:write.",
+      details: { scope: "rules:write" },
+      retriable: false,
+    })
+    mockFetch.mockResolvedValue(errorResponse(403, body))
+
+    try {
+      await client.createRule({ title: "x", content: "y", category: "security" })
+      expect.fail("expected request to fail")
+    } catch (error) {
+      const e = error as RuleboundError
+      expect(e.statusCode).toBe(403)
+      expect(e.code).toBe("forbidden")
+      expect(e.message).toBe("Token lacks required scope: rules:write.")
+      expect(e.details).toEqual({ scope: "rules:write" })
+      expect(e.retriable).toBe(false)
+      expect(e.body).toBe(body)
+    }
+  })
+
+  it("parses the nested gateway envelope (rule_violation with violations)", async () => {
+    const body = JSON.stringify({
+      error: {
+        message: "Rulebound: Code violations detected. Request blocked.",
+        code: "rule_violation",
+        type: "rulebound_violation",
+        violations: [
+          { ruleId: "r1", ruleTitle: "No eval", severity: "error" },
+        ],
+      },
+    })
+    mockFetch.mockResolvedValue(errorResponse(422, body))
+
+    try {
+      await client.validate({ plan: "test" })
+      expect.fail("expected request to fail")
+    } catch (error) {
+      const e = error as RuleboundError
+      expect(e.statusCode).toBe(422)
+      expect(e.code).toBe("rule_violation")
+      expect(e.message).toContain("Code violations detected")
+      // Nested gateway shape — details mirrors `{ type, violations }`.
+      expect(e.details).toMatchObject({ type: "rulebound_violation" })
     }
   })
 })

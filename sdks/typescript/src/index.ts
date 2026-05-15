@@ -330,15 +330,97 @@ export interface WebhookDeliveryListOptions {
   limit?: number
 }
 
+/**
+ * Thrown for non-2xx responses from the Rulebound server.
+ *
+ * When the response body parses as the canonical error envelope
+ * (`{ error, code, message, details?, retriable? }` — see
+ * `@rulebound/shared`'s `RuleboundError` type), the structured fields are
+ * surfaced as properties on this error instance. Otherwise the raw body is
+ * preserved on `body` for callers that need it.
+ */
 export class RuleboundError extends Error {
+  /** Stable machine-readable identifier (e.g. `"unauthorized"`, `"rate_limited"`). */
+  public readonly code?: string
+
+  /** Optional structured payload (validation details, gateway violations, etc.). */
+  public readonly details?: unknown
+
+  /** If true, the caller MAY retry the request after a backoff. */
+  public readonly retriable?: boolean
+
   constructor(
     message: string,
     public readonly statusCode?: number,
-    public readonly body?: string
+    public readonly body?: string,
+    envelope?: { code?: string; details?: unknown; retriable?: boolean }
   ) {
     super(message)
     this.name = "RuleboundError"
+    if (envelope?.code !== undefined) this.code = envelope.code
+    if (envelope?.details !== undefined) this.details = envelope.details
+    if (envelope?.retriable !== undefined) this.retriable = envelope.retriable
   }
+}
+
+interface ParsedErrorEnvelope {
+  readonly message: string
+  readonly code?: string
+  readonly details?: unknown
+  readonly retriable?: boolean
+}
+
+/**
+ * Best-effort parse of a server error response body into the canonical
+ * envelope shape. Returns `null` for non-JSON bodies. Accepts both the
+ * top-level envelope `{ error, code, message, ... }` and the legacy nested
+ * shape `{ error: { message, code?, ... } }` emitted by older server
+ * routes pre-CLN-003.
+ */
+function parseErrorEnvelope(body: string): ParsedErrorEnvelope | null {
+  if (!body) return null
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(body)
+  } catch {
+    return null
+  }
+  if (parsed === null || typeof parsed !== "object") return null
+  const obj = parsed as Record<string, unknown>
+
+  if (
+    typeof obj.error === "string" &&
+    typeof obj.code === "string" &&
+    typeof obj.message === "string"
+  ) {
+    return {
+      message: obj.message,
+      code: obj.code,
+      details: "details" in obj ? obj.details : undefined,
+      retriable: typeof obj.retriable === "boolean" ? obj.retriable : undefined,
+    }
+  }
+
+  if (obj.error !== null && typeof obj.error === "object") {
+    const nested = obj.error as Record<string, unknown>
+    const message =
+      typeof nested.message === "string" ? nested.message : undefined
+    if (message === undefined) return null
+    return {
+      message,
+      code: typeof nested.code === "string" ? nested.code : undefined,
+      details:
+        "details" in nested
+          ? nested.details
+          : "violations" in nested
+            ? { type: nested.type, violations: nested.violations }
+            : undefined,
+      retriable:
+        typeof nested.retriable === "boolean" ? nested.retriable : undefined,
+    }
+  }
+
+  return null
 }
 
 export interface RuleboundClientOptions {
@@ -594,7 +676,7 @@ export class RuleboundClient {
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
         "Content-Type": "application/json",
-        "User-Agent": "rulebound-js/0.1.0",
+        "User-Agent": "rulebound-sdk-ts/0.1.0",
       },
       body: options?.body !== undefined ? JSON.stringify(options.body) : undefined,
       signal: AbortSignal.timeout(this.timeout),
@@ -602,7 +684,20 @@ export class RuleboundClient {
 
     if (!response.ok) {
       const text = await response.text()
-      throw new RuleboundError(`API error ${response.status}`, response.status, text)
+      const envelope = parseErrorEnvelope(text)
+      const message = envelope?.message ?? `API error ${response.status}`
+      throw new RuleboundError(
+        message,
+        response.status,
+        text,
+        envelope === null
+          ? undefined
+          : {
+              ...(envelope.code !== undefined ? { code: envelope.code } : {}),
+              ...(envelope.details !== undefined ? { details: envelope.details } : {}),
+              ...(envelope.retriable !== undefined ? { retriable: envelope.retriable } : {}),
+            },
+      )
     }
 
     return response

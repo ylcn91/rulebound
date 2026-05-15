@@ -1,5 +1,5 @@
 {
-  "name": "rulebound",
+  "name": "@rulebound/sdk",
   "version": "0.1.0",
   "description": "JavaScript/TypeScript SDK for Rulebound — AI coding agent rule enforcement",
   "type": "module",

@@ -4,9 +4,9 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>io.rulebound</groupId>
-  <artifactId>rulebound-java</artifactId>
+  <artifactId>rulebound-sdk</artifactId>
   <version>0.1.0</version>
-  <name>rulebound-java</name>
+  <name>rulebound-sdk</name>
   <description>Java SDK for Rulebound</description>
 
   <properties>

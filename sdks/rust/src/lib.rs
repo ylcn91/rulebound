@@ -488,7 +488,7 @@ impl RuleboundClient {
             HeaderValue::from_str(&format!("Bearer {}", api_key)).unwrap(),
         );
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        headers.insert(USER_AGENT, HeaderValue::from_static("rulebound-rust/0.1.0"));
+        headers.insert(USER_AGENT, HeaderValue::from_static("rulebound-sdk-rust/0.1.0"));
 
         let http = reqwest::Client::builder()
             .default_headers(headers)
