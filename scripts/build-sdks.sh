@@ -3,8 +3,28 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# Optional environment knobs — release-gate.sh forwards these when needed.
+SKIP_DOTNET="${SKIP_DOTNET:-0}"
+
 have() {
   command -v "$1" >/dev/null 2>&1
+}
+
+dotnet_major() {
+  dotnet --version 2>/dev/null | awk -F. 'NR==1 {print $1}'
+}
+
+require_dotnet8() {
+  local v
+  v=$(dotnet_major)
+  if [ -z "$v" ]; then
+    echo "FAIL: .NET SDK not detected on PATH. Install .NET 8/9 or pass --skip-dotnet." >&2
+    return 1
+  fi
+  if [ "$v" -lt 8 ]; then
+    echo "FAIL: dotnet ${v} < 8 (NETSDK1045 risk). Install .NET 8/9 or pass --skip-dotnet." >&2
+    return 1
+  fi
 }
 
 if have python3; then
@@ -27,11 +47,12 @@ if have mvn; then
   mvn -q -DskipTests package
 fi
 
-if have dotnet; then
+if [ "$SKIP_DOTNET" = "1" ]; then
+  echo "Skipping .NET SDK build (SKIP_DOTNET=1 / --skip-dotnet)."
+else
+  require_dotnet8
   cd "$ROOT_DIR/sdks/dotnet"
   dotnet build Rulebound.Tests/Rulebound.Tests.csproj -c Release
-else
-  echo "Skipping .NET SDK build; dotnet is not installed."
 fi
 
 if have cargo; then
