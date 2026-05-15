@@ -3,6 +3,7 @@ import { findRulesDir, loadLocalRules, type LocalRule } from "../lib/local-rules
 
 interface LintOptions {
   dir?: string
+  format?: string
 }
 
 interface QualityScore {
@@ -108,6 +109,16 @@ export async function lintCommand(options: LintOptions): Promise<void> {
   const rulesDir = options.dir ?? findRulesDir(process.cwd())
 
   if (!rulesDir) {
+    if (options.format === "json") {
+      console.log(
+        JSON.stringify(
+          { error: "no-rules-dir", message: "No rules directory found." },
+          null,
+          2,
+        ),
+      )
+      process.exit(1)
+    }
     console.error(chalk.red("No rules directory found."))
     console.error(chalk.dim("Run 'rulebound init' to create one, or use --dir <path>."))
     process.exit(1)
@@ -116,7 +127,56 @@ export async function lintCommand(options: LintOptions): Promise<void> {
   const rules = loadLocalRules(rulesDir)
 
   if (rules.length === 0) {
+    if (options.format === "json") {
+      console.log(
+        JSON.stringify(
+          {
+            rulesDir,
+            ruleCount: 0,
+            averageScore: 0,
+            issueCount: 0,
+            rules: [],
+          },
+          null,
+          2,
+        ),
+      )
+      return
+    }
     console.log(chalk.dim("No rules found."))
+    return
+  }
+
+  if (options.format === "json") {
+    const perRule = rules.map((rule) => {
+      const score = scoreRule(rule)
+      return {
+        id: rule.id,
+        title: rule.title,
+        filePath: rule.filePath,
+        atomicity: score.atomicity,
+        completeness: score.completeness,
+        clarity: score.clarity,
+        score: score.total,
+        issues: score.issues,
+      }
+    })
+    const totalScore = perRule.reduce((acc, r) => acc + r.score, 0)
+    const issueCount = perRule.reduce((acc, r) => acc + r.issues.length, 0)
+    const averageScore = Math.round(totalScore / perRule.length)
+    console.log(
+      JSON.stringify(
+        {
+          rulesDir,
+          ruleCount: perRule.length,
+          averageScore,
+          issueCount,
+          rules: perRule,
+        },
+        null,
+        2,
+      ),
+    )
     return
   }
 
