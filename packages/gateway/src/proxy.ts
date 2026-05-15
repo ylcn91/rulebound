@@ -249,6 +249,7 @@ export function createProxy(config: GatewayConfig) {
               return c.json({
                 error: {
                   message: "Rulebound: Code violations detected. Request blocked.",
+                  code: "rule_violation",
                   type: "rulebound_violation",
                   violations: scanResult.violations,
                 },

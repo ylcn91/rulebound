@@ -81,6 +81,50 @@ not leaking them and not forwarding them to a wrong target.
 - The gateway is **not** a content firewall; do not rely on it for
   prompt-injection defense.
 
+## Error envelope exception
+
+The gateway's 422 block response intentionally diverges from the canonical
+`RuleboundError` envelope (`@rulebound/shared`'s
+`{ error, code, message, details?, retriable? }`). Per AMP91-CLN-003 the
+gateway 422 shape is an explicit exception and ships as:
+
+```json
+{
+  "error": {
+    "message": "Rulebound: Code violations detected. Request blocked.",
+    "code": "rule_violation",
+    "type": "rulebound_violation",
+    "violations": [
+      { "ruleId": "...", "ruleTitle": "...", "severity": "error", "reason": "...", "codeSnippet": "..." }
+    ]
+  }
+}
+```
+
+Rationale:
+
+- The nested `error.violations` array is the load-bearing payload for
+  consumers building agent-side repair loops; it predates CLN-003 and is
+  already public (`packages/gateway/src/__tests__/integration.test.ts:341-343`).
+  Flattening it under top-level `details` would be a breaking change for
+  every gateway client.
+- `error.type === "rulebound_violation"` is the legacy discriminator
+  consumers were instructed to switch on. `code: "rule_violation"`
+  (CLN-003 addition) is the canonical alias; both fields are emitted for
+  the v0.1 window and `type` is scheduled to be removed in v0.2 once
+  consumers have migrated.
+- The TS SDK's `RuleboundError` parser maps the nested gateway shape to
+  the canonical fields: `code` is lifted, `details` is populated with
+  `{ type, violations }`. See `sdks/typescript/src/index.ts`'s
+  `parseErrorEnvelope`. Consumers of `@rulebound/sdk` therefore see the
+  unified shape; raw HTTP consumers see the nested gateway-specific
+  shape.
+
+This is the single documented envelope exception in v0.1. All other
+gateway error responses (5xx upstream, 4xx auth — none today since the
+gateway has no inbound auth, see GW-T6) MUST emit the canonical
+envelope when added.
+
 ## Open questions
 
 - Should the gateway add a target allowlist (e.g.

@@ -29,6 +29,13 @@ export interface DeterministicRunInput {
  * for now and mirrors `notice.message`. New consumers should read `notice.*`.
  * `note` will be removed in a future major bump — see docs/mcp-error-envelope.md
  * (forthcoming) and the broader CLN-003 envelope alignment work.
+ *
+ * @see {@link import("@rulebound/shared").RuleboundError} — the canonical
+ * server/SDK error envelope. `MCPNotice` is the MCP-specific projection:
+ * `remedy` is the MCP-side name for what `RuleboundError` exposes as the
+ * optional `retriable` retry hint. The two shapes are structurally
+ * convergent — same `code` / `message` discriminators — but `MCPNotice` is
+ * not an HTTP error and does not carry an `error` field or HTTP status.
  */
 export interface MCPNotice {
   readonly code: string
