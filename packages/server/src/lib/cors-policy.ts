@@ -15,7 +15,9 @@ export interface CorsPolicyEnv {
   NODE_ENV?: string
 }
 
-export function parseAllowedOrigins(env: CorsPolicyEnv = process.env): string[] {
+export function parseAllowedOrigins(
+  env: CorsPolicyEnv = process.env as CorsPolicyEnv,
+): string[] {
   const raw = env.RULEBOUND_ALLOWED_ORIGINS
   if (raw && raw.trim().length > 0) {
     return raw
@@ -36,7 +38,7 @@ export function parseAllowedOrigins(env: CorsPolicyEnv = process.env): string[] 
 // not supported — operators must list origins explicitly per lead verdict B1.
 export function originAllowedFor(
   origin: string | undefined,
-  env: CorsPolicyEnv = process.env,
+  env: CorsPolicyEnv = process.env as CorsPolicyEnv,
 ): string | null {
   if (!origin) {
     return null
