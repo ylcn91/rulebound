@@ -10,6 +10,7 @@ import type { ValidationResult, ValidationReport } from "../lib/local-rules.js"
 import { loadRulesWithInheritance, getProjectConfig, loadConfig } from "../lib/inheritance.js"
 import { extractAddedLines, extractChangedFiles } from "../lib/git-diff.js"
 import { recordCliValidationEvent } from "../lib/telemetry.js"
+import { printAdvisoryBanner } from "../lib/advisory-banner.js"
 
 interface CiOptions {
   readonly base?: string
@@ -164,6 +165,8 @@ export async function ciCommand(options: CiOptions): Promise<void> {
   const cwd = process.cwd()
   const base = options.base ?? "main"
   const format = options.format ?? "pretty"
+
+  printAdvisoryBanner(format)
 
   // Get diff
   let diffText: string

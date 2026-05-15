@@ -8,6 +8,7 @@ import type { LocalRule } from "../lib/local-rules.js"
 import { buildConsensus } from "../lib/agents/coordinator.js"
 import type { AgentReviewResult } from "../lib/agents/coordinator.js"
 import type { MatchResult, MatchStatus } from "../lib/matchers/types.js"
+import { printAdvisoryBanner } from "../lib/advisory-banner.js"
 
 interface ReviewOptions {
   readonly agents?: string
@@ -123,6 +124,8 @@ function printAgentResults(agentResult: AgentReviewResult): void {
 }
 
 export async function reviewCommand(options: ReviewOptions): Promise<void> {
+  printAdvisoryBanner(undefined)
+
   // 1. Load agents
   const allAgents = loadAgentsConfig(process.cwd())
 

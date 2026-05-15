@@ -5,6 +5,7 @@ import { validateWithPipeline } from "../lib/validation.js"
 import type { DiffSelection } from "../lib/git-diff.js"
 import { extractAddedLines, extractChangedFiles, readGitDiff } from "../lib/git-diff.js"
 import { recordCliValidationEvent } from "../lib/telemetry.js"
+import { printAdvisoryBanner } from "../lib/advisory-banner.js"
 
 interface DiffOptions {
   readonly dir?: string
@@ -15,6 +16,8 @@ interface DiffOptions {
 }
 
 export async function diffCommand(options: DiffOptions): Promise<void> {
+  printAdvisoryBanner(options.format)
+
   let diffSelection: DiffSelection
   try {
     diffSelection = readGitDiff({ ref: options.ref, staged: options.staged })

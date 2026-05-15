@@ -156,6 +156,7 @@ export function buildProgram(): Command {
     .command("lint")
     .description("Score rules on quality attributes (Atomicity, Completeness, Clarity)")
     .option("-d, --dir <path>", "Path to rules directory")
+    .option("-f, --format <format>", "Output format: pretty, json", "pretty")
     .action(lintCommand)
 
   rulesCmd

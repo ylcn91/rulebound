@@ -5,6 +5,7 @@ import { loadRulesWithInheritance, getProjectConfig } from "../lib/inheritance.j
 import { validateWithPipeline } from "../lib/validation.js"
 import type { ValidationReport } from "../lib/local-rules.js"
 import { recordCliValidationEvent } from "../lib/telemetry.js"
+import { printAdvisoryBanner } from "../lib/advisory-banner.js"
 
 interface ValidateOptions {
   plan?: string
@@ -67,6 +68,8 @@ function printReport(report: ValidationReport): void {
 }
 
 export async function validateCommand(options: ValidateOptions): Promise<void> {
+  printAdvisoryBanner(options.format)
+
   // Get plan text
   let planText: string
 
