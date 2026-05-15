@@ -12,6 +12,7 @@ import {
   type WaiverLoadError,
 } from "@rulebound/engine"
 import { extractChangedFiles, readGitDiff } from "../lib/git-diff.js"
+import { redactReportSnippets, redactSnippet } from "../lib/redact-snippet.js"
 
 export interface CheckOptions {
   readonly dir?: string
@@ -145,7 +146,7 @@ function printPretty(report: DeterministicReport): void {
         console.log(chalk.gray(`  ↳ ${r.evidence.filePath}${loc}`))
       }
       if (r.evidence?.snippet) {
-        console.log(chalk.gray(`    ${r.evidence.snippet.slice(0, 200)}`))
+        console.log(chalk.gray(`    ${redactSnippet(r.evidence.snippet.slice(0, 200)) ?? ""}`))
       }
       console.log(`  ${r.reason}`)
       if (r.suggestedFix) console.log(chalk.cyan(`  fix: ${r.suggestedFix}`))
@@ -175,7 +176,7 @@ function printPretty(report: DeterministicReport): void {
 }
 
 function printJson(report: DeterministicReport): void {
-  console.log(JSON.stringify(report, null, 2))
+  console.log(JSON.stringify(redactReportSnippets(report), null, 2))
 }
 
 function printGithub(report: DeterministicReport): void {
@@ -271,7 +272,7 @@ function printSarif(report: DeterministicReport): void {
       ? {
           startLine: r.evidence.line,
           ...(r.evidence.column !== undefined ? { startColumn: r.evidence.column } : {}),
-          ...(r.evidence.snippet ? { snippet: { text: r.evidence.snippet.slice(0, 500) } } : {}),
+          ...(r.evidence.snippet ? { snippet: { text: redactSnippet(r.evidence.snippet.slice(0, 500)) ?? "" } } : {}),
         }
       : undefined
     const locations = r.evidence?.filePath
@@ -501,13 +502,19 @@ function printRepairJson(report: DeterministicReport, allowCommands: boolean): v
       })
       continue
     }
+    const redactedEvidence = r.evidence
+      ? {
+          ...r.evidence,
+          ...(r.evidence.snippet ? { snippet: redactSnippet(r.evidence.snippet) } : {}),
+        }
+      : undefined
     items.push({
       ruleId: r.ruleId,
       checkId: r.checkId,
       source: r.source,
       ...(r.evidence?.filePath ? { file: r.evidence.filePath } : {}),
       ...(r.evidence?.line ? { line: r.evidence.line } : {}),
-      ...(r.evidence ? { evidence: r.evidence } : {}),
+      ...(redactedEvidence ? { evidence: redactedEvidence } : {}),
       reason: r.reason,
       ...(r.suggestedFix ? { suggestedFix: r.suggestedFix } : {}),
       rerun: allowCommands ? "rulebound check --allow-commands --format repair-json" : "rulebound check --format repair-json",
