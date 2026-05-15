@@ -34,6 +34,11 @@ Severity mapping (from PMD `priority`):
 
 ## CI snippet
 
+Pattern: run PMD first, then let Rulebound read the XML report. With
+`allow-commands: "false"` the action does not re-run Maven for the
+pr-markdown summary. See
+[ci-github-action.md — Double-run trust boundary](../ci-github-action.md#double-run-trust-boundary-pr-markdown-summary--allow-commands).
+
 ```yaml
 - uses: actions/setup-java@v4
   with:
@@ -51,7 +56,10 @@ Severity mapping (from PMD `priority`):
 
 `|| true` keeps Maven from short-circuiting the workflow when PMD finds violations. Rulebound is the authoritative gate.
 
-To let Rulebound drive Maven directly, drop the explicit `mvn` step and pass `allow-commands: "true"`.
+To let Rulebound drive Maven directly, drop the explicit `mvn` step and pass
+`allow-commands: "true"`. The pr-markdown summary pass then becomes opt-in
+(`rerun-command-checks-for-summary: "true"`) — see the
+[double-run section](../ci-github-action.md#double-run-trust-boundary-pr-markdown-summary--allow-commands).
 
 ## Troubleshooting
 

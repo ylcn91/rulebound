@@ -55,6 +55,11 @@ Either form requires `--allow-commands` on the CLI.
 
 ## CI snippet
 
+Pattern: run `tsc --noEmit` first, then let Rulebound read the log. With
+`allow-commands: "false"` the action does not re-run `tsc` for the
+pr-markdown summary. See
+[ci-github-action.md — Double-run trust boundary](../ci-github-action.md#double-run-trust-boundary-pr-markdown-summary--allow-commands).
+
 ```yaml
 - uses: pnpm/action-setup@v4
   with:
@@ -75,7 +80,10 @@ Either form requires `--allow-commands` on the CLI.
     allow-commands: "false"
 ```
 
-If you prefer to let Rulebound run `tsc` itself, drop the explicit step and pass `allow-commands: "true"`.
+If you prefer to let Rulebound run `tsc` itself, drop the explicit step and
+pass `allow-commands: "true"`. The pr-markdown summary pass then becomes
+opt-in (`rerun-command-checks-for-summary: "true"`) — see the
+[double-run section](../ci-github-action.md#double-run-trust-boundary-pr-markdown-summary--allow-commands).
 
 ## Troubleshooting
 

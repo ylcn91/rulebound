@@ -214,7 +214,10 @@ If you vendor Rulebound's composite action in your repo, the equivalent is:
 
 See [ci-github-action.md](ci-github-action.md) for all inputs, the SARIF
 upload recipe, and the `pr-markdown-summary` / `--allow-commands` double-run
-trust boundary.
+trust boundary. The
+[double-run trust boundary section](ci-github-action.md#double-run-trust-boundary-pr-markdown-summary--allow-commands)
+explains when the action re-executes `rulebound check` for the summary, and why
+that is unsafe under `allow-commands=true` without an explicit opt-in.
 
 Exit codes:
 

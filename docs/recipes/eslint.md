@@ -61,6 +61,11 @@ Notes:
 
 ## CI snippet
 
+Pattern: run ESLint first, then let Rulebound read the SARIF report. With
+`allow-commands: "false"` the action does not re-run ESLint for the
+pr-markdown summary. See
+[ci-github-action.md — Double-run trust boundary](../ci-github-action.md#double-run-trust-boundary-pr-markdown-summary--allow-commands).
+
 ```yaml
 - uses: pnpm/action-setup@v4
   with:
@@ -80,7 +85,11 @@ Notes:
 
 `|| true` keeps ESLint's exit code from short-circuiting the workflow before Rulebound has a chance to read the report. Rulebound stays the authoritative gate.
 
-If you would rather let Rulebound run ESLint itself, skip the explicit ESLint step and set `allow-commands: "true"`.
+If you would rather let Rulebound run ESLint itself, skip the explicit ESLint
+step and set `allow-commands: "true"`. Re-read the
+[double-run section](../ci-github-action.md#double-run-trust-boundary-pr-markdown-summary--allow-commands)
+before doing so — the pr-markdown summary pass becomes opt-in
+(`rerun-command-checks-for-summary: "true"`) once Rulebound is running ESLint itself.
 
 ## Troubleshooting
 

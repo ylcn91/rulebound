@@ -36,6 +36,11 @@ Severity mapping (from Checkstyle `severity` attribute):
 
 ## CI snippet
 
+Pattern: run Checkstyle first, then let Rulebound read the XML report. With
+`allow-commands: "false"` the action does not re-run the analyzer for the
+pr-markdown summary. See
+[ci-github-action.md — Double-run trust boundary](../ci-github-action.md#double-run-trust-boundary-pr-markdown-summary--allow-commands).
+
 ```yaml
 - uses: actions/setup-java@v4
   with:

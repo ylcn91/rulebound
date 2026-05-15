@@ -64,6 +64,11 @@ Severity mapping:
 
 ## CI snippet
 
+Pattern: run your test suite first, then let Rulebound read the JUnit XML.
+With `allow-commands: "false"` the action does not re-run tests for the
+pr-markdown summary. See
+[ci-github-action.md — Double-run trust boundary](../ci-github-action.md#double-run-trust-boundary-pr-markdown-summary--allow-commands).
+
 Maven:
 
 ```yaml

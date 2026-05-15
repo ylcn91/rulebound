@@ -41,6 +41,11 @@ Severity mapping (from SARIF `level`):
 
 ## CI snippet
 
+Pattern: run Semgrep first, then let Rulebound read the SARIF. With
+`allow-commands: "false"` the action does not re-run Semgrep for the
+pr-markdown summary. See
+[ci-github-action.md — Double-run trust boundary](../ci-github-action.md#double-run-trust-boundary-pr-markdown-summary--allow-commands).
+
 ```yaml
 - name: Run Semgrep
   uses: semgrep/semgrep-action@v1
@@ -57,7 +62,10 @@ Severity mapping (from SARIF `level`):
 
 `continue-on-error: true` lets Rulebound be the authoritative gate instead of failing the workflow twice. The Semgrep action writes its SARIF to `semgrep.sarif` at the repo root by default — point `report:` at whatever path your action emits.
 
-If you prefer Rulebound to run Semgrep, set `allow-commands: "true"` and drop the dedicated Semgrep step.
+If you prefer Rulebound to run Semgrep, set `allow-commands: "true"` and drop
+the dedicated Semgrep step. The pr-markdown summary pass then becomes opt-in
+(`rerun-command-checks-for-summary: "true"`) — see the
+[double-run section](../ci-github-action.md#double-run-trust-boundary-pr-markdown-summary--allow-commands).
 
 ## Troubleshooting
 
