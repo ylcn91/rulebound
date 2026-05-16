@@ -14,6 +14,8 @@ import {
 import { extractChangedFiles, readGitDiff } from "../lib/git-diff.js"
 import { redactReportSnippets, redactSnippet } from "../lib/redact-snippet.js"
 
+const SAFE_REF_PATTERN = /^[a-zA-Z0-9._\-/~^]+$/
+
 export interface CheckOptions {
   readonly dir?: string
   readonly format?: "pretty" | "json" | "github" | "repair-json" | "sarif" | "pr-markdown"
@@ -34,6 +36,13 @@ interface RunContext {
   readonly branch?: string
 }
 
+class DiffAcquisitionError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "DiffAcquisitionError"
+  }
+}
+
 function detectBranch(cwd: string): string | undefined {
   try {
     return execFileSync("git", ["-C", cwd, "rev-parse", "--abbrev-ref", "HEAD"], { encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"] }).trim()
@@ -42,36 +51,56 @@ function detectBranch(cwd: string): string | undefined {
   }
 }
 
+function parseChangedFileList(stdout: string): string[] {
+  return stdout.split("\n").filter(Boolean)
+}
+
 function detectChangedFiles(opts: CheckOptions, cwd: string): string[] {
-  try {
-    if (opts.base) {
+  if (opts.base) {
+    if (!SAFE_REF_PATTERN.test(opts.base)) {
+      throw new DiffAcquisitionError(
+        `Invalid base ref: "${opts.base}". Only alphanumeric, '.', '_', '-', '/', '~', '^' allowed.`,
+      )
+    }
+
+    try {
+      const out = execFileSync("git", ["-C", cwd, "diff", "--name-only", `${opts.base}...HEAD`], {
+        encoding: "utf-8",
+        stdio: ["ignore", "pipe", "ignore"],
+      })
+      return parseChangedFileList(out)
+    } catch {
+      const remoteBase = opts.base.startsWith("origin/") ? opts.base : `origin/${opts.base}`
       try {
-        const out = execFileSync("git", ["-C", cwd, "diff", "--name-only", `${opts.base}...HEAD`], {
-          encoding: "utf-8",
-          stdio: ["ignore", "pipe", "ignore"],
-        })
-        return out.split("\n").filter(Boolean)
-      } catch {
-        const remoteBase = opts.base.startsWith("origin/") ? opts.base : `origin/${opts.base}`
         const out = execFileSync("git", ["-C", cwd, "diff", "--name-only", `${remoteBase}...HEAD`], {
           encoding: "utf-8",
           stdio: ["ignore", "pipe", "ignore"],
         })
-        return out.split("\n").filter(Boolean)
+        return parseChangedFileList(out)
+      } catch {
+        throw new DiffAcquisitionError(
+          `Failed to get git diff against base "${opts.base}" (also tried "${remoteBase}"). Are you in a git repository and is the base ref fetchable?`,
+        )
       }
     }
-    if (opts.staged) {
+  }
+  if (opts.staged) {
+    try {
       const out = execFileSync("git", ["-C", cwd, "diff", "--cached", "--name-only"], { encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"] })
-      return out.split("\n").filter(Boolean)
+      return parseChangedFileList(out)
+    } catch {
+      throw new DiffAcquisitionError("Failed to get staged git diff. Are you in a git repository?")
     }
-    if (opts.diff || opts.ref) {
+  }
+  if (opts.diff || opts.ref) {
+    try {
       const diff = readGitDiff({ ...(opts.ref ? { ref: opts.ref } : {}) })
       return extractChangedFiles(diff.diffText)
+    } catch (error) {
+      throw new DiffAcquisitionError(error instanceof Error ? error.message : "Failed to get git diff. Are you in a git repository?")
     }
-    return []
-  } catch {
-    return []
   }
+  return []
 }
 
 function loadContext(opts: CheckOptions): RunContext {
@@ -556,8 +585,89 @@ function printWaiverErrors(errors: readonly WaiverLoadError[], format: string): 
   }
 }
 
+function buildRerunHint(opts: CheckOptions): string {
+  const parts = ["rulebound", "check"]
+  if (opts.dir) parts.push("--dir", opts.dir)
+  if (opts.base) parts.push("--base", opts.base)
+  if (opts.staged) parts.push("--staged")
+  if (opts.allowCommands) parts.push("--allow-commands")
+  if (opts.waivers) parts.push("--waivers", opts.waivers)
+  return parts.join(" ")
+}
+
+function buildDiffAcquisitionErrorReport(message: string): DeterministicReport {
+  const result: CheckResult = {
+    ruleId: "rulebound.diff-acquisition",
+    checkId: "git-diff",
+    status: "ERROR",
+    source: "diff",
+    deterministic: true,
+    confidence: "exact",
+    blocking: true,
+    reason: message,
+  }
+
+  return {
+    results: [result],
+    summary: {
+      total: 1,
+      pass: 0,
+      violated: 0,
+      notApplicable: 0,
+      error: 1,
+      blocking: 1,
+      waived: 0,
+    },
+    status: "FAILED",
+    ruleStatuses: [{
+      ruleId: result.ruleId,
+      title: "Git diff acquisition",
+      checkCount: 1,
+      status: "ERROR",
+      blocking: true,
+    }],
+    parseErrors: [],
+    waiversApplied: [],
+  }
+}
+
+function printDiffAcquisitionError(error: DiffAcquisitionError, opts: CheckOptions): void {
+  const report = buildDiffAcquisitionErrorReport(error.message)
+  const rerunHint = buildRerunHint(opts)
+
+  switch (opts.format ?? "pretty") {
+    case "json":
+      printJson(report)
+      break
+    case "github":
+      printGithub(report)
+      break
+    case "repair-json":
+      printRepairJson(report, opts.allowCommands ?? false)
+      break
+    case "sarif":
+      printSarif(report)
+      break
+    case "pr-markdown":
+      printPrMarkdown(report, rerunHint)
+      break
+    default:
+      printPretty(report)
+  }
+}
+
 export async function checkCommand(opts: CheckOptions): Promise<void> {
-  const ctx = loadContext(opts)
+  let ctx: RunContext
+  try {
+    ctx = loadContext(opts)
+  } catch (error) {
+    if (error instanceof DiffAcquisitionError) {
+      printDiffAcquisitionError(error, opts)
+      process.exit(2)
+    }
+    throw error
+  }
+
   if (ctx.rules.length === 0) {
     console.error(chalk.red("No rules found. Run 'rulebound init --examples' or check --dir."))
     process.exit(2)
@@ -582,15 +692,7 @@ export async function checkCommand(opts: CheckOptions): Promise<void> {
     waivers: waiverLoad.waivers,
   })
 
-  const rerunHint = (() => {
-    const parts = ["rulebound", "check"]
-    if (opts.dir) parts.push("--dir", opts.dir)
-    if (opts.base) parts.push("--base", opts.base)
-    if (opts.staged) parts.push("--staged")
-    if (opts.allowCommands) parts.push("--allow-commands")
-    if (opts.waivers) parts.push("--waivers", opts.waivers)
-    return parts.join(" ")
-  })()
+  const rerunHint = buildRerunHint(opts)
 
   switch (opts.format ?? "pretty") {
     case "json":

@@ -5,7 +5,7 @@ import { Command } from "commander"
 import { printBanner } from "./lib/banner.js"
 import { findRulesCommand } from "./commands/find-rules.js"
 import { validateCommand } from "./commands/validate.js"
-import { listRulesCommand, showRuleCommand } from "./commands/rules.js"
+import { listRulesCommand, newRuleCommand, showRuleCommand } from "./commands/rules.js"
 import { initCommand } from "./commands/init.js"
 import { lintCommand } from "./commands/lint.js"
 import { historyCommand } from "./commands/history.js"
@@ -34,6 +34,7 @@ import {
   registryInfoCommand,
 } from "./commands/registry.js"
 import { migrateCommand } from "./commands/migrate.js"
+import { waiversListCommand } from "./commands/waivers.js"
 
 const require = createRequire(import.meta.url)
 const pkg = require("../package.json") as { version: string }
@@ -92,6 +93,7 @@ export function buildProgram(): Command {
     .command("doctor")
     .helpGroup(GROUP_PRIMARY)
     .description("Detect rules, config, toolchains, and analyzer availability")
+    .option("-f, --format <format>", "Output: pretty, json", "pretty")
     .action(doctorCommand)
 
   program
@@ -139,6 +141,15 @@ export function buildProgram(): Command {
     .command("rules")
     .helpGroup(GROUP_RULES)
     .description("Manage rules")
+
+  rulesCmd
+    .command("new <type> <name>")
+    .description("Create a deterministic rule template (regex or diff-evidence)")
+    .option("-d, --dir <path>", "Path to rules directory")
+    .option("-c, --category <category>", "Rule category/directory (default: general)")
+    .option("--severity <severity>", "Rule severity: error, warning, info", "error")
+    .option("--title <title>", "Rule title override")
+    .action(newRuleCommand)
 
   rulesCmd
     .command("list")
@@ -250,6 +261,20 @@ export function buildProgram(): Command {
     .option("--plan-file <path>", "Path to plan markdown file")
     .option("-f, --format <format>", "Output format: pretty, json")
     .action(validateBugfixCommand)
+
+  const waiversCmd = program
+    .command("waivers")
+    .helpGroup(GROUP_RULES)
+    .description("Inspect waiver lifecycle and expiry debt")
+
+  waiversCmd
+    .command("list")
+    .description("List configured waivers and expiry status")
+    .option("--waivers <path>", "Path to waivers YAML (default: .rulebound/waivers.yaml)")
+    .option("-f, --format <format>", "Output format: table, json", "table")
+    .option("--expiring-within <days>", "Mark waivers expiring within N days", "14")
+    .option("--strict", "Exit non-zero when waivers are expired or expiring")
+    .action(waiversListCommand)
 
   const agentsCmd = program
     .command("agents")

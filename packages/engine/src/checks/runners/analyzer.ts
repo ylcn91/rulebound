@@ -18,10 +18,127 @@ interface AnalyzerFinding {
   readonly message: string
 }
 
+interface ParsedAnalyzerReport {
+  readonly findings: AnalyzerFinding[]
+  readonly error?: string
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function ok(findings: AnalyzerFinding[]): ParsedAnalyzerReport {
+  return { findings }
+}
+
+function malformed(error: string): ParsedAnalyzerReport {
+  return { findings: [], error }
+}
+
 function attr(xml: string, name: string): string | undefined {
   const re = new RegExp(`\\b${name}="([^"]*)"`)
   const m = xml.match(re)
   return m ? m[1] : undefined
+}
+
+function findXmlTagEnd(xml: string, start: number): number {
+  let quote: '"' | "'" | null = null
+
+  for (let i = start; i < xml.length; i++) {
+    const ch = xml[i]
+    if (quote) {
+      if (ch === quote) quote = null
+      continue
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch
+      continue
+    }
+    if (ch === ">") return i
+  }
+
+  return -1
+}
+
+function validateXmlReport(content: string, expectedRoots: readonly string[]): string | undefined {
+  const xml = content.trim()
+  if (!xml) return "report is empty"
+
+  const stack: string[] = []
+  let root: string | undefined
+  let rootClosed = false
+  let i = 0
+
+  while (i < xml.length) {
+    const lt = xml.indexOf("<", i)
+    if (lt === -1) break
+
+    if (xml.startsWith("<!--", lt)) {
+      const end = xml.indexOf("-->", lt + 4)
+      if (end === -1) return "unterminated XML comment"
+      i = end + 3
+      continue
+    }
+
+    if (xml.startsWith("<![CDATA[", lt)) {
+      const end = xml.indexOf("]]>", lt + 9)
+      if (end === -1) return "unterminated XML CDATA section"
+      i = end + 3
+      continue
+    }
+
+    if (xml.startsWith("<?", lt)) {
+      const end = xml.indexOf("?>", lt + 2)
+      if (end === -1) return "unterminated XML processing instruction"
+      i = end + 2
+      continue
+    }
+
+    if (xml.startsWith("<!", lt)) {
+      const end = findXmlTagEnd(xml, lt + 2)
+      if (end === -1) return "unterminated XML declaration"
+      i = end + 1
+      continue
+    }
+
+    const gt = findXmlTagEnd(xml, lt + 1)
+    if (gt === -1) return "unterminated XML tag"
+
+    const tag = xml.slice(lt + 1, gt).trim()
+    if (!tag) return "empty XML tag"
+
+    if (tag.startsWith("/")) {
+      const name = /^\/\s*([A-Za-z_][A-Za-z0-9_.:-]*)\s*$/.exec(tag)?.[1]
+      if (!name) return "invalid XML closing tag"
+      const open = stack.pop()
+      if (open !== name) return `mismatched XML closing tag: expected </${open ?? "(none)"}>, found </${name}>`
+      if (stack.length === 0) rootClosed = true
+      i = gt + 1
+      continue
+    }
+
+    const name = /^([A-Za-z_][A-Za-z0-9_.:-]*)\b/.exec(tag)?.[1]
+    if (!name) return "invalid XML tag"
+    if (rootClosed && stack.length === 0) return "multiple XML root elements"
+    if (!root) root = name
+
+    const selfClosing = /\/\s*$/.test(tag)
+    if (!selfClosing) {
+      stack.push(name)
+    } else if (stack.length === 0) {
+      rootClosed = true
+    }
+
+    i = gt + 1
+  }
+
+  if (!root) return "missing XML root element"
+  if (!expectedRoots.includes(root)) {
+    return `expected XML root <${expectedRoots.join("|")}>, found <${root}>`
+  }
+  if (stack.length > 0) return `unclosed XML tag <${stack[stack.length - 1]}>`
+
+  return undefined
 }
 
 function parsePmdXml(content: string): AnalyzerFinding[] {
@@ -142,22 +259,38 @@ interface EslintFileReport {
   readonly messages?: readonly EslintMessage[]
 }
 
-function parseEslintJson(content: string): AnalyzerFinding[] | null {
+function parseEslintJson(content: string): ParsedAnalyzerReport {
   let parsed: unknown
   try {
     parsed = JSON.parse(content)
-  } catch {
-    return null
+  } catch (error) {
+    return malformed(`invalid ESLint JSON: ${error instanceof Error ? error.message : String(error)}`)
   }
-  if (!Array.isArray(parsed)) return null
+  if (!Array.isArray(parsed)) return malformed("expected ESLint JSON array")
   const arr = parsed as readonly EslintFileReport[]
-  if (arr.length === 0) return []
-  if (!arr.every((entry) => entry && typeof entry === "object" && Array.isArray((entry as EslintFileReport).messages))) {
-    return null
+  if (arr.length === 0) return ok([])
+  if (!arr.every((entry) => isRecord(entry) && Array.isArray((entry as EslintFileReport).messages))) {
+    return malformed("expected every ESLint file report to include a messages array")
   }
   const findings: AnalyzerFinding[] = []
   for (const fileReport of arr) {
+    if (fileReport.filePath !== undefined && typeof fileReport.filePath !== "string") {
+      return malformed("expected ESLint filePath to be a string")
+    }
     for (const m of fileReport.messages ?? []) {
+      if (!isRecord(m)) return malformed("expected ESLint messages to be objects")
+      if (m.ruleId !== undefined && m.ruleId !== null && typeof m.ruleId !== "string") {
+        return malformed("expected ESLint ruleId to be a string or null")
+      }
+      if (m.severity !== undefined && typeof m.severity !== "number") {
+        return malformed("expected ESLint severity to be numeric")
+      }
+      if (m.message !== undefined && typeof m.message !== "string") {
+        return malformed("expected ESLint message to be a string")
+      }
+      if (m.line !== undefined && typeof m.line !== "number") {
+        return malformed("expected ESLint line to be numeric")
+      }
       const sev: AnalyzerFinding["severity"] = m.severity === 2 ? "error" : m.severity === 1 ? "warning" : "info"
       findings.push({
         ...(fileReport.filePath ? { file: fileReport.filePath } : {}),
@@ -168,41 +301,61 @@ function parseEslintJson(content: string): AnalyzerFinding[] | null {
       })
     }
   }
-  return findings
+  return ok(findings)
 }
 
-function parseSarif(content: string): AnalyzerFinding[] {
+function parseSarif(content: string): ParsedAnalyzerReport {
   try {
-    const json = JSON.parse(content) as {
-      runs?: {
-        results?: {
-          ruleId?: string
-          message?: { text?: string }
-          level?: string
-          locations?: { physicalLocation?: { artifactLocation?: { uri?: string }; region?: { startLine?: number } } }[]
-        }[]
-      }[]
-    }
+    const json = JSON.parse(content) as unknown
+    if (!isRecord(json)) return malformed("expected SARIF object")
+    if (!Array.isArray(json.runs)) return malformed("expected SARIF runs array")
+
     const findings: AnalyzerFinding[] = []
-    for (const run of json.runs ?? []) {
-      for (const r of run.results ?? []) {
-        const loc = r.locations?.[0]?.physicalLocation
-        const file = loc?.artifactLocation?.uri
-        const line = loc?.region?.startLine
+    for (const run of json.runs) {
+      if (!isRecord(run)) return malformed("expected SARIF run to be an object")
+      if (run.results !== undefined && !Array.isArray(run.results)) {
+        return malformed("expected SARIF run results to be an array")
+      }
+
+      for (const result of (run.results as readonly unknown[] | undefined) ?? []) {
+        if (!isRecord(result)) return malformed("expected SARIF result to be an object")
+        if (result.locations !== undefined && !Array.isArray(result.locations)) {
+          return malformed("expected SARIF result locations to be an array")
+        }
+
+        const firstLocation = Array.isArray(result.locations) ? result.locations[0] : undefined
+        const physicalLocation = isRecord(firstLocation) ? firstLocation.physicalLocation : undefined
+        const physical = isRecord(physicalLocation) ? physicalLocation : undefined
+        const artifactLocation = isRecord(physical?.artifactLocation) ? physical.artifactLocation : undefined
+        const region = isRecord(physical?.region) ? physical.region : undefined
+        const file = typeof artifactLocation?.uri === "string" ? artifactLocation.uri : undefined
+        const line = typeof region?.startLine === "number" ? region.startLine : undefined
+        const ruleId = typeof result.ruleId === "string" ? result.ruleId : undefined
+        const message = isRecord(result.message) && typeof result.message.text === "string" ? result.message.text : undefined
+        const level = typeof result.level === "string" ? result.level : undefined
         const sev: AnalyzerFinding["severity"] =
-          r.level === "error" ? "error" : r.level === "note" ? "info" : "warning"
+          level === "error" ? "error" : level === "note" ? "info" : "warning"
         findings.push({
           ...(file ? { file } : {}),
           ...(line ? { line } : {}),
-          ...(r.ruleId ? { rule: r.ruleId } : {}),
+          ...(ruleId ? { rule: ruleId } : {}),
           severity: sev,
-          message: r.message?.text ?? r.ruleId ?? "SARIF finding",
+          message: message ?? ruleId ?? "SARIF finding",
         })
       }
     }
-    return findings
-  } catch {
-    return []
+    return ok(findings)
+  } catch (error) {
+    return malformed(`invalid SARIF JSON: ${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
+function parseGenericJson(content: string): ParsedAnalyzerReport {
+  try {
+    const parsed = JSON.parse(content) as unknown
+    return ok(isRecord(parsed) && Array.isArray(parsed.findings) ? (parsed.findings as AnalyzerFinding[]) : [])
+  } catch (error) {
+    return malformed(`invalid JSON report: ${error instanceof Error ? error.message : String(error)}`)
   }
 }
 
@@ -320,36 +473,56 @@ export function runAnalyzerCheck(opts: AnalyzerRunOptions): CheckResult {
 
   const fmt = detectFormat(check)
   let findings: AnalyzerFinding[] = []
+  let parseError: string | undefined
   switch (fmt) {
-    case "pmd-xml":
-      findings = parsePmdXml(raw)
+    case "pmd-xml": {
+      parseError = validateXmlReport(raw, ["pmd"])
+      if (!parseError) findings = parsePmdXml(raw)
       break
-    case "checkstyle-xml":
-      findings = parseCheckstyleXml(raw)
+    }
+    case "checkstyle-xml": {
+      parseError = validateXmlReport(raw, ["checkstyle"])
+      if (!parseError) findings = parseCheckstyleXml(raw)
       break
-    case "spotbugs-xml":
-      findings = parseSpotbugsXml(raw)
+    }
+    case "spotbugs-xml": {
+      parseError = validateXmlReport(raw, ["BugCollection"])
+      if (!parseError) findings = parseSpotbugsXml(raw)
       break
-    case "junit-xml":
-      findings = parseJunitXml(raw)
+    }
+    case "junit-xml": {
+      parseError = validateXmlReport(raw, ["testsuite", "testsuites"])
+      if (!parseError) findings = parseJunitXml(raw)
       break
-    case "sarif":
-      findings = parseSarif(raw)
+    }
+    case "sarif": {
+      const parsed = parseSarif(raw)
+      parseError = parsed.error
+      findings = parsed.findings
       break
-    case "json":
-      if (check.analyzer === "eslint") {
-        findings = parseEslintJson(raw) ?? []
-      } else {
-        try {
-          const parsed = JSON.parse(raw) as { findings?: AnalyzerFinding[] }
-          findings = parsed.findings ?? []
-        } catch {
-          findings = []
-        }
-      }
+    }
+    case "json": {
+      const parsed = check.analyzer === "eslint" ? parseEslintJson(raw) : parseGenericJson(raw)
+      parseError = parsed.error
+      findings = parsed.findings
       break
+    }
     default:
       findings = []
+  }
+
+  if (parseError) {
+    return {
+      ruleId,
+      checkId,
+      status: "ERROR",
+      source: "analyzer",
+      deterministic: true,
+      confidence: "exact",
+      blocking: false,
+      reason: `Malformed analyzer report (${fmt ?? "unknown"}): ${parseError}`,
+      evidence: { analyzerReport: check.report },
+    }
   }
 
   const failOn = check.fail_on_severity ?? "warning"

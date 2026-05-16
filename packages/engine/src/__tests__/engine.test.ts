@@ -9,12 +9,16 @@ import {
   DEFAULT_ENFORCEMENT,
   matchRulesByContext,
   filterRules,
+  detectProjectStack,
   detectLanguageFromCode,
   KeywordMatcher,
   SemanticMatcher,
   ValidationPipeline,
 } from "../index.js"
 import type { EnforcementConfig, Matcher, Rule, ValidationResult } from "../types.js"
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 
 function makeRule(overrides: Partial<Rule> = {}): Rule {
   return {
@@ -275,6 +279,20 @@ describe("filterRules", () => {
     expect(filtered.map((r) => r.id)).toContain("r1")
     expect(filtered.map((r) => r.id)).toContain("r3")
     expect(filtered.map((r) => r.id)).not.toContain("r2")
+  })
+})
+
+describe("detectProjectStack", () => {
+  it("detects C# project files", () => {
+    const dir = mkdtempSync(join(tmpdir(), "rulebound-engine-stack-"))
+
+    try {
+      writeFileSync(join(dir, "Service.csproj"), "<Project />\n", "utf-8")
+
+      expect(detectProjectStack(dir)).toEqual(expect.arrayContaining(["csharp", "dotnet"]))
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })
 

@@ -542,6 +542,27 @@ describe("RuleboundClient", () => {
     }
   })
 
+  it("parses server string error envelopes with details", async () => {
+    const details = [{ path: ["limit"], message: "limit must be <= 500" }]
+    const body = JSON.stringify({
+      error: "Invalid query parameter",
+      details,
+    })
+    mockFetch.mockResolvedValue(errorResponse(400, body))
+
+    try {
+      await client.listRules({ limit: 501 })
+      expect.fail("expected request to fail")
+    } catch (error) {
+      const e = error as RuleboundError
+      expect(e.statusCode).toBe(400)
+      expect(e.message).toBe("Invalid query parameter")
+      expect(e.details).toEqual(details)
+      expect(e.code).toBeUndefined()
+      expect(e.body).toBe(body)
+    }
+  })
+
   it("parses the nested gateway envelope (rule_violation with violations)", async () => {
     const body = JSON.stringify({
       error: {

@@ -330,12 +330,35 @@ async function handleStreamingResponse(
       }
 
       streamChunkCount++
+
+      if (scanner.isOverflowed()) {
+        for (const pendingChunk of scanner.consumePendingRawChunks()) {
+          controller.enqueue(pendingChunk)
+        }
+        controller.enqueue(value)
+        return
+      }
+
       const chunk = decoder.decode(value, { stream: true })
       scanner.appendChunk(extractContentFromSSE(provider, chunk))
+
+      if (scanner.isOverflowed()) {
+        for (const pendingChunk of scanner.consumePendingRawChunks()) {
+          controller.enqueue(pendingChunk)
+        }
+        controller.enqueue(value)
+        return
+      }
 
       const shouldBufferChunk = scanner.isInsideOpenCodeBlock() || scanner.hasPendingRawChunks()
       if (shouldBufferChunk) {
         scanner.appendRawChunk(value)
+        if (scanner.isOverflowed()) {
+          for (const pendingChunk of scanner.consumePendingRawChunks()) {
+            controller.enqueue(pendingChunk)
+          }
+          return
+        }
       } else {
         controller.enqueue(value)
       }

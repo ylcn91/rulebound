@@ -96,6 +96,13 @@ const NO_CHANGED_FILES_NOTICE: MCPNotice = {
   remedy: "Pass a base ref via `base` or stage files for a --staged diff.",
 }
 
+class DiffAcquisitionError extends Error {
+  constructor(readonly notice: MCPNotice) {
+    super(notice.message)
+    this.name = "DiffAcquisitionError"
+  }
+}
+
 // Backwards-compat strings kept as constants for legacy consumers reading `note`.
 const NO_RULES_NOTE = `${NO_RULES_NOTICE.message} Run 'rulebound init' first.`
 const NO_CHECKS_NOTE = NO_CHECKS_NOTICE.message
@@ -122,12 +129,10 @@ function topViolations(results: readonly CheckResult[]): readonly TopViolation[]
     }))
 }
 
-function buildRerunCommand(changedFiles: readonly string[], branch?: string): string {
-  if (changedFiles.length > 0) {
-    return `rulebound run-checks --files "${changedFiles.slice(0, 10).join(",")}"`
-  }
-  if (branch) return `rulebound run-checks --branch ${branch}`
-  return "rulebound run-checks"
+function buildRerunCommand(allowCommands?: boolean): string {
+  const parts = ["rulebound", "check"]
+  if (allowCommands) parts.push("--allow-commands")
+  return parts.join(" ")
 }
 
 export async function runDeterministicChecks(
@@ -205,27 +210,76 @@ export function getChangedFilesFromGit(input: {
   readonly staged?: boolean
 }): readonly string[] {
   const { cwd, base, staged } = input
-  try {
-    if (staged) {
+  if (staged) {
+    try {
       const out = execFileSync("git", ["diff", "--name-only", "--cached"], {
         cwd,
         encoding: "utf-8",
+        stdio: ["ignore", "pipe", "pipe"],
       })
       return parseFiles(out)
+    } catch (error) {
+      logger.debug("git diff failed", {
+        cwd,
+        base,
+        staged,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      throw new DiffAcquisitionError({
+        code: "DIFF_ACQUISITION_FAILED",
+        message: "Failed to get staged git diff. Are you in a git repository?",
+        remedy: "Run from a git repository or pass explicit changed files to run_deterministic_checks.",
+      })
     }
-    if (base) {
-      if (!SAFE_REF_PATTERN.test(base)) {
-        throw new Error(`Invalid base ref: "${base}".`)
-      }
+  }
+
+  if (base) {
+    if (!SAFE_REF_PATTERN.test(base)) {
+      throw new DiffAcquisitionError({
+        code: "INVALID_BASE_REF",
+        message: `Invalid base ref: "${base}". Only alphanumeric, '.', '_', '-', '/', '~', '^' allowed.`,
+        remedy: "Pass a safe git ref name such as main, origin/main, or release/1.2.",
+      })
+    }
+
+    try {
       const out = execFileSync("git", ["diff", "--name-only", `${base}...HEAD`], {
         cwd,
         encoding: "utf-8",
+        stdio: ["ignore", "pipe", "pipe"],
       })
       return parseFiles(out)
+    } catch (localError) {
+      const remoteBase = base.startsWith("origin/") ? base : `origin/${base}`
+      try {
+        const out = execFileSync("git", ["diff", "--name-only", `${remoteBase}...HEAD`], {
+          cwd,
+          encoding: "utf-8",
+          stdio: ["ignore", "pipe", "pipe"],
+        })
+        return parseFiles(out)
+      } catch (remoteError) {
+        logger.debug("git diff failed", {
+          cwd,
+          base,
+          staged,
+          error: remoteError instanceof Error ? remoteError.message : String(remoteError),
+          localError: localError instanceof Error ? localError.message : String(localError),
+        })
+        throw new DiffAcquisitionError({
+          code: "DIFF_ACQUISITION_FAILED",
+          message: `Failed to get git diff against base "${base}" (also tried "${remoteBase}").`,
+          remedy: "Fetch the base ref, pass a valid base, or pass explicit changed files to run_deterministic_checks.",
+        })
+      }
     }
+  }
+
+  try {
     const out = execFileSync("git", ["diff", "--name-only", "HEAD"], {
       cwd,
       encoding: "utf-8",
+      stdio: ["ignore", "pipe", "pipe"],
     })
     return parseFiles(out)
   } catch (error) {
@@ -235,7 +289,11 @@ export function getChangedFilesFromGit(input: {
       staged,
       error: error instanceof Error ? error.message : String(error),
     })
-    return []
+    throw new DiffAcquisitionError({
+      code: "DIFF_ACQUISITION_FAILED",
+      message: "Failed to get git diff against HEAD. Are you in a git repository with a valid HEAD?",
+      remedy: "Run from a git repository or pass explicit changed files to run_deterministic_checks.",
+    })
   }
 }
 
@@ -246,12 +304,49 @@ function parseFiles(stdout: string): readonly string[] {
     .filter((s) => s.length > 0)
 }
 
+function diffAcquisitionFailure(notice: MCPNotice): DeterministicSummary {
+  return {
+    status: "FAILED",
+    summary: { total: 1, pass: 0, violated: 0, notApplicable: 0, error: 1, blocking: 1, waived: 0 },
+    ruleStatuses: [{
+      ruleId: "rulebound.diff-acquisition",
+      title: "Git diff acquisition",
+      checkCount: 1,
+      status: "ERROR",
+      blocking: true,
+    }],
+    topViolations: [{
+      ruleId: "rulebound.diff-acquisition",
+      checkId: "git-diff",
+      source: "diff",
+      reason: notice.message,
+      blocking: true,
+    }],
+    parseErrors: [],
+    rulesEvaluated: 0,
+    note: notice.message,
+    notice,
+  }
+}
+
 export async function checkDiff(input: CheckDiffInput): Promise<DeterministicSummary> {
-  const changedFiles = getChangedFilesFromGit({
-    cwd: input.cwd,
-    ...(input.base !== undefined ? { base: input.base } : {}),
-    ...(input.staged !== undefined ? { staged: input.staged } : {}),
-  })
+  let changedFiles: readonly string[]
+  try {
+    changedFiles = getChangedFilesFromGit({
+      cwd: input.cwd,
+      ...(input.base !== undefined ? { base: input.base } : {}),
+      ...(input.staged !== undefined ? { staged: input.staged } : {}),
+    })
+  } catch (error) {
+    if (error instanceof DiffAcquisitionError) {
+      return diffAcquisitionFailure(error.notice)
+    }
+    return diffAcquisitionFailure({
+      code: "DIFF_ACQUISITION_FAILED",
+      message: error instanceof Error ? error.message : "Failed to get git diff.",
+      remedy: "Run from a git repository or pass explicit changed files to run_deterministic_checks.",
+    })
+  }
 
   if (changedFiles.length === 0) {
     return {
@@ -329,10 +424,7 @@ export async function getRepairInstructions(
     (r) => r.status === "VIOLATED" || r.status === "ERROR",
   )
 
-  const rerunCommand = buildRerunCommand(
-    input.changedFiles ?? [],
-    input.branch,
-  )
+  const rerunCommand = buildRerunCommand(input.allowCommands)
 
   const instructions: RepairInstruction[] = offenders.slice(0, limit).map((r) => ({
     ruleId: r.ruleId,

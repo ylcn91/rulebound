@@ -273,6 +273,24 @@ function validateCheck(raw: unknown, idx: number): ValidationOk | ValidationFail
       if (typeof obj.analyzer !== "string") return fail(idx, "analyzer", "'analyzer' is required")
       if (typeof obj.report !== "string") return fail(idx, "analyzer", "'report' (path) is required")
       break
+    case "scenario":
+      if (typeof obj.report !== "string") return fail(idx, "scenario", "'report' (path) is required")
+      if (obj.scenario !== undefined && typeof obj.scenario !== "string") return fail(idx, "scenario", "'scenario' must be string")
+      if (
+        obj.require_status !== undefined &&
+        obj.require_status !== "passed" &&
+        obj.require_status !== "failed" &&
+        obj.require_status !== "error"
+      ) {
+        return fail(idx, "scenario", "'require_status' must be passed, failed, or error")
+      }
+      if (obj.max_age_minutes !== undefined && typeof obj.max_age_minutes !== "number") {
+        return fail(idx, "scenario", "'max_age_minutes' must be number")
+      }
+      if (obj.require_assertions !== undefined && !Array.isArray(obj.require_assertions)) {
+        return fail(idx, "scenario", "'require_assertions' must be array<string>")
+      }
+      break
     case "agent-process":
       if (typeof obj.require !== "string") return fail(idx, "agent-process", "'require' is required")
       break

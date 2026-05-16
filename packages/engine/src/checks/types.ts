@@ -6,6 +6,7 @@ export type DeterministicSource =
   | "import-boundary"
   | "command"
   | "analyzer"
+  | "scenario"
   | "agent-process"
   | "keyword"
   | "semantic"
@@ -24,6 +25,7 @@ export interface CheckEvidence {
   readonly stdout?: string
   readonly stderr?: string
   readonly analyzerReport?: string
+  readonly scenarioReport?: string
   readonly matches?: readonly string[]
 }
 
@@ -134,6 +136,15 @@ export interface AnalyzerCheck extends BaseCheck {
   readonly timeout_ms?: number
 }
 
+export interface ScenarioCheck extends BaseCheck {
+  readonly type: "scenario"
+  readonly scenario?: string
+  readonly report: string
+  readonly require_status?: "passed" | "failed" | "error"
+  readonly max_age_minutes?: number
+  readonly require_assertions?: readonly string[]
+}
+
 export interface AgentProcessCheck extends BaseCheck {
   readonly type: "agent-process"
   readonly require:
@@ -153,6 +164,7 @@ export type RuleCheck =
   | ForbiddenImportCheck
   | CommandCheck
   | AnalyzerCheck
+  | ScenarioCheck
   | AgentProcessCheck
 
 export const ALL_CHECK_TYPES = [
@@ -164,6 +176,7 @@ export const ALL_CHECK_TYPES = [
   "forbidden-import",
   "command",
   "analyzer",
+  "scenario",
   "agent-process",
 ] as const
 

@@ -9,6 +9,7 @@ import {
   resolveProjectForOrg,
   slugifyProjectName,
 } from "../lib/projects.js"
+import { withTransaction } from "../lib/transaction.js"
 import { requireScope } from "../middleware/require-scope.js"
 
 const app = new Hono()
@@ -53,27 +54,33 @@ app.post("/", requireScope("projects:write"), async (c) => {
     return c.json({ error: "Project slug already exists" }, 409)
   }
 
-  const [created] = await db
-    .insert(schema.projects)
-    .values({
-      orgId: identity.orgId,
-      name: parsed.data.name,
-      slug,
-      repoUrl: parsed.data.repoUrl ?? null,
-      stack: parsed.data.stack ?? [],
-    })
-    .returning()
-
+  let created: typeof schema.projects.$inferSelect
   let ruleSetIds: string[]
   try {
-    ruleSetIds = await replaceProjectRuleSetLinks(
-      db,
-      identity.orgId,
-      created.id,
-      parsed.data.ruleSetIds ?? []
-    )
+    const result = await withTransaction(db, async (tx) => {
+      const [inserted] = await tx
+        .insert(schema.projects)
+        .values({
+          orgId: identity.orgId,
+          name: parsed.data.name,
+          slug,
+          repoUrl: parsed.data.repoUrl ?? null,
+          stack: parsed.data.stack ?? [],
+        })
+        .returning()
+
+      const linkedRuleSetIds = await replaceProjectRuleSetLinks(
+        tx,
+        identity.orgId,
+        inserted.id,
+        parsed.data.ruleSetIds ?? []
+      )
+
+      return { created: inserted, ruleSetIds: linkedRuleSetIds }
+    })
+    created = result.created
+    ruleSetIds = result.ruleSetIds
   } catch (error) {
-    await db.delete(schema.projects).where(eq(schema.projects.id, created.id))
     return c.json(
       { error: error instanceof Error ? error.message : "Invalid rule set links" },
       400
@@ -134,27 +141,35 @@ app.put("/:id", requireScope("projects:write"), async (c) => {
     }
   }
 
-  const [updated] = await db
-    .update(schema.projects)
-    .set(updates)
-    .where(eq(schema.projects.id, existing.id))
-    .returning()
-
+  let updated: typeof schema.projects.$inferSelect
   let ruleSetIds: string[] | undefined
-  if (parsed.data.ruleSetIds !== undefined) {
-    try {
-      ruleSetIds = await replaceProjectRuleSetLinks(
-        db,
-        identity.orgId,
-        existing.id,
-        parsed.data.ruleSetIds
-      )
-    } catch (error) {
-      return c.json(
-        { error: error instanceof Error ? error.message : "Invalid rule set links" },
-        400
-      )
-    }
+  try {
+    const result = await withTransaction(db, async (tx) => {
+      const [updatedProject] = await tx
+        .update(schema.projects)
+        .set(updates)
+        .where(eq(schema.projects.id, existing.id))
+        .returning()
+
+      let linkedRuleSetIds: string[] | undefined
+      if (parsed.data.ruleSetIds !== undefined) {
+        linkedRuleSetIds = await replaceProjectRuleSetLinks(
+          tx,
+          identity.orgId,
+          existing.id,
+          parsed.data.ruleSetIds
+        )
+      }
+
+      return { updated: updatedProject, ruleSetIds: linkedRuleSetIds }
+    })
+    updated = result.updated
+    ruleSetIds = result.ruleSetIds
+  } catch (error) {
+    return c.json(
+      { error: error instanceof Error ? error.message : "Invalid rule set links" },
+      400
+    )
   }
 
   const [hydrated] = await hydrateProjectsWithRuleSetIds(db, [updated])
@@ -176,14 +191,16 @@ app.delete("/:id", requireScope("projects:write"), async (c) => {
 
   if (!existing) return c.json({ error: "Project not found" }, 404)
 
-  await db.delete(schema.projectRuleSets).where(eq(schema.projectRuleSets.projectId, existing.id))
-  await db.delete(schema.ruleSyncState).where(eq(schema.ruleSyncState.projectId, existing.id))
-  await db.delete(schema.complianceSnapshots).where(eq(schema.complianceSnapshots.projectId, existing.id))
-  await db
-    .update(schema.auditLog)
-    .set({ projectId: null })
-    .where(eq(schema.auditLog.projectId, existing.id))
-  await db.delete(schema.projects).where(eq(schema.projects.id, existing.id))
+  await withTransaction(db, async (tx) => {
+    await tx.delete(schema.projectRuleSets).where(eq(schema.projectRuleSets.projectId, existing.id))
+    await tx.delete(schema.ruleSyncState).where(eq(schema.ruleSyncState.projectId, existing.id))
+    await tx.delete(schema.complianceSnapshots).where(eq(schema.complianceSnapshots.projectId, existing.id))
+    await tx
+      .update(schema.auditLog)
+      .set({ projectId: null })
+      .where(eq(schema.auditLog.projectId, existing.id))
+    await tx.delete(schema.projects).where(eq(schema.projects.id, existing.id))
+  })
 
   return c.json({ data: { deleted: true } })
 })

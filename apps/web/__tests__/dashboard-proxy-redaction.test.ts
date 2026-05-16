@@ -2,8 +2,8 @@
  * SEC-004 — Dashboard proxy redaction contract.
  *
  * Goal: pin the contract that when `apps/web/lib/server-proxy.ts` echoes
- * upstream error material back to the caller (or to logs), it does not
- * forward secret patterns verbatim.
+ * upstream error material back to the caller, it does not forward secret
+ * patterns verbatim.
  *
  * Current behavior surfaced by this suite:
  *   - Success path: proxy forwards the upstream body as a raw stream
@@ -15,12 +15,9 @@
  *     `{ error, code, missingEnv? }`. Error messages come from
  *     `describeApiError(...)` in `apps/web/lib/api.ts`.
  *
- * Known gap (documented, NOT silently green): upstream 4xx/5xx bodies are
- * streamed through verbatim — if the upstream Rulebound server returns a
- * payload like `{ error: "Bearer <leaked> rejected" }`, the dashboard
- * relays it as-is to the browser. SEC-004 follow-up for Team B (owner of
- * `apps/web/lib/server-proxy.ts`) is to apply `@rulebound/shared`'s
- * `redactSensitive()` to error bodies before forwarding/logging.
+ * Upstream 4xx/5xx bodies are buffered and redacted before forwarding. This
+ * keeps success bodies streamed while preventing known sensitive keys and
+ * common bearer/header text from leaking in error responses.
  *
  * This file therefore asserts:
  *   1. The proxy never *generates* secret-shaped strings on its own
@@ -29,7 +26,7 @@
  *      (covered by an in-file pure helper, kept identical to the shared
  *      logger's pattern list — drift here would silently weaken the
  *      Wave 2 / SEC-004 follow-up).
- *   3. An explicit `it.todo()` so the gap is visible in test output.
+ *   3. The proxy redacts upstream error bodies before forwarding them.
  */
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -158,10 +155,51 @@ describe("dashboard proxy — redaction contract", () => {
     expect(out.attempts[1]?.id).toBe(2)
   })
 
-  // (3) Documented follow-up: wire `redactSensitive` into the proxy
-  // error/log path. Owned by Team B (apps/web/lib/server-proxy.ts is in
-  // their scope per lead-decisions §6).
-  it.todo(
-    "server-proxy.ts should pass upstream error bodies through redactSensitive() before forwarding or logging (Team B SEC-004 follow-up)",
-  )
+  // (3) The proxy redacts upstream error bodies before forwarding them.
+  it("server-proxy.ts redacts upstream JSON error bodies before forwarding", async () => {
+    vi.stubEnv("RULEBOUND_API_URL", "https://rulebound.test")
+    vi.stubEnv("RULEBOUND_API_TOKEN", "svc_test_token")
+    vi.stubEnv("RULEBOUND_DASHBOARD_PASSCODE", "secret-passcode-001")
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: "Bearer leak-msg-1 rejected",
+          details: {
+            headers: {
+              Authorization: "Bearer leak-up-1",
+              Cookie: "session=leak-up-2",
+            },
+            body: {
+              api_key: "leak-up-3",
+              token: "leak-up-4",
+              safe: "safe-value",
+            },
+          },
+        }),
+        {
+          status: 502,
+          headers: { "content-type": "application/json" },
+        },
+      ),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const { proxyToRulebound } = await importProxyModule()
+    const res = await proxyToRulebound(
+      new Request("http://localhost/api/rules", {
+        method: "GET",
+        headers: { cookie: "rulebound_dashboard_session=secret-passcode-001" },
+      }),
+      "/rules",
+    )
+
+    expect(res.status).toBe(502)
+    expect(res.headers.get("content-type")).toBe("application/json")
+
+    const body = await res.text()
+    expect(body).not.toMatch(/leak-(?:msg|up)-\d/)
+    expect(body).toContain("[REDACTED]")
+    expect(body).toContain("safe-value")
+  })
 })

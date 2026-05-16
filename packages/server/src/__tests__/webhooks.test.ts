@@ -167,11 +167,20 @@ describe("webhooks API", () => {
 
   describe("DELETE /endpoints/:id", () => {
     it("deletes an endpoint and returns success", async () => {
+      const deleteDeliveryWhere = vi.fn().mockResolvedValue([])
+      const deleteEndpointReturning = vi.fn().mockResolvedValue([{ id: "ep-1" }])
       const mockDb = {
-        delete: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            returning: vi.fn().mockResolvedValue([{ id: "ep-1" }]),
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue([{ id: "ep-1" }]),
           }),
+        }),
+        delete: vi.fn().mockReturnValue({
+          where: vi.fn()
+            .mockImplementationOnce(deleteDeliveryWhere)
+            .mockReturnValueOnce({
+              returning: deleteEndpointReturning,
+            }),
         }),
       }
       mockGetDb.mockReturnValue(mockDb as never)
@@ -184,15 +193,18 @@ describe("webhooks API", () => {
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.data.deleted).toBe(true)
+      expect(deleteDeliveryWhere).toHaveBeenCalledOnce()
+      expect(deleteEndpointReturning).toHaveBeenCalledOnce()
     })
 
-    it("returns 404 when endpoint not found", async () => {
+    it("returns 404 and does not delete deliveries when endpoint not found", async () => {
       const mockDb = {
-        delete: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            returning: vi.fn().mockResolvedValue([]),
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue([]),
           }),
         }),
+        delete: vi.fn(),
       }
       mockGetDb.mockReturnValue(mockDb as never)
 
@@ -202,6 +214,7 @@ describe("webhooks API", () => {
       })
 
       expect(res.status).toBe(404)
+      expect(mockDb.delete).not.toHaveBeenCalled()
     })
   })
 
@@ -295,6 +308,21 @@ describe("webhooks API", () => {
       const body = await res.json()
       expect(body.data).toHaveLength(1)
     })
+
+    it.each(["abc", "-1", "0", "201"])(
+      "rejects invalid limit %s",
+      async (limit) => {
+        mockGetDb.mockReturnValue({} as never)
+
+        const app = await createApp()
+        const res = await app.request(`/webhooks/deliveries?limit=${encodeURIComponent(limit)}`)
+
+        expect(res.status).toBe(400)
+        const body = await res.json()
+        expect(body.error).toBe("Invalid query parameter")
+        expect(body.details[0].param).toBe("limit")
+      }
+    )
   })
 
   describe("POST /in (inbound webhooks)", () => {

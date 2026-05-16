@@ -6,6 +6,7 @@ import { listAuditEntries, renderAuditCsv } from "../lib/audit.js"
 import { resolveProjectForOrg } from "../lib/projects.js"
 import { writeAuditEntry } from "../lib/activity.js"
 import { requireScope } from "../middleware/require-scope.js"
+import { invalidQueryResponse, parsePaginationQuery } from "./query.js"
 
 const app = new Hono()
 
@@ -16,14 +17,26 @@ app.get("/", requireScope("audit:read"), async (c) => {
   const orgScope = requireMatchingOrg(c, identity, c.req.query("org_id"))
   if (orgScope instanceof Response) return orgScope
 
+  const pagination = parsePaginationQuery({
+    limit: c.req.query("limit"),
+    offset: c.req.query("offset"),
+    defaultLimit: 50,
+    maxLimit: 500,
+    maxOffset: 10_000,
+  })
+
+  if (!pagination.ok) {
+    return c.json(invalidQueryResponse(pagination.issue), 400)
+  }
+
   const db = getDb()
   const entries = await listAuditEntries(db, identity.orgId, {
     projectIdentifier: c.req.query("project_id"),
     action: c.req.query("action"),
     since: c.req.query("since"),
     until: c.req.query("until"),
-    limit: parseInt(c.req.query("limit") ?? "50", 10),
-    offset: parseInt(c.req.query("offset") ?? "0", 10),
+    limit: pagination.value.limit,
+    offset: pagination.value.offset,
   })
 
   return c.json({ data: entries, total: entries.length })
@@ -36,14 +49,26 @@ app.get("/export", requireScope("audit:read"), async (c) => {
   const orgScope = requireMatchingOrg(c, identity, c.req.query("org_id"))
   if (orgScope instanceof Response) return orgScope
 
+  const pagination = parsePaginationQuery({
+    limit: c.req.query("limit"),
+    offset: c.req.query("offset"),
+    defaultLimit: 50,
+    maxLimit: 500,
+    maxOffset: 10_000,
+  })
+
+  if (!pagination.ok) {
+    return c.json(invalidQueryResponse(pagination.issue), 400)
+  }
+
   const db = getDb()
   const entries = await listAuditEntries(db, identity.orgId, {
     projectIdentifier: c.req.query("project_id"),
     action: c.req.query("action"),
     since: c.req.query("since"),
     until: c.req.query("until"),
-    limit: parseInt(c.req.query("limit") ?? "50", 10),
-    offset: parseInt(c.req.query("offset") ?? "0", 10),
+    limit: pagination.value.limit,
+    offset: pagination.value.offset,
   })
 
   const csv = renderAuditCsv(entries)

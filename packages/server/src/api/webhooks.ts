@@ -11,6 +11,7 @@ import {
   assertSafeOutboundUrl,
   UnsafeOutboundUrlError,
 } from "../lib/url-policy.js"
+import { invalidQueryResponse, parseIntegerQueryParam } from "./query.js"
 
 const app = new Hono()
 
@@ -90,11 +91,18 @@ app.delete("/endpoints/:id", requireScope("webhooks:write"), async (c) => {
   const db = getDb()
   const id = c.req.param("id")
 
-  await db.delete(schema.webhookDeliveries).where(eq(schema.webhookDeliveries.endpointId, id))
+  const [endpoint] = await db
+    .select()
+    .from(schema.webhookEndpoints)
+    .where(and(eq(schema.webhookEndpoints.id, id), eq(schema.webhookEndpoints.orgId, identity.orgId)))
+
+  if (!endpoint) return c.json({ error: "Endpoint not found" }, 404)
+
+  await db.delete(schema.webhookDeliveries).where(eq(schema.webhookDeliveries.endpointId, endpoint.id))
 
   const [deleted] = await db
     .delete(schema.webhookEndpoints)
-    .where(and(eq(schema.webhookEndpoints.id, id), eq(schema.webhookEndpoints.orgId, identity.orgId)))
+    .where(and(eq(schema.webhookEndpoints.id, endpoint.id), eq(schema.webhookEndpoints.orgId, identity.orgId)))
     .returning()
 
   if (!deleted) return c.json({ error: "Endpoint not found" }, 404)
@@ -141,9 +149,21 @@ app.get("/deliveries", requireScope("webhooks:write"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 
-  const db = getDb()
   const endpointId = c.req.query("endpoint_id")
-  const limit = parseInt(c.req.query("limit") ?? "20", 10)
+  const parsedLimit = parseIntegerQueryParam({
+    name: "limit",
+    value: c.req.query("limit"),
+    defaultValue: 20,
+    min: 1,
+    max: 200,
+  })
+
+  if (!parsedLimit.ok) {
+    return c.json(invalidQueryResponse(parsedLimit.issue), 400)
+  }
+
+  const limit = parsedLimit.value
+  const db = getDb()
 
   const endpoints = endpointId
     ? await db

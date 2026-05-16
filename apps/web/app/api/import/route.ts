@@ -1,24 +1,6 @@
 import { NextResponse } from "next/server"
-
-function isSameOriginRequest(request: Request): boolean {
-  const origin = request.headers.get("origin")
-  const referer = request.headers.get("referer")
-  const host = request.headers.get("host")
-  if (!host) return false
-
-  const expected = new Set<string>([`https://${host}`, `http://${host}`])
-
-  if (origin && expected.has(origin)) return true
-  if (!origin && referer) {
-    try {
-      const refererOrigin = new URL(referer).origin
-      if (expected.has(refererOrigin)) return true
-    } catch {
-      return false
-    }
-  }
-  return false
-}
+import { assertDashboardSession } from "@/lib/dashboard-auth"
+import { isSameOriginRequest } from "@/lib/request-security"
 
 interface ParsedRule {
   title: string
@@ -106,6 +88,19 @@ function parseMarkdown(markdown: string): ParsedRule[] {
 export async function POST(request: Request) {
   if (!isSameOriginRequest(request)) {
     return NextResponse.json({ error: "Cross-origin request rejected." }, { status: 403 })
+  }
+
+  const session = assertDashboardSession(request.headers.get("cookie"))
+  if (!session.ok) {
+    return NextResponse.json(
+      {
+        error:
+          session.reason === "missing-config"
+            ? "Dashboard passcode is not configured."
+            : "Dashboard authorization required.",
+      },
+      { status: session.reason === "missing-config" ? 503 : 401 },
+    )
   }
 
   try {

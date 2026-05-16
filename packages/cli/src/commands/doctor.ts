@@ -11,6 +11,16 @@ interface CheckItem {
   readonly detail: string
 }
 
+interface DoctorOptions {
+  readonly format?: string
+}
+
+interface DoctorJsonPayload {
+  readonly status: CheckItem["status"]
+  readonly checks: readonly CheckItem[]
+  readonly recommendations: readonly string[]
+}
+
 function which(cmd: string): string | undefined {
   try {
     const out = execFileSync("/bin/sh", ["-c", `command -v ${cmd}`], {
@@ -87,7 +97,50 @@ function commandRequiringAllowFlag(rules: readonly Rule[]): number {
   return n
 }
 
-export async function doctorCommand(): Promise<void> {
+function overallStatus(items: readonly CheckItem[]): CheckItem["status"] {
+  if (items.some((item) => item.status === "fail")) return "fail"
+  if (items.some((item) => item.status === "warn")) return "warn"
+  return "ok"
+}
+
+function buildRecommendations(items: readonly CheckItem[]): string[] {
+  const recommendations = new Set<string>()
+
+  for (const item of items) {
+    if (item.status === "ok") continue
+
+    if (item.name === "rules dir") {
+      recommendations.add("Run `rulebound init --pack starter` to create a rules directory.")
+    } else if (item.name === "rules loaded") {
+      recommendations.add("Add at least one rule under `.rulebound/rules` or install a curated pack.")
+    } else if (item.name === "rule schema") {
+      recommendations.add("Fix invalid deterministic `checks:` blocks before running `rulebound check`.")
+    } else if (item.name === "project stack") {
+      recommendations.add("Add a recognized project manifest or configure `.rulebound/config.json` project metadata.")
+    } else if (item.name === "git repo") {
+      recommendations.add("Initialize git before relying on diff-evidence checks.")
+    } else if (item.name === "config") {
+      recommendations.add("Optional: add `.rulebound/config.json` to customize project context.")
+    } else if (item.name === "toolchains") {
+      recommendations.add("Install the project toolchains required by your configured rules.")
+    } else if (item.name.startsWith("analyzer:")) {
+      recommendations.add("Install or run the analyzer tools needed by configured `type: analyzer` checks.")
+    } else if (item.name === "command checks") {
+      recommendations.add("Review command/analyzer rules before running `rulebound check --allow-commands`.")
+    }
+  }
+
+  return [...recommendations]
+}
+
+export async function doctorCommand(options: DoctorOptions = {}): Promise<void> {
+  const format = options.format ?? "pretty"
+  if (format !== "pretty" && format !== "json") {
+    console.error(chalk.red(`Unsupported doctor format: ${format}`))
+    console.error(chalk.dim("Use --format pretty or --format json."))
+    process.exit(2)
+  }
+
   const cwd = process.cwd()
   const items: CheckItem[] = []
 
@@ -197,6 +250,18 @@ export async function doctorCommand(): Promise<void> {
     detail: claudeMd.length > 0 ? claudeMd.join(", ") : "none found",
   })
 
+  const failed = items.filter((i) => i.status === "fail").length
+
+  if (format === "json") {
+    const payload: DoctorJsonPayload = {
+      status: overallStatus(items),
+      checks: items,
+      recommendations: buildRecommendations(items),
+    }
+    console.log(JSON.stringify(payload, null, 2))
+    process.exit(failed > 0 ? 2 : 0)
+  }
+
   console.log()
   console.log(chalk.bold("rulebound doctor"))
   console.log()
@@ -206,6 +271,5 @@ export async function doctorCommand(): Promise<void> {
   }
   console.log()
 
-  const failed = items.filter((i) => i.status === "fail").length
   process.exit(failed > 0 ? 2 : 0)
 }
