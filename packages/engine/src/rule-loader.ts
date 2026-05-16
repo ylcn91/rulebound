@@ -225,6 +225,8 @@ const PROJECT_FILE_STACK_MAP: Record<string, string[]> = {
   "requirements.txt": ["python"],
   "pyproject.toml": ["python"],
   "Pipfile": ["python"],
+  "*.csproj": ["csharp", "dotnet"],
+  "*.sln": ["csharp", "dotnet"],
   "Dockerfile": ["docker"],
   "docker-compose.yml": ["docker"],
   "docker-compose.yaml": ["docker"],

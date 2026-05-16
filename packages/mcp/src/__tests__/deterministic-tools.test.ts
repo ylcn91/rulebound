@@ -167,7 +167,7 @@ describe("getRepairInstructions", () => {
     })
     expect(instruction.reason).toContain("README.md")
     expect(instruction.suggestedFix).toMatch(/README/)
-    expect(instruction.rerunCommand).toMatch(/rulebound run-checks/)
+    expect(instruction.rerunCommand).toBe("rulebound check")
   })
 
   it("returns an empty instruction set when nothing is broken", async () => {
@@ -194,7 +194,7 @@ describe("getRepairInstructions", () => {
     expect(result.instructions).toHaveLength(2)
   })
 
-  it("includes changed file list in rerunCommand", async () => {
+  it("uses the existing rulebound check CLI in rerunCommand", async () => {
     const rulesDir = join(cwd, ".rulebound", "rules")
     writeRule(rulesDir, "require-readme.md", REQUIRE_README)
 
@@ -202,7 +202,16 @@ describe("getRepairInstructions", () => {
       cwd,
       changedFiles: ["src/app.ts", "src/lib.ts"],
     })
-    expect(result.instructions[0].rerunCommand).toContain("src/app.ts")
+    expect(result.instructions[0].rerunCommand).toBe("rulebound check")
+    expect(result.instructions[0].rerunCommand).not.toContain("run-checks")
+  })
+
+  it("threads allowCommands into the rulebound check rerunCommand", async () => {
+    const rulesDir = join(cwd, ".rulebound", "rules")
+    writeRule(rulesDir, "require-readme.md", REQUIRE_README)
+
+    const result = await getRepairInstructions({ cwd, allowCommands: true })
+    expect(result.instructions[0].rerunCommand).toBe("rulebound check --allow-commands")
   })
 })
 
@@ -217,22 +226,38 @@ describe("checkDiff", () => {
     rmSync(cwd, { recursive: true, force: true })
   })
 
-  it("returns PASSED no-op when not a git repo (empty diff)", async () => {
+  it("returns FAILED notice when diff acquisition fails outside a git repo", async () => {
     const rulesDir = join(cwd, ".rulebound", "rules")
     writeRule(rulesDir, "require-readme.md", REQUIRE_README)
 
     const result = await checkDiff({ cwd })
 
-    expect(result.status).toBe("PASSED")
-    expect(result.summary.total).toBe(0)
-    expect(result.summary.violated).toBe(0)
-    expect(result.note).toMatch(/No changed files/i)
-    expect(result.notice?.code).toBe("NO_CHANGED_FILES")
-    expect(result.topViolations).toEqual([])
+    expect(result.status).toBe("FAILED")
+    expect(result.summary.error).toBe(1)
+    expect(result.summary.blocking).toBe(1)
+    expect(result.note).toMatch(/Failed to get git diff/i)
+    expect(result.notice?.code).toBe("DIFF_ACQUISITION_FAILED")
+    expect(result.ruleStatuses[0].status).toBe("ERROR")
+    expect(result.topViolations[0]).toMatchObject({
+      ruleId: "rulebound.diff-acquisition",
+      checkId: "git-diff",
+      source: "diff",
+      blocking: true,
+    })
   })
 
   it("rejects unsafe base refs", async () => {
-    const files = getChangedFilesFromGit({ cwd, base: "; rm -rf /" })
-    expect(files).toEqual([])
+    expect(() => getChangedFilesFromGit({ cwd, base: "; rm -rf /" })).toThrow(/Invalid base ref/)
+  })
+
+  it("returns FAILED notice for unsafe base refs", async () => {
+    const rulesDir = join(cwd, ".rulebound", "rules")
+    writeRule(rulesDir, "require-readme.md", REQUIRE_README)
+
+    const result = await checkDiff({ cwd, base: "; rm -rf /" })
+    expect(result.status).toBe("FAILED")
+    expect(result.summary.error).toBe(1)
+    expect(result.notice?.code).toBe("INVALID_BASE_REF")
+    expect(result.note).toContain("Invalid base ref")
   })
 })

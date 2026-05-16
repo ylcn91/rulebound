@@ -373,9 +373,9 @@ interface ParsedErrorEnvelope {
 /**
  * Best-effort parse of a server error response body into the canonical
  * envelope shape. Returns `null` for non-JSON bodies. Accepts both the
- * top-level envelope `{ error, code, message, ... }` and the legacy nested
- * shape `{ error: { message, code?, ... } }` emitted by older server
- * routes pre-CLN-003.
+ * top-level envelope `{ error: string, message?, code?, details?, ... }` and
+ * the legacy nested shape `{ error: { message, code?, ... } }` emitted by
+ * older server routes pre-CLN-003.
  */
 function parseErrorEnvelope(body: string): ParsedErrorEnvelope | null {
   if (!body) return null
@@ -388,14 +388,10 @@ function parseErrorEnvelope(body: string): ParsedErrorEnvelope | null {
   if (parsed === null || typeof parsed !== "object") return null
   const obj = parsed as Record<string, unknown>
 
-  if (
-    typeof obj.error === "string" &&
-    typeof obj.code === "string" &&
-    typeof obj.message === "string"
-  ) {
+  if (typeof obj.error === "string") {
     return {
-      message: obj.message,
-      code: obj.code,
+      message: typeof obj.message === "string" ? obj.message : obj.error,
+      code: typeof obj.code === "string" ? obj.code : undefined,
       details: "details" in obj ? obj.details : undefined,
       retriable: typeof obj.retriable === "boolean" ? obj.retriable : undefined,
     }

@@ -68,6 +68,10 @@ function countErrors(node: Parser.SyntaxNode): number {
   return errors
 }
 
+function captureTextMatches(text: string, expected: string | readonly string[]): boolean {
+  return Array.isArray(expected) ? expected.includes(text) : text === expected
+}
+
 function matchesCaptureFilters(
   captures: Parser.QueryCapture[],
   filters: Record<string, string | readonly string[]> | undefined
@@ -78,12 +82,21 @@ function matchesCaptureFilters(
     const capture = captures.find((c: Parser.QueryCapture) => c.name === captureName)
     if (!capture) return false
 
-    const text = capture.node.text
-    if (Array.isArray(expected)) {
-      if (!expected.includes(text)) return false
-    } else {
-      if (text !== expected) return false
-    }
+    if (!captureTextMatches(capture.node.text, expected)) return false
+  }
+
+  return true
+}
+
+function matchesCaptureRejectFilters(
+  captures: Parser.QueryCapture[],
+  filters: Record<string, string | readonly string[]> | undefined
+): boolean {
+  if (!filters) return false
+
+  for (const [captureName, expected] of Object.entries(filters)) {
+    const capture = captures.find((c: Parser.QueryCapture) => c.name === captureName)
+    if (!capture || !captureTextMatches(capture.node.text, expected)) return false
   }
 
   return true
@@ -106,6 +119,7 @@ function runQueries(
 
       for (const match of qMatches) {
         if (!matchesCaptureFilters(match.captures, def.captureFilters)) continue
+        if (matchesCaptureRejectFilters(match.captures, def.captureRejectFilters)) continue
 
         const primaryCapture = match.captures[0]
         if (!primaryCapture) continue

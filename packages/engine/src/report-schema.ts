@@ -50,6 +50,7 @@ const SOURCE_VALUES = [
   "import-boundary",
   "command",
   "analyzer",
+  "scenario",
   "agent-process",
   "keyword",
   "semantic",
@@ -105,7 +106,11 @@ function validateSummary(value: unknown): void {
 
 function validateEvidence(path: string, value: unknown): void {
   if (!isObject(value)) fail(path, "object", value)
-  validateString(`${path}/filePath`, value.filePath)
+  if (value.filePath !== undefined) validateString(`${path}/filePath`, value.filePath)
+  if (value.snippet !== undefined) validateString(`${path}/snippet`, value.snippet)
+  if (value.command !== undefined) validateString(`${path}/command`, value.command)
+  if (value.analyzerReport !== undefined) validateString(`${path}/analyzerReport`, value.analyzerReport)
+  if (value.scenarioReport !== undefined) validateString(`${path}/scenarioReport`, value.scenarioReport)
 }
 
 function validateCheckResult(path: string, value: unknown): void {

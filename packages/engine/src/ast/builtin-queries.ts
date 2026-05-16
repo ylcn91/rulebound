@@ -149,7 +149,7 @@ const PYTHON_QUERIES: readonly ASTQueryDefinition[] = [
     language: "python",
     severity: "error",
     category: "style",
-    query: `(except_clause) @clause`,
+    query: `(except_clause . (block) @body) @clause`,
     message: "Bare 'except:' catches all exceptions including SystemExit and KeyboardInterrupt. Specify exception types.",
     suggestedFix: "Use 'except Exception as e:' at minimum",
   },
@@ -333,8 +333,15 @@ const GO_QUERIES: readonly ASTQueryDefinition[] = [
     category: "style",
     query: `
       (expression_statement
-        (call_expression) @call)
+        (call_expression
+          function: [
+            (identifier) @fn
+            (selector_expression
+              operand: (identifier) @pkg
+              field: (field_identifier) @method)
+          ]) @call)
     `,
+    captureRejectFilters: { pkg: "fmt", method: ["Println", "Printf", "Print"] },
     message: "Return value possibly discarded. If this returns an error, check it.",
     suggestedFix: "Assign to err and check: if err != nil { ... }",
   },

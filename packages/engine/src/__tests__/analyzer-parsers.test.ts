@@ -342,7 +342,7 @@ describe("Missing or malformed reports", () => {
     expect(result.reason).toMatch(/not found/i)
   })
 
-  it("treats malformed XML as a clean report (zero findings, PASS)", () => {
+  it("returns ERROR for malformed XML instead of a clean PASS", () => {
     const report = writeReport("target/pmd.xml", `<<<not xml>>>`)
     const result = runCheck({
       type: "analyzer",
@@ -350,8 +350,9 @@ describe("Missing or malformed reports", () => {
       report,
       report_format: "pmd-xml",
     })
-    // Parser is regex-based and tolerant; junk input means no findings extracted.
-    expect(result.status).toBe("PASS")
+    expect(result.status).toBe("ERROR")
+    expect(result.blocking).toBe(false)
+    expect(result.reason).toMatch(/malformed analyzer report/i)
   })
 
   it("parses ESLint native JSON output (array shape)", () => {
@@ -397,7 +398,7 @@ describe("Missing or malformed reports", () => {
 
 /**
  * ENG-002 — extended coverage:
- *  1. Malformed XML must NOT throw; the parser is regex-tolerant by design.
+ *  1. Malformed reports must NOT throw and must surface non-blocking ERROR.
  *  2. Missing-report contract: today the runner returns `ERROR` for *all*
  *     missing report cases (PASS path = report present + no findings).
  *     A future `report_optional: true` mode could return NOT_APPLICABLE, but
@@ -406,23 +407,41 @@ describe("Missing or malformed reports", () => {
  *  3. Severity-threshold transitions across info / warning / error.
  *  4. Large reports must not blow the heap or evidence matcher.
  */
-describe("ENG-002: malformed XML graceful behaviour", () => {
-  it("PMD parser does not throw on truncated/dangling tags", () => {
+describe("ENG-002: malformed analyzer report behaviour", () => {
+  it("PMD parser returns ERROR on truncated/dangling tags without throwing", () => {
     const report = writeReport(
       "target/pmd.xml",
       `<?xml version="1.0"?><pmd version="7.0.0"><file name="A.java"><violation beginline="1" rule="X"`,
     )
-    expect(() =>
-      runCheck({
+    let result: ReturnType<typeof runCheck> | undefined
+    expect(() => {
+      result = runCheck({
         type: "analyzer",
         analyzer: "pmd",
         report,
         report_format: "pmd-xml",
-      }),
-    ).not.toThrow()
+      })
+    }).not.toThrow()
+    expect(result?.status).toBe("ERROR")
+    expect(result?.blocking).toBe(false)
   })
 
-  it("Checkstyle parser tolerates mis-nested elements (treated as empty)", () => {
+  it("JUnit parser returns ERROR on malformed XML", () => {
+    const report = writeReport(
+      "target/surefire-reports/TEST-bad.xml",
+      `<?xml version="1.0"?><testsuite><testcase name="x"><failure message="bad"></testsuite>`,
+    )
+    const result = runCheck({
+      type: "analyzer",
+      analyzer: "junit",
+      report,
+      report_format: "junit-xml",
+    })
+    expect(result.status).toBe("ERROR")
+    expect(result.blocking).toBe(false)
+  })
+
+  it("Checkstyle parser returns ERROR on mis-nested elements", () => {
     const report = writeReport(
       "target/checkstyle-result.xml",
       `<?xml version="1.0"?><checkstyle><file name="X.java"><error line="1" severity="error" message=""</file></checkstyle>`,
@@ -433,10 +452,11 @@ describe("ENG-002: malformed XML graceful behaviour", () => {
       report,
       report_format: "checkstyle-xml",
     })
-    expect(result.status).toBe("PASS")
+    expect(result.status).toBe("ERROR")
+    expect(result.blocking).toBe(false)
   })
 
-  it("SpotBugs parser ignores unclosed BugInstance entries", () => {
+  it("SpotBugs parser returns ERROR on unclosed BugInstance entries", () => {
     const report = writeReport(
       "target/spotbugsXml.xml",
       `<?xml version="1.0"?><BugCollection><BugInstance type="X" priority="1"><SourceLine sourcepath="A.java" start="1"/>`,
@@ -447,11 +467,11 @@ describe("ENG-002: malformed XML graceful behaviour", () => {
       report,
       report_format: "spotbugs-xml",
     })
-    // Unclosed tag → regex /<BugInstance>...<\/BugInstance>/ never matches → 0 findings → PASS.
-    expect(result.status).toBe("PASS")
+    expect(result.status).toBe("ERROR")
+    expect(result.blocking).toBe(false)
   })
 
-  it("SARIF parser falls back to empty findings on broken JSON (no throw)", () => {
+  it("SARIF parser returns ERROR on broken JSON without throwing", () => {
     const report = writeReport("target/scan.sarif", `{ "runs": [ { not valid json`)
     const result = runCheck({
       type: "analyzer",
@@ -459,10 +479,11 @@ describe("ENG-002: malformed XML graceful behaviour", () => {
       report,
       report_format: "sarif",
     })
-    expect(result.status).toBe("PASS")
+    expect(result.status).toBe("ERROR")
+    expect(result.blocking).toBe(false)
   })
 
-  it("ESLint JSON object-shape (not array) is rejected without throwing", () => {
+  it("ESLint JSON object-shape (not array) returns ERROR without throwing", () => {
     const report = writeReport(
       "target/eslint-bad.json",
       JSON.stringify({ filePath: "a.ts", messages: [] }),
@@ -473,11 +494,11 @@ describe("ENG-002: malformed XML graceful behaviour", () => {
       report,
       report_format: "json",
     })
-    // Non-array JSON → parseEslintJson returns null → findings=[] → PASS.
-    expect(result.status).toBe("PASS")
+    expect(result.status).toBe("ERROR")
+    expect(result.blocking).toBe(false)
   })
 
-  it("Non-JSON in ESLint report is tolerated", () => {
+  it("Non-JSON in ESLint report returns ERROR", () => {
     const report = writeReport("target/eslint-junk.json", `not json at all`)
     const result = runCheck({
       type: "analyzer",
@@ -485,7 +506,8 @@ describe("ENG-002: malformed XML graceful behaviour", () => {
       report,
       report_format: "json",
     })
-    expect(result.status).toBe("PASS")
+    expect(result.status).toBe("ERROR")
+    expect(result.blocking).toBe(false)
   })
 })
 

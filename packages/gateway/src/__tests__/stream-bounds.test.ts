@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, afterEach } from "vitest"
 import { StreamScanner, __testing } from "../interceptor/stream-scanner.js"
 import { extractContentFromSSE } from "../provider-adapter.js"
+import { createProxy } from "../proxy.js"
+import { invalidateCache } from "../rule-cache.js"
+import type { GatewayConfig } from "../config.js"
 
 vi.mock("../interceptor/post-response.js", async (importOriginal) => {
   const original = await importOriginal<typeof import("../interceptor/post-response.js")>()
@@ -46,6 +49,24 @@ function captureLogs(): { stop: () => string } {
   }
 }
 
+function makeConfig(overrides: Partial<GatewayConfig> = {}): GatewayConfig {
+  return {
+    port: 0,
+    targets: {},
+    enforcement: "advisory",
+    injectRules: false,
+    scanResponses: false,
+    auditLog: false,
+    ...overrides,
+  }
+}
+
+function openAIStreamChunk(content: string): string {
+  return `data: ${JSON.stringify({
+    choices: [{ delta: { content }, finish_reason: null }],
+  })}\n\n`
+}
+
 describe("StreamScanner — buffer bounds", () => {
   const originalMaxEnv = process.env.GATEWAY_STREAM_MAX_BUFFER
 
@@ -55,6 +76,8 @@ describe("StreamScanner — buffer bounds", () => {
     } else {
       process.env.GATEWAY_STREAM_MAX_BUFFER = originalMaxEnv
     }
+    invalidateCache()
+    vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
 
@@ -167,6 +190,54 @@ describe("StreamScanner — buffer bounds", () => {
     expect(scanner.isOverflowed()).toBe(false)
     scanner.appendChunk("ok")
     expect(scanner.getBuffer()).toBe("ok")
+  })
+
+  it("flushes pending and current proxy stream chunks before passthrough after overflow", async () => {
+    process.env.GATEWAY_STREAM_MAX_BUFFER = "160"
+
+    const chunks = [
+      openAIStreamChunk("```js\n"),
+      openAIStreamChunk("x".repeat(200)),
+      openAIStreamChunk("\nconst afterOverflow = true\n"),
+      "data: [DONE]\n\n",
+    ]
+    const encoder = new TextEncoder()
+    const upstreamStream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const chunk of chunks) {
+          controller.enqueue(encoder.encode(chunk))
+        }
+        controller.close()
+      },
+    })
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(upstreamStream, {
+          status: 200,
+          headers: { "Content-Type": "text/event-stream" },
+        }),
+      ),
+    )
+
+    const app = createProxy(makeConfig({
+      targets: { openai: "http://mock-openai.test" },
+      scanResponses: true,
+    }))
+
+    const res = await app.request("/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "gpt-test",
+        stream: true,
+        messages: [{ role: "user", content: "stream code" }],
+      }),
+    })
+
+    expect(res.status).toBe(200)
+    await expect(res.text()).resolves.toBe(chunks.join(""))
   })
 })
 

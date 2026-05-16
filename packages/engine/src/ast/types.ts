@@ -13,6 +13,7 @@ export interface ASTQueryDefinition {
   readonly message: string
   readonly suggestedFix?: string
   readonly captureFilters?: Record<string, string | readonly string[]>
+  readonly captureRejectFilters?: Record<string, string | readonly string[]>
 }
 
 export interface ASTMatch {

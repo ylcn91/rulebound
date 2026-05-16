@@ -140,6 +140,50 @@ checks:
     expect(parsed.results[0].status).toBe("VIOLATED")
   })
 
+  it("fails closed with an ERROR result for unsafe base refs", async () => {
+    writeFileSync(join(tmpDir, "README.md"), "hi")
+    writeRule(
+      "readme.md",
+      `---
+title: Has README
+checks:
+  - type: file-exists
+    path: README.md
+---
+`,
+    )
+
+    const { code, out } = await runAndCapture({ format: "json", base: "; rm -rf /" })
+    expect(code).toBe(2)
+    const parsed = JSON.parse(out)
+    expect(parsed.status).toBe("FAILED")
+    expect(parsed.summary.error).toBe(1)
+    expect(parsed.results[0].status).toBe("ERROR")
+    expect(parsed.results[0].reason).toContain("Invalid base ref")
+  })
+
+  it("fails closed with an ERROR result when base diff acquisition fails", async () => {
+    writeFileSync(join(tmpDir, "README.md"), "hi")
+    writeRule(
+      "readme.md",
+      `---
+title: Has README
+checks:
+  - type: file-exists
+    path: README.md
+---
+`,
+    )
+
+    const { code, out } = await runAndCapture({ format: "json", base: "main" })
+    expect(code).toBe(2)
+    const parsed = JSON.parse(out)
+    expect(parsed.status).toBe("FAILED")
+    expect(parsed.summary.error).toBe(1)
+    expect(parsed.results[0].status).toBe("ERROR")
+    expect(parsed.results[0].reason).toContain("Failed to get git diff against base")
+  })
+
   it("repair-json emits failures list with rerun command", async () => {
     writeRule(
       "evidence.md",

@@ -98,6 +98,39 @@ describe("audit API", () => {
       const res = await app.request("/audit?limit=10&offset=5")
 
       expect(res.status).toBe(200)
+      expect(mockListAuditEntries).toHaveBeenCalledWith(
+        expect.anything(),
+        "org-1",
+        expect.objectContaining({ limit: 10, offset: 5 })
+      )
+    })
+
+    it.each([
+      ["/audit?limit=abc", "limit"],
+      ["/audit?limit=-1", "limit"],
+      ["/audit?limit=501", "limit"],
+      ["/audit?offset=-1", "offset"],
+      ["/audit?offset=10001", "offset"],
+    ])("rejects invalid pagination in %s", async (path, param) => {
+      const app = await createApp()
+      const res = await app.request(path)
+
+      expect(res.status).toBe(400)
+      const body = await res.json()
+      expect(body.error).toBe("Invalid query parameter")
+      expect(body.details[0].param).toBe(param)
+      expect(mockListAuditEntries).not.toHaveBeenCalled()
+    })
+
+    it("rejects invalid pagination for CSV export", async () => {
+      const app = await createApp()
+      const res = await app.request("/audit/export?offset=10001")
+
+      expect(res.status).toBe(400)
+      const body = await res.json()
+      expect(body.error).toBe("Invalid query parameter")
+      expect(body.details[0].param).toBe("offset")
+      expect(mockListAuditEntries).not.toHaveBeenCalled()
     })
   })
 

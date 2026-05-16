@@ -7,6 +7,7 @@ import { runImportBoundaryCheck } from "./runners/import.js"
 import { runCommandCheck } from "./runners/command.js"
 import { runAnalyzerCheck } from "./runners/analyzer.js"
 import { runAstCheck } from "./runners/ast.js"
+import { runScenarioCheck } from "./runners/scenario.js"
 import { applyWaivers } from "./waivers.js"
 import type { Waiver, AppliedWaiver } from "./waivers.js"
 
@@ -114,6 +115,8 @@ async function runCheck(
       return [runCommandCheck({ cwd: opts.cwd, ruleId: rule.id, check, allowCommandExecution: allowCmds })]
     case "analyzer":
       return [runAnalyzerCheck({ cwd: opts.cwd, ruleId: rule.id, check, allowCommandExecution: allowCmds })]
+    case "scenario":
+      return [runScenarioCheck({ cwd: opts.cwd, ruleId: rule.id, check })]
     case "ast":
       return runAstCheck({ cwd: opts.cwd, ruleId: rule.id, check })
     case "agent-process":

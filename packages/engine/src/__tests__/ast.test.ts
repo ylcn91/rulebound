@@ -174,6 +174,17 @@ describe("analyzer (requires WASM)", () => {
     expect(result.matches.length).toBe(1)
   })
 
+  it("detects Python bare except without flagging typed except", async () => {
+    const bare = `try:\n    work()\nexcept:\n    pass`
+    const typed = `try:\n    work()\nexcept ValueError:\n    pass`
+
+    const bareResult = await analyzeCode(bare, "python", [getQueryById("py-bare-except")!])
+    const typedResult = await analyzeCode(typed, "python", [getQueryById("py-bare-except")!])
+
+    expect(bareResult.matches.length).toBe(1)
+    expect(typedResult.matches.length).toBe(0)
+  })
+
   it("detects Python mutable default argument", async () => {
     const code = `def process(items=[]):\n    return items`
     const result = await analyzeCode(code, "python", [getQueryById("py-mutable-default-arg")!])
@@ -197,6 +208,18 @@ public class MyService {
   it("detects Go fmt.Println", async () => {
     const code = `package main\nimport "fmt"\nfunc main() { fmt.Println("hi") }`
     const result = await analyzeCode(code, "go", [getQueryById("go-fmt-println")!])
+    expect(result.matches.length).toBe(1)
+  })
+
+  it("does not classify Go fmt.Println as unchecked-error", async () => {
+    const code = `package main\nimport "fmt"\nfunc main() { fmt.Println("hi") }`
+    const result = await analyzeCode(code, "go", [getQueryById("go-unchecked-error")!])
+    expect(result.matches.length).toBe(0)
+  })
+
+  it("still detects Go discarded plain calls as unchecked-error candidates", async () => {
+    const code = `package main\nfunc main() { doThing() }`
+    const result = await analyzeCode(code, "go", [getQueryById("go-unchecked-error")!])
     expect(result.matches.length).toBe(1)
   })
 

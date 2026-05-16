@@ -27,10 +27,10 @@ describe("doctor", () => {
     logSpy.mockRestore()
   })
 
-  async function run(): Promise<{ code: number; out: string }> {
+  async function run(options: Parameters<typeof doctorCommand>[0] = {}): Promise<{ code: number; out: string }> {
     let code = -1
     try {
-      await doctorCommand()
+      await doctorCommand(options)
     } catch (e) {
       const m = (e instanceof Error ? e.message : String(e)).match(/__EXIT__:(\d+)/)
       if (m) code = Number(m[1])
@@ -158,5 +158,22 @@ checks:
   it("exits 2 when rules dir is missing", async () => {
     const { code } = await run()
     expect(code).toBe(2)
+  })
+
+  it("emits machine-readable JSON with status, checks, and recommendations", async () => {
+    const { code, out } = await run({ format: "json" })
+    const payload = JSON.parse(out)
+
+    expect(code).toBe(2)
+    expect(payload.status).toBe("fail")
+    expect(payload.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "rules dir",
+          status: "fail",
+        }),
+      ]),
+    )
+    expect(payload.recommendations).toEqual(expect.arrayContaining([expect.stringContaining("rulebound init")]))
   })
 })

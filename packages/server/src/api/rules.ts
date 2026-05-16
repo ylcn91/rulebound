@@ -12,7 +12,9 @@ import {
 } from "../lib/rules.js"
 import { resolveProjectForOrg } from "../lib/projects.js"
 import { emitWebhookEvent, writeAuditEntry } from "../lib/activity.js"
+import { withTransaction } from "../lib/transaction.js"
 import { requireScope } from "../middleware/require-scope.js"
+import { invalidQueryResponse, parsePaginationQuery } from "./query.js"
 
 const app = new Hono()
 
@@ -20,14 +22,25 @@ app.get("/", requireScope("rules:read"), async (c) => {
   const identity = requireRequestIdentity(c)
   if (identity instanceof Response) return identity
 
-  const db = getDb()
   const category = c.req.query("category")
   const tag = c.req.query("tag")
   const search = c.req.query("q")
   const stack = c.req.query("stack")
   const projectIdentifier = c.req.query("project")
-  const limit = parseInt(c.req.query("limit") ?? "100", 10)
-  const offset = parseInt(c.req.query("offset") ?? "0", 10)
+  const pagination = parsePaginationQuery({
+    limit: c.req.query("limit"),
+    offset: c.req.query("offset"),
+    defaultLimit: 100,
+    maxLimit: 500,
+    maxOffset: 10_000,
+  })
+
+  if (!pagination.ok) {
+    return c.json(invalidQueryResponse(pagination.issue), 400)
+  }
+
+  const { limit, offset } = pagination.value
+  const db = getDb()
 
   const project = projectIdentifier
     ? await resolveProjectForOrg(db, identity.orgId, projectIdentifier)
@@ -81,46 +94,56 @@ app.post("/", requireScope("rules:write"), async (c) => {
     return c.json({ error: "Validation failed", details: parsed.error.issues }, 400)
   }
 
-  let ruleSetId = parsed.data.ruleSetId
+  let ruleSetNotFound = false
+  const created = await withTransaction(db, async (tx) => {
+    let ruleSetId = parsed.data.ruleSetId
 
-  if (ruleSetId) {
-    const [existingRuleSet] = await db
-      .select()
-      .from(schema.ruleSets)
-      .where(eq(schema.ruleSets.id, ruleSetId))
+    if (ruleSetId) {
+      const [existingRuleSet] = await tx
+        .select()
+        .from(schema.ruleSets)
+        .where(eq(schema.ruleSets.id, ruleSetId))
 
-    if (!existingRuleSet || existingRuleSet.orgId !== identity.orgId) {
-      return c.json({ error: "Rule set not found" }, 404)
+      if (!existingRuleSet || existingRuleSet.orgId !== identity.orgId) {
+        ruleSetNotFound = true
+        return null
+      }
+    } else {
+      ruleSetId = (await getOrCreateDefaultGlobalRuleSet(tx, identity.orgId)).id
     }
-  } else {
-    ruleSetId = (await getOrCreateDefaultGlobalRuleSet(db, identity.orgId)).id
-  }
 
-  const [created] = await db
-    .insert(schema.rules)
-    .values({
-      title: parsed.data.title,
-      content: parsed.data.content,
-      category: parsed.data.category,
-      severity: parsed.data.severity ?? "warning",
-      modality: parsed.data.modality ?? "should",
-      tags: parsed.data.tags ?? [],
-      stack: parsed.data.stack ?? [],
-      ruleSetId,
+    const [inserted] = await tx
+      .insert(schema.rules)
+      .values({
+        title: parsed.data.title,
+        content: parsed.data.content,
+        category: parsed.data.category,
+        severity: parsed.data.severity ?? "warning",
+        modality: parsed.data.modality ?? "should",
+        tags: parsed.data.tags ?? [],
+        stack: parsed.data.stack ?? [],
+        ruleSetId,
+      })
+      .returning()
+
+    await writeAuditEntry(tx, {
+      orgId: identity.orgId,
+      userId: identity.userId,
+      action: "rule.created",
+      ruleId: inserted.id,
+      status: "success",
+      metadata: {
+        title: inserted.title,
+        ruleSetId: inserted.ruleSetId,
+      },
     })
-    .returning()
 
-  await writeAuditEntry(db, {
-    orgId: identity.orgId,
-    userId: identity.userId,
-    action: "rule.created",
-    ruleId: created.id,
-    status: "success",
-    metadata: {
-      title: created.title,
-      ruleSetId: created.ruleSetId,
-    },
+    return inserted
   })
+
+  if (ruleSetNotFound || !created) {
+    return c.json({ error: "Rule set not found" }, 404)
+  }
 
   await emitWebhookEvent(identity.orgId, "rule.created", {
     ruleId: created.id,
@@ -146,46 +169,52 @@ app.put("/:id", requireScope("rules:write"), async (c) => {
     return c.json({ error: "Validation failed", details: parsed.error.issues }, 400)
   }
 
-  const existing = await getOrgRuleById(db, identity.orgId, id)
-  if (!existing) return c.json({ error: "Rule not found" }, 404)
+  const updated = await withTransaction(db, async (tx) => {
+    const existing = await getOrgRuleById(tx, identity.orgId, id)
+    if (!existing) return null
 
-  await db.insert(schema.ruleVersions).values({
-    ruleId: id,
-    version: existing.version,
-    content: existing.content,
-    changedBy: identity.userId,
-    changeNote: parsed.data.changeNote,
-  })
-
-  const [updated] = await db
-    .update(schema.rules)
-    .set({
-      title: parsed.data.title ?? existing.title,
-      content: parsed.data.content ?? existing.content,
-      category: parsed.data.category ?? existing.category,
-      severity: parsed.data.severity ?? existing.severity,
-      modality: parsed.data.modality ?? existing.modality,
-      tags: parsed.data.tags ?? existing.tags,
-      stack: parsed.data.stack ?? existing.stack,
-      isActive: parsed.data.isActive ?? existing.isActive,
-      version: existing.version + 1,
-      updatedAt: new Date(),
+    await tx.insert(schema.ruleVersions).values({
+      ruleId: id,
+      version: existing.version,
+      content: existing.content,
+      changedBy: identity.userId,
+      changeNote: parsed.data.changeNote,
     })
-    .where(eq(schema.rules.id, id))
-    .returning()
 
-  await writeAuditEntry(db, {
-    orgId: identity.orgId,
-    userId: identity.userId,
-    action: "rule.updated",
-    ruleId: updated.id,
-    status: "success",
-    metadata: {
-      title: updated.title,
-      changeNote: parsed.data.changeNote ?? null,
-      version: updated.version,
-    },
+    const [updatedRule] = await tx
+      .update(schema.rules)
+      .set({
+        title: parsed.data.title ?? existing.title,
+        content: parsed.data.content ?? existing.content,
+        category: parsed.data.category ?? existing.category,
+        severity: parsed.data.severity ?? existing.severity,
+        modality: parsed.data.modality ?? existing.modality,
+        tags: parsed.data.tags ?? existing.tags,
+        stack: parsed.data.stack ?? existing.stack,
+        isActive: parsed.data.isActive ?? existing.isActive,
+        version: existing.version + 1,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.rules.id, id))
+      .returning()
+
+    await writeAuditEntry(tx, {
+      orgId: identity.orgId,
+      userId: identity.userId,
+      action: "rule.updated",
+      ruleId: updatedRule.id,
+      status: "success",
+      metadata: {
+        title: updatedRule.title,
+        changeNote: parsed.data.changeNote ?? null,
+        version: updatedRule.version,
+      },
+    })
+
+    return updatedRule
   })
+
+  if (!updated) return c.json({ error: "Rule not found" }, 404)
 
   await emitWebhookEvent(identity.orgId, "rule.updated", {
     ruleId: updated.id,
@@ -204,29 +233,34 @@ app.delete("/:id", requireScope("rules:write"), async (c) => {
 
   const db = getDb()
   const id = c.req.param("id")
-  const existing = await getOrgRuleById(db, identity.orgId, id)
+  const deleted = await withTransaction(db, async (tx) => {
+    const existing = await getOrgRuleById(tx, identity.orgId, id)
+    if (!existing) return null
 
-  if (!existing) return c.json({ error: "Rule not found" }, 404)
+    await tx
+      .update(schema.auditLog)
+      .set({ ruleId: null })
+      .where(eq(schema.auditLog.ruleId, id))
+    await tx.delete(schema.ruleVersions).where(eq(schema.ruleVersions.ruleId, id))
+    const [deletedRule] = await tx.delete(schema.rules).where(eq(schema.rules.id, id)).returning()
 
-  await db
-    .update(schema.auditLog)
-    .set({ ruleId: null })
-    .where(eq(schema.auditLog.ruleId, id))
-  await db.delete(schema.ruleVersions).where(eq(schema.ruleVersions.ruleId, id))
-  const [deleted] = await db.delete(schema.rules).where(eq(schema.rules.id, id)).returning()
+    if (!deletedRule) return null
+
+    await writeAuditEntry(tx, {
+      orgId: identity.orgId,
+      userId: identity.userId,
+      action: "rule.deleted",
+      status: "success",
+      metadata: {
+        ruleId: deletedRule.id,
+        title: deletedRule.title,
+      },
+    })
+
+    return deletedRule
+  })
 
   if (!deleted) return c.json({ error: "Rule not found" }, 404)
-
-  await writeAuditEntry(db, {
-    orgId: identity.orgId,
-    userId: identity.userId,
-    action: "rule.deleted",
-    status: "success",
-    metadata: {
-      ruleId: deleted.id,
-      title: deleted.title,
-    },
-  })
 
   await emitWebhookEvent(identity.orgId, "rule.deleted", {
     ruleId: deleted.id,
