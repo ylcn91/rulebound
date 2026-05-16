@@ -1,6 +1,6 @@
 nodejs 22
 python 3.12
-golang 1.22
+golang 1.26.3
 java temurin-21
 dotnet 8.0
-rust 1.75
+rust 1.88.0

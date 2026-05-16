@@ -37,6 +37,6 @@
     "@types/node": "^22",
     "tsup": "^8",
     "typescript": "^5.7",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.6"
   }
 }

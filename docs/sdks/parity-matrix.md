@@ -109,10 +109,10 @@ The parity workflow installs the toolchains pinned in
 
 - Node.js 22 (TS SDK build + test runner)
 - Python 3.12 (Python SDK build + pytest)
-- Go 1.22 (Go SDK build + test)
+- Go 1.26.3 (Go SDK build + test)
 - Java Temurin 21 (Java SDK build + JUnit)
 - .NET 8.0 (.NET SDK build + dotnet test)
-- Rust 1.75 (Rust SDK build + cargo test)
+- Rust 1.88.0 (Rust SDK build + cargo test)
 
 `.tool-versions` is compatible with both
 [mise](https://mise.jdx.dev/) (`mise install`) and

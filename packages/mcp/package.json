@@ -36,13 +36,13 @@
   "dependencies": {
     "@rulebound/engine": "workspace:*",
     "@rulebound/shared": "workspace:*",
-    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^22",
     "tsup": "^8",
     "typescript": "^5.7",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.6"
   }
 }

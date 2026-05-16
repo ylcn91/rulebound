@@ -21,9 +21,9 @@
     "@radix-ui/react-toggle": "^1",
     "@radix-ui/react-tooltip": "^1",
     "clsx": "^2",
-    "drizzle-orm": "^0.45.1",
+    "drizzle-orm": "^0.45.2",
     "lucide-react": "^0.470",
-    "next": "^16.1.6",
+    "next": "16.2.6",
     "next-auth": "5.0.0-beta.30",
     "postgres": "^3.4.8",
     "react": "^19",
@@ -43,6 +43,6 @@
     "postcss": "^8",
     "tailwindcss": "^4",
     "typescript": "^5.7",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.6"
   }
 }
